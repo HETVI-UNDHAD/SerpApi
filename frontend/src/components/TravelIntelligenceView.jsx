@@ -22,19 +22,21 @@ export default function TravelIntelligenceView() {
   if (!currentTrip) return null;
 
   const { selectedOptions, liveData, decisions, budgetBreakdown } = currentTrip;
+  const transportation = currentTrip.transportation || selectedOptions?.transportation;
+  const transportMode = transportation?.mode || 'flight';
   const reviews = liveData?.reviews || {};
 
   return (
     <div className="space-y-8 font-sans">
       {/* ── TOP EDITORIAL AI BANNER ── */}
-      <div className={`p-8 rounded-3xl border shadow-xl relative overflow-hidden ${
+      <div className={`p-6 sm:p-7 rounded-2xl border shadow-luxury-light dark:shadow-luxury-dark relative overflow-hidden ${
         isDark
-          ? 'bg-gradient-to-r from-violet-950/50 via-slate-900 to-indigo-950/40 border-violet-500/20'
-          : 'bg-gradient-to-r from-violet-50 via-white to-indigo-50 border-violet-200 shadow-luxury'
+          ? 'bg-[#151c19]/90 border-white/10'
+          : 'bg-white/90 border-slate-200/80 shadow-luxury-light'
       }`}>
-        <div className="absolute -top-16 -right-16 w-48 h-48 rounded-full bg-violet-500/10 blur-3xl pointer-events-none" />
+        <div className="absolute -top-16 -right-16 w-48 h-48 rounded-full bg-cyan-400/[0.08] blur-3xl pointer-events-none" />
         <div className="flex items-center gap-3.5 mb-2 relative z-10">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-violet-500 to-indigo-600 flex items-center justify-center text-white shadow-md ai-glow">
+          <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-400/20 flex items-center justify-center text-cyan-500 shadow-sm">
             <Brain className="w-6 h-6" />
           </div>
           <div>
@@ -42,7 +44,7 @@ export default function TravelIntelligenceView() {
               ✨ AI Decision Intelligence & Reasoning
             </h2>
             <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-              Transparent algorithmic explanations for why each hotel, flight, and route was chosen from live SerpApi datasets.
+              Transportation reasoning reflects the selected mode and route data returned by SerpApi.
             </p>
           </div>
         </div>
@@ -52,25 +54,25 @@ export default function TravelIntelligenceView() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
         {/* Why This Hotel? */}
-        <div className={`p-6 sm:p-8 rounded-3xl border shadow-xl space-y-5 ${
-          isDark ? 'bg-slate-900/70 border-white/8 shadow-luxury-dark' : 'bg-white border-slate-200/80 shadow-luxury'
+        <div className={`p-5 sm:p-6 rounded-2xl border shadow-luxury-light dark:shadow-luxury-dark space-y-5 ${
+          isDark ? 'bg-slate-900/70 border-white/10' : 'bg-white border-slate-200/80'
         }`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-violet-500/20 text-violet-400 flex items-center justify-center font-bold">
+              <div className="w-9 h-9 rounded-xl bg-cyan-500/10 text-cyan-500 border border-cyan-500/15 flex items-center justify-center font-bold">
                 <Building className="w-5 h-5" />
               </div>
               <h3 className={`font-black text-base ${isDark ? 'text-white' : 'text-slate-900'}`}>
                 Why This Hotel Was Selected
               </h3>
             </div>
-            <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-violet-500/10 text-violet-400 border border-violet-500/20">
+            <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-cyan-500/10 text-cyan-600 border border-cyan-500/20">
               #1 Ranked
             </span>
           </div>
 
           <div className={`p-4 rounded-2xl border text-xs leading-relaxed ${
-            isDark ? 'bg-violet-500/8 border-violet-500/20 text-slate-300' : 'bg-violet-50 border-violet-200 text-slate-700'
+            isDark ? 'bg-white/[0.03] border-white/10 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
           }`}>
             {decisions?.whyHotel || `Selected based on high guest rating (${selectedOptions.hotel?.rating || 4.7}★) and optimal proximity to your itinerary destinations.`}
           </div>
@@ -81,10 +83,10 @@ export default function TravelIntelligenceView() {
               <div key={m.label}>
                 <div className="flex justify-between text-xs mb-1">
                   <span className={isDark ? 'text-slate-300' : 'text-slate-700'}>{m.label}</span>
-                  <span className="font-black text-violet-500">{m.val}%</span>
+                  <span className="font-bold text-cyan-600">{m.val}%</span>
                 </div>
                 <div className={`h-1.5 rounded-full ${isDark ? 'bg-slate-800' : 'bg-slate-200'}`}>
-                  <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-indigo-500 transition-all duration-700" style={{width:`${m.val}%`}} />
+                  <div className="h-full rounded-full bg-cyan-500 transition-all duration-700" style={{width:`${m.val}%`}} />
                 </div>
               </div>
             ))}
@@ -107,39 +109,36 @@ export default function TravelIntelligenceView() {
         </div>
 
         {/* Why This Flight? */}
-        <div className={`p-6 sm:p-8 rounded-3xl border shadow-xl space-y-5 ${
-          isDark ? 'bg-slate-900/70 border-white/8 shadow-luxury-dark' : 'bg-white border-slate-200/80 shadow-luxury'
+        <div className={`p-5 sm:p-6 rounded-2xl border shadow-luxury-light dark:shadow-luxury-dark space-y-5 ${
+          isDark ? 'bg-slate-900/70 border-white/10' : 'bg-white border-slate-200/80'
         }`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold">
+              <div className="w-9 h-9 rounded-xl bg-cyan-500/10 text-cyan-500 border border-cyan-500/15 flex items-center justify-center font-bold">
                 <Plane className="w-5 h-5" />
               </div>
               <h3 className={`font-black text-base ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                Why This Flight Was Selected
+                {transportMode === 'flight' ? 'Why This Flight Was Selected' : transportMode === 'train' ? 'Selected Train / Transit' : 'Selected Self-Car Route'}
               </h3>
             </div>
-            <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+            <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-cyan-500/10 text-cyan-600 border border-cyan-500/20">
               Optimal Schedule
             </span>
           </div>
 
           <div className={`p-4 rounded-2xl border text-xs leading-relaxed ${
-            isDark ? 'bg-cyan-500/8 border-cyan-500/20 text-slate-300' : 'bg-cyan-50 border-cyan-200 text-slate-700'
+            isDark ? 'bg-cyan-500/[0.06] border-cyan-500/15 text-slate-300' : 'bg-cyan-50/70 border-cyan-200/80 text-slate-700'
           }`}>
-            {decisions?.whyFlight || `Selected for morning arrival (${selectedOptions.flight?.arrivalTime || '10:00 AM'}) to ensure full Day 1 exploration without morning fatigue.`}
+            {decisions?.whyTransportation || decisions?.whyFlight || (transportMode === 'flight' ? 'Flight information unavailable.' : transportMode === 'train' ? 'No train/transit route was returned.' : 'Driving route unavailable.')}
           </div>
 
           {/* AI Metric Bars */}
           <div className="space-y-3">
-            {[{label:'Schedule Fit',val:96},{label:'Price Efficiency',val:89},{label:'Punctuality Score',val:92}].map(m => (
+            {(transportMode === 'flight' ? [{label:'Airline',value:transportation?.operator || 'Not provided'}] : [{label:'Route distance',value:transportation?.distance || 'Not provided'}]).concat([{label:'Duration',value:transportation?.duration || 'Not provided'},{label:'Cost',value:transportation?.cost == null ? 'Not provided' : `${transportation.costType === 'estimated' ? 'Estimated ' : ''}${transportation.currency || 'INR'} ${transportation.cost}`}]).map(m => (
               <div key={m.label}>
                 <div className="flex justify-between text-xs mb-1">
                   <span className={isDark ? 'text-slate-300' : 'text-slate-700'}>{m.label}</span>
-                  <span className="font-black text-cyan-500">{m.val}%</span>
-                </div>
-                <div className={`h-1.5 rounded-full ${isDark ? 'bg-slate-800' : 'bg-slate-200'}`}>
-                  <div className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-indigo-500 transition-all duration-700" style={{width:`${m.val}%`}} />
+                  <span className="font-semibold text-cyan-500">{m.value}</span>
                 </div>
               </div>
             ))}
@@ -149,19 +148,19 @@ export default function TravelIntelligenceView() {
             <div className="flex items-center gap-2.5">
               <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
               <span className={isDark ? 'text-slate-300' : 'text-slate-700'}>
-                <strong>Direct Non-Stop:</strong> {selectedOptions.flight?.duration || '1h 45m'} flight time minimizes travel exhaustion
+                <strong>Selected mode:</strong> {transportMode === 'self_car' ? 'Self Car' : transportMode === 'train' ? 'Train / Transit' : 'Flight'} · {transportation?.duration || 'Duration not provided'}
               </span>
             </div>
             <div className="flex items-center gap-2.5">
               <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
               <span className={isDark ? 'text-slate-300' : 'text-slate-700'}>
-                <strong>Market Fare Verified:</strong> ₹{selectedOptions.flight?.price?.toLocaleString('en-IN')} verified live on Google Flights
+                <strong>Route source:</strong> {transportation?.source || 'google_flights'}
               </span>
             </div>
             <div className="flex items-center gap-2.5">
               <ShieldCheck className="w-4 h-4 text-cyan-500 flex-shrink-0" />
               <span className={isDark ? 'text-slate-300' : 'text-slate-700'}>
-                <strong>Baggage & Punctuality:</strong> High on-time performance verified across recent flight logs
+                <strong>Transportation cost:</strong> {transportation?.cost == null ? 'Not provided' : `${transportation.costType === 'estimated' ? 'Estimated' : 'Returned'} ₹${transportation.cost.toLocaleString('en-IN')}`}
               </span>
             </div>
           </div>

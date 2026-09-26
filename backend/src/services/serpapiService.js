@@ -134,92 +134,94 @@ export async function searchFlights({
     if (flightsList.length > 0) {
       return flightsList.slice(0, 6).map(item => {
         const flightSegment = item.flights?.[0] || {};
-        const priceNum = item.price || 4500;
-        const durationMin = item.total_duration || 90;
+        const priceNum = item.price;
+        const durationMin = item.total_duration;
         const hours = Math.floor(durationMin / 60);
         const mins = durationMin % 60;
         const durationStr = `${hours}h ${mins}m`;
 
         return {
           id: `fl-${Math.random().toString(36).substring(2, 8)}`,
-          airline: flightSegment.airline || 'Air India / IndiGo',
-          airlineLogo: flightSegment.airline_logo || 'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=100&auto=format&fit=crop&q=80',
+          airline: flightSegment.airline || 'Airline not provided',
+          airlineLogo: flightSegment.airline_logo || '',
           flightNumber: flightSegment.flight_number || '',
-          departureTime: flightSegment.departure_airport?.time || '07:30 AM',
-          arrivalTime: flightSegment.arrival_airport?.time || '09:45 AM',
+          departureTime: flightSegment.departure_airport?.time || null,
+          arrivalTime: flightSegment.arrival_airport?.time || null,
           departureAirport: flightSegment.departure_airport?.name || depCode,
           arrivalAirport: flightSegment.arrival_airport?.name || arrCode,
-          duration: durationStr,
-          durationMinutes: durationMin,
+          duration: Number.isFinite(durationMin) ? durationStr : null,
+          durationMinutes: Number.isFinite(durationMin) ? durationMin : null,
           stops: item.layovers?.length || 0,
-          price: typeof priceNum === 'number' ? priceNum : parseInt(String(priceNum).replace(/[^0-9]/g, ''), 10) || 5200,
+          price: Number.isFinite(Number(priceNum)) ? Number(priceNum) : null,
           currency: 'INR',
-          bookingLink: res.data.search_metadata?.google_flights_url || 'https://www.google.com/travel/flights',
-          carbonEmissions: item.carbon_emissions?.this_flight ? `${Math.round(item.carbon_emissions.this_flight / 1000)} kg CO2` : 'Standard'
+          bookingLink: res.data.search_metadata?.google_flights_url || null,
+          carbonEmissions: item.carbon_emissions?.this_flight ? `${Math.round(item.carbon_emissions.this_flight / 1000)} kg CO2` : null
         };
       });
     }
   } catch (err) {
-    console.warn(`[SerpApi Google Flights fallback for ${depCode}->${arrCode}]:`, err.message);
+    console.warn(`[SerpApi Google Flights error for ${depCode}->${arrCode}]:`, err.message);
   }
+  return [];
+}
 
-  // Fallback to organic transit options via SerpApi
-  const organicQuery = `flights and trains from ${origin} to ${destination} duration ticket price India`;
-  const organic = await search(organicQuery, 4);
-
-  return [
-    {
-      id: 'fl-opt-1',
-      airline: 'IndiGo / Akasa Air (Fastest Direct)',
-      airlineLogo: 'https://images.unsplash.com/photo-1542296332-2e4473faf563?w=100&auto=format&fit=crop&q=80',
-      flightNumber: '6E-452',
-      departureTime: '08:15 AM',
-      arrivalTime: '10:00 AM',
-      departureAirport: `${origin} (${depCode})`,
-      arrivalAirport: `${destination} (${arrCode})`,
-      duration: '1h 45m',
-      durationMinutes: 105,
-      stops: 0,
-      price: 4850,
-      currency: 'INR',
-      bookingLink: 'https://www.google.com/travel/flights',
-      carbonEmissions: 'Low Emission'
-    },
-    {
-      id: 'fl-opt-2',
-      airline: 'Air India Express (Best Budget)',
-      airlineLogo: 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=100&auto=format&fit=crop&q=80',
-      flightNumber: 'IX-381',
-      departureTime: '01:45 PM',
-      arrivalTime: '03:40 PM',
-      departureAirport: `${origin} (${depCode})`,
-      arrivalAirport: `${destination} (${arrCode})`,
-      duration: '1h 55m',
-      durationMinutes: 115,
-      stops: 0,
-      price: 4200,
-      currency: 'INR',
-      bookingLink: 'https://www.google.com/travel/flights',
-      carbonEmissions: 'Standard'
-    },
-    {
-      id: 'fl-opt-3',
-      airline: 'Vistara / Premium Transit',
-      airlineLogo: 'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=100&auto=format&fit=crop&q=80',
-      flightNumber: 'UK-720',
-      departureTime: '06:30 PM',
-      arrivalTime: '08:25 PM',
-      departureAirport: `${origin} (${depCode})`,
-      arrivalAirport: `${destination} (${arrCode})`,
-      duration: '1h 55m',
-      durationMinutes: 115,
-      stops: 0,
-      price: 5800,
-      currency: 'INR',
-      bookingLink: 'https://www.google.com/travel/flights',
-      carbonEmissions: 'Standard'
-    }
-  ];
+/** Search a real transit or driving route through SerpApi Google Maps Directions. */
+export async function searchDirections({ origin, destination, mode }) {
+  const apiKey = getApiKey();
+  const train = mode === 'train';
+  try {
+    const res = await axios.get(SERPAPI_BASE_URL, {
+      params: {
+        engine: 'google_maps_directions',
+        start_addr: origin,
+        end_addr: destination,
+        travel_mode: train ? 3 : 0,
+        ...(train ? { prefer: 'train' } : {}),
+        api_key: apiKey,
+        gl: 'in',
+        hl: 'en'
+      },
+      timeout: 20000
+    });
+    const data = res.data || {};
+    const routes = data.directions || data.routes || [];
+    const normalized = routes.map(route => {
+      const trips = route.trips || [];
+      const steps = route.steps || trips;
+      const transitSteps = trips.filter(step => /transit|train|rail/i.test(`${step.travel_mode || ''} ${step.title || ''} ${step.line || ''}`));
+      const transitMode = route.travel_mode || null;
+      const distance = route.distance || {};
+      const duration = route.duration || {};
+      const gps = steps.map(step => step.gps_coordinates).filter(point => point && Number.isFinite(point.latitude) && Number.isFinite(point.longitude));
+      return {
+        travelMode: transitMode,
+        isTrain: transitSteps.some(step => /train|rail/i.test(`${step.travel_mode || ''} ${step.title || ''} ${step.line || ''}`)),
+        distanceMeters: typeof distance === 'number' ? distance : distance.value ?? null,
+        formattedDistance: route.formatted_distance || distance.text || null,
+        durationSeconds: typeof duration === 'number' ? duration : duration.value ?? null,
+        formattedDuration: route.formatted_duration || duration.text || null,
+        startAddress: route.start_address || origin,
+        endAddress: route.end_address || destination,
+        startTime: route.start_time || null,
+        endTime: route.end_time || null,
+        startStop: transitSteps[0]?.start_stop?.name || null,
+        endStop: transitSteps.at(-1)?.end_stop?.name || null,
+        stops: transitSteps.reduce((sum, step) => sum + (Number(step.stop_count) || 0), 0),
+        operators: [...new Set(transitSteps.map(step => step.title || step.line).filter(Boolean))],
+        cost: typeof route.cost === 'number' ? route.cost : null,
+        currency: route.currency || null,
+        tollInfo: route.extensions?.filter(extension => /toll/i.test(extension)) || null,
+        route: { overviewPolyline: route.overview_polyline?.points || null, coordinates: gps, steps: steps.map(step => ({ instruction: step.title || step.instruction || null, distance: step.formatted_distance || null, duration: step.formatted_duration || null, travelMode: step.travel_mode || null, coordinates: step.gps_coordinates || null })) },
+        rawData: route
+      };
+    });
+    const availableRoutes = train ? normalized.filter(route => /transit/i.test(route.travelMode || '') && (route.isTrain || normalized.every(item => !item.isTrain))) : normalized;
+    availableRoutes.sort((a, b) => Number(b.isTrain) - Number(a.isTrain) || (a.durationSeconds ?? Infinity) - (b.durationSeconds ?? Infinity) || a.stops - b.stops);
+    return availableRoutes[0] || null;
+  } catch (err) {
+    console.warn(`[SerpApi Google Maps Directions error for ${mode} ${origin}->${destination}]:`, err.message);
+    return null;
+  }
 }
 
 /**
@@ -344,7 +346,7 @@ export async function searchHotels({
  * Live Places / Attractions search using Google Maps engine on SerpApi
  * Returns EXACT GPS Coordinates (latitude & longitude) for route planning!
  */
-export async function searchPlaces({ destination, interests = [], limit = 15 }) {
+export async function searchPlaces({ destination, interests = [], limit = 15, strict = false }) {
   const apiKey = getApiKey();
   const interestTerms = interests.length > 0 ? interests.join(' ') : 'sightseeing attractions food culture';
   const query = `top attractions and things to do in ${destination} ${interestTerms}`;
@@ -367,24 +369,27 @@ export async function searchPlaces({ destination, interests = [], limit = 15 }) 
         id: `pl-${Math.random().toString(36).substring(2, 8)}`,
         title: place.title || `Attraction in ${destination}`,
         category: place.type || 'Sightseeing & Landmark',
-        rating: place.rating || 4.5,
-        reviewsCount: place.reviews || 850,
-        address: place.address || destination,
+        rating: place.rating ?? (strict ? null : 4.5),
+        reviewsCount: place.reviews ?? (strict ? null : 850),
+        address: place.address || (strict ? null : destination),
         gpsCoordinates: place.gps_coordinates ? {
           latitude: place.gps_coordinates.latitude,
           longitude: place.gps_coordinates.longitude
         } : null,
-        description: place.description || place.snippet || `Iconic point of interest in ${destination} loved by travelers.`,
-        thumbnail: place.thumbnail || 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=500&auto=format&fit=crop&q=80',
-        operatingHours: place.operating_hours?.current_status || 'Open Daily 09:00 AM - 06:00 PM',
+        description: place.description || place.snippet || (strict ? null : `Iconic point of interest in ${destination} loved by travelers.`),
+        thumbnail: place.thumbnail || (strict ? null : 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=500&auto=format&fit=crop&q=80'),
+        operatingHours: place.operating_hours?.current_status || (strict ? null : 'Open Daily 09:00 AM - 06:00 PM'),
         website: place.website || null,
-        priceLevel: place.price || 'Free / Moderate Entry',
+        priceLevel: place.price || (strict ? null : 'Free / Moderate Entry'),
         estimatedDurationMinutes: 90
       }));
     }
   } catch (err) {
+    if (strict) throw err;
     console.warn(`[SerpApi Google Maps places fallback for "${destination}"]:`, err.message);
   }
+
+  if (strict) throw new Error(`No live Google Maps places found for ${destination}.`);
 
   // Fallback to organic Google search if Google Maps engine call fails
   const organicPlaces = await search(`famous places to visit in ${destination} tourist attractions`, 8);

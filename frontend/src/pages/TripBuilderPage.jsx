@@ -85,7 +85,7 @@ export default function TripBuilderPage() {
               Trip Architect
             </span>
           </div>
-          <h1 className={`text-3xl sm:text-5xl font-black tracking-tight ${
+          <h1 className={`editorial-display text-4xl sm:text-6xl font-semibold tracking-tight ${
             isDark ? 'text-white' : 'text-slate-900'
           }`}>
             Design Your Journey
@@ -181,10 +181,10 @@ export default function TripBuilderPage() {
                     <select
                       value={formData.accommodationPreference}
                       onChange={e => setFormData(p => ({ ...p, accommodationPreference: e.target.value }))}
-                      className={`w-full px-4 py-3 rounded-2xl text-xs font-semibold focus:outline-none transition-colors ${
+                      className={`w-full px-4 py-3.5 rounded-xl text-sm font-medium focus:outline-none transition-colors ${
                         isDark
-                          ? 'bg-slate-900 border border-white/10 text-white focus:border-cyan-400'
-                          : 'bg-white border border-slate-200 text-slate-900 focus:border-indigo-500 shadow-sm'
+                          ? 'bg-white/[0.04] border border-white/10 text-white focus:border-[#c8ef61]'
+                          : 'bg-white border border-slate-200 text-slate-900 focus:border-teal-500 shadow-sm'
                       }`}
                     >
                       {STAYS.map(s => <option key={s} value={s}>{s}</option>)}
@@ -195,10 +195,10 @@ export default function TripBuilderPage() {
                     <select
                       value={formData.transportPreference}
                       onChange={e => setFormData(p => ({ ...p, transportPreference: e.target.value }))}
-                      className={`w-full px-4 py-3 rounded-2xl text-xs font-semibold focus:outline-none transition-colors ${
+                      className={`w-full px-4 py-3.5 rounded-xl text-sm font-medium focus:outline-none transition-colors ${
                         isDark
-                          ? 'bg-slate-900 border border-white/10 text-white focus:border-cyan-400'
-                          : 'bg-white border border-slate-200 text-slate-900 focus:border-indigo-500 shadow-sm'
+                          ? 'bg-white/[0.04] border border-white/10 text-white focus:border-[#c8ef61]'
+                          : 'bg-white border border-slate-200 text-slate-900 focus:border-teal-500 shadow-sm'
                       }`}
                     >
                       {TRANSITS.map(t => <option key={t} value={t}>{t}</option>)}
@@ -212,8 +212,8 @@ export default function TripBuilderPage() {
             {/* ── RIGHT: Summary & Submit Action ── */}
             <div className="lg:col-span-4 space-y-6">
               <div className="sticky top-24 space-y-5">
-                <div className={`p-6 rounded-3xl border shadow-xl ${
-                  isDark ? 'bg-slate-950 border-white/15' : 'bg-white border-white shadow-luxury-light'
+                <div className={`p-6 sm:p-7 rounded-2xl border shadow-xl ${
+                  isDark ? 'bg-[#151c19]/90 border-white/10 shadow-luxury-dark' : 'bg-white/90 border-slate-200/80 shadow-luxury-light'
                 }`}>
                   <div className="flex items-center justify-between mb-4">
                     <h3 className={`text-sm font-black uppercase tracking-wider ${
@@ -261,7 +261,7 @@ export default function TripBuilderPage() {
                 {/* Primary CTA */}
                 <button
                   type="submit"
-                  className="w-full py-4 rounded-2xl bg-gradient-to-r from-cyan-500 via-indigo-600 to-violet-600 hover:from-cyan-400 hover:to-indigo-500 text-white font-black text-sm shadow-xl shadow-indigo-500/30 flex items-center justify-center gap-2 transition-all hover:scale-[1.02]"
+                  className="w-full py-4 rounded-xl bg-[#c8ef61] hover:bg-[#d8f58c] text-[#182117] font-extrabold text-sm shadow-lg shadow-lime-500/15 flex items-center justify-center gap-2 transition-all hover:-translate-y-0.5"
                 >
                   <Sparkles className="w-4 h-4" />
                   <span>Generate My Trip</span>
@@ -389,8 +389,8 @@ export default function TripBuilderPage() {
 
 function Card({ title, isDark, children }) {
   return (
-    <div className={`p-6 rounded-3xl border shadow-sm ${
-      isDark ? 'bg-slate-950 border-white/15' : 'bg-white border-white shadow-luxury-light'
+    <div className={`p-6 sm:p-7 rounded-2xl border transition-colors ${
+      isDark ? 'bg-[#151c19]/90 border-white/10 shadow-luxury-dark' : 'bg-white/90 border-slate-200/80 shadow-luxury-light'
     }`}>
       <h3 className={`text-xs font-black uppercase tracking-widest mb-4 ${
         isDark ? 'text-slate-200' : 'text-slate-700'
@@ -420,7 +420,7 @@ function Pill({ active, onClick, isDark, children }) {
       onClick={onClick}
       className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
         active
-          ? 'bg-gradient-to-r from-cyan-500 to-indigo-600 text-white shadow-md shadow-indigo-500/25 border border-transparent scale-105'
+          ? 'bg-[#c8ef61] text-[#182117] shadow-sm border border-lime-300/50'
           : isDark
           ? 'bg-white/5 text-slate-300 border border-white/10 hover:border-white/25 hover:text-white'
           : 'bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200/70 hover:text-slate-900'
@@ -441,10 +441,10 @@ function PlainInput({ icon, value, onChange, placeholder, required, isDark }) {
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className={`w-full pl-10 pr-4 py-3 rounded-2xl text-xs font-semibold focus:outline-none transition-colors ${
+        className={`w-full pl-10 pr-4 py-3.5 rounded-xl text-sm font-medium focus:outline-none transition-colors ${
           isDark
-            ? 'bg-slate-900 border border-white/10 text-white placeholder-slate-500 focus:border-cyan-400'
-            : 'bg-white border border-slate-200 text-slate-900 placeholder-slate-400 focus:border-indigo-500 shadow-sm'
+            ? 'bg-white/[0.04] border border-white/10 text-white placeholder-slate-500 focus:border-[#c8ef61] focus:bg-white/[0.07]'
+            : 'bg-white border border-slate-200 text-slate-900 placeholder-slate-400 focus:border-teal-500 shadow-sm'
         }`}
       />
     </div>
@@ -462,10 +462,10 @@ function NumInput({ icon, value, onChange, min, max, step = 1, isDark }) {
         step={step}
         value={value}
         onChange={e => onChange(parseInt(e.target.value, 10) || min)}
-        className={`w-full pl-10 pr-4 py-3 rounded-2xl text-xs font-semibold focus:outline-none transition-colors ${
+        className={`w-full pl-10 pr-4 py-3.5 rounded-xl text-sm font-medium focus:outline-none transition-colors ${
           isDark
-            ? 'bg-slate-900 border border-white/10 text-white focus:border-cyan-400'
-            : 'bg-white border border-slate-200 text-slate-900 focus:border-indigo-500 shadow-sm'
+            ? 'bg-white/[0.04] border border-white/10 text-white focus:border-[#c8ef61] focus:bg-white/[0.07]'
+            : 'bg-white border border-slate-200 text-slate-900 focus:border-teal-500 shadow-sm'
         }`}
       />
     </div>

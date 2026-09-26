@@ -9,6 +9,7 @@ import {
 } from '../services/serpapiService.js';
 import {
   planTripWorkflow,
+  optimizeTripForBudget,
   applyWhatIfSimulation,
   checkForLiveChanges
 } from '../services/aiAgentService.js';
@@ -77,9 +78,14 @@ router.post('/hotels/search', async (req, res) => {
 router.post('/places/search', async (req, res) => {
   try {
     const { destination, interests, limit } = req.body;
-    const places = await searchPlaces({ destination, interests, limit });
+    if (!destination || typeof destination !== 'string') {
+      return res.status(400).json({ success: false, error: 'A destination is required.' });
+    }
+    const places = await searchPlaces({ destination, interests, limit, strict: true });
+    if (!places.length) return res.status(502).json({ success: false, error: 'No live destination data found.' });
     res.json({ success: true, places });
   } catch (err) {
+    console.error('[Error in /places/search]:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -140,7 +146,7 @@ router.post('/trips/:id/optimize', async (req, res) => {
     if (!existing) {
       return res.status(404).json({ success: false, error: 'Trip not found' });
     }
-    const optimized = await applyWhatIfSimulation(existing, 'reduce_budget', 'Optimize for user budget');
+    const optimized = optimizeTripForBudget(existing);
     await saveTrip(optimized);
     res.json({ success: true, trip: optimized });
   } catch (err) {

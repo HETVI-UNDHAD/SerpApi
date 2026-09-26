@@ -277,3 +277,202 @@
   border: 1px solid rgba(15,23,42,0.08) !important;
 }
 .leaflet-popup-tip { display: none !important; }
+
+/* Refined TravelOS visual tokens and shared presentation utilities. */
+:root {
+  --bg-primary: #f4f6f5;
+  --bg-secondary: #e9eeec;
+  --card-bg: #fbfcfa;
+  --text-primary: #17201e;
+  --text-secondary: #586560;
+  --text-muted: #83908a;
+  --card-border: #dce4df;
+  --accent-cyan: #50d6d0;
+  --accent-indigo: #b7df4b;
+  --accent-violet: #b7df4b;
+  --surface-shadow: 0 18px 48px rgba(8, 24, 21, 0.12);
+}
+
+.dark {
+  --bg-primary: #101513;
+  --bg-secondary: #171e1b;
+  --card-bg: rgba(22, 29, 26, 0.92);
+  --text-primary: #f3f5ef;
+  --text-secondary: #a6b0a9;
+  --text-muted: #76827b;
+  --card-border: rgba(225, 239, 229, 0.12);
+  --surface-shadow: 0 22px 60px rgba(0, 0, 0, 0.28);
+}
+
+.glass-light {
+  background: rgba(250,252,249,0.88);
+  backdrop-filter: blur(18px) saturate(125%);
+  -webkit-backdrop-filter: blur(18px) saturate(125%);
+  border-color: rgba(255,255,255,0.72);
+  box-shadow: 0 18px 46px rgba(11,31,25,0.12), 0 1px 0 rgba(255,255,255,0.82) inset;
+}
+
+.glass-dark,
+.reference-glass {
+  background: rgba(18, 24, 21, 0.84);
+  border-color: rgba(239, 247, 238, 0.15);
+  box-shadow: 0 22px 58px rgba(0, 0, 0, 0.3), 0 1px 0 rgba(255,255,255,0.04) inset;
+  backdrop-filter: blur(18px) saturate(125%);
+  -webkit-backdrop-filter: blur(18px) saturate(125%);
+}
+
+.editorial-teal {
+  background: linear-gradient(115deg, #c9ee62, #9ed549);
+  color: #182117;
+  box-shadow: 0 10px 25px rgba(166, 214, 78, 0.2);
+  transition: transform .2s ease, box-shadow .2s ease, filter .2s ease;
+}
+
+.editorial-teal:hover {
+  filter: brightness(1.04);
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px rgba(166, 214, 78, 0.25);
+}
+
+.text-gradient-cyan-indigo {
+  background: linear-gradient(135deg, #73e3dc 0%, #c5eb63 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.card-hover { transition: transform .24s ease, box-shadow .24s ease, border-color .24s ease; }
+.card-hover:hover { transform: translateY(-2px); }
+.ai-glow { animation: none; box-shadow: 0 0 24px rgba(80,214,208,0.16); }
+
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible {
+  outline: 2px solid #58d9d1;
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Popular Journeys: continuous, restrained destination loop. */
+.journey-carousel {
+  --journey-gap: 1.5rem;
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  padding: 1rem 0;
+  perspective: 1400px;
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 5%, #000 95%, transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 5%, #000 95%, transparent 100%);
+}
+
+.journey-carousel__track {
+  display: flex;
+  width: max-content;
+  transform: translate3d(0, 0, 0);
+  animation: journey-carousel-scroll 40s linear infinite;
+  will-change: transform;
+}
+
+.journey-carousel:hover .journey-carousel__track,
+.journey-carousel:focus-within .journey-carousel__track {
+  animation-play-state: paused;
+}
+
+.journey-carousel__group {
+  display: flex;
+  flex: none;
+  align-items: stretch;
+  gap: var(--journey-gap);
+  padding-right: var(--journey-gap);
+  transform-style: preserve-3d;
+}
+
+.journey-carousel__card {
+  --journey-scale: .95;
+  --journey-angle: 6deg;
+  flex: 0 0 clamp(250px, 22vw, 292px);
+  transform: translateY(0) rotateY(var(--journey-angle)) scale(var(--journey-scale));
+  transform-origin: center center;
+  opacity: .82;
+  filter: brightness(.9);
+  backface-visibility: hidden;
+  scroll-snap-align: center;
+}
+
+.journey-carousel__card:nth-child(4n + 2),
+.journey-carousel__card:nth-child(4n + 3) {
+  --journey-scale: 1.025;
+  --journey-angle: 0deg;
+  opacity: 1;
+  filter: brightness(1.04);
+}
+
+.journey-carousel__card:nth-child(4n + 4) {
+  --journey-angle: -6deg;
+}
+
+.journey-carousel__card.card-hover:hover {
+  transform: translateY(-2px) rotateY(var(--journey-angle)) scale(var(--journey-scale));
+  filter: brightness(1.06);
+}
+
+@keyframes journey-carousel-scroll {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-50%, 0, 0); }
+}
+
+@media (max-width: 639px) {
+  .journey-carousel {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 2%, #000 98%, transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0, #000 2%, #000 98%, transparent 100%);
+    scrollbar-width: none;
+  }
+
+  .journey-carousel::-webkit-scrollbar { display: none; }
+  .journey-carousel__track { animation: none; }
+  .journey-carousel__card { flex-basis: 82vw; max-width: 340px; transform: none; opacity: 1; filter: none; }
+  .journey-carousel__card:nth-child(n) { --journey-scale: 1; --journey-angle: 0deg; }
+  .journey-carousel__card.card-hover:hover { transform: translateY(-2px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .journey-carousel__track { animation: none; }
+  .journey-carousel { overflow-x: auto; scrollbar-width: thin; }
+}
+
+/* Hero-only route animation, contained in the right margin and non-interactive. */
+.hero-flight-path {
+  position: absolute;
+  z-index: 10;
+  top: 17%;
+  right: 1%;
+  width: clamp(120px, 15vw, 190px);
+  height: 57%;
+  opacity: .78;
+  pointer-events: none;
+  overflow: hidden;
+}
+.hero-flight-path__svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.hero-flight-path__aircraft {
+  transform-origin: center;
+  animation: hero-plane-drift 3.8s ease-in-out infinite;
+}
+@keyframes hero-plane-drift {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -2px; }
+}
+@media (max-width: 1279px) {
+  .hero-flight-path { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-flight-path { display: none; }
+}

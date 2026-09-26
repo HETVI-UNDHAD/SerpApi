@@ -1,5 +1,6 @@
 import {
   searchFlights,
+  searchDirections,
   searchHotels,
   searchPlaces,
   searchReviews,
@@ -38,6 +39,59 @@ function estimateTravelTimeMinutes(distanceKm) {
   return Math.min(Math.round(distanceKm * 2.8), 90);
 }
 
+function getValidOptionPrice(value) {
+  if (value === null || value === undefined || (typeof value === 'string' && !value.trim())) return null;
+  const price = Number(value);
+  return Number.isFinite(price) && price > 0 ? price : null;
+}
+
+export function normalizeTransportMode(value) {
+  const mode = String(value || 'flight').toLowerCase().replace(/[^a-z]/g, '');
+  if (mode.includes('train') || mode.includes('rail')) return 'train';
+  if (mode.includes('car') || mode.includes('drive')) return 'self_car';
+  return 'flight';
+}
+
+function normalizeTransportation({ mode, result }) {
+  const normalizedMode = normalizeTransportMode(mode);
+  if (normalizedMode === 'flight') {
+    return {
+      mode: normalizedMode, provider: 'SerpApi', source: 'google_flights', available: Boolean(result),
+      cost: getValidOptionPrice(result?.price), currency: result?.currency || 'INR',
+      departure: result?.departureTime || null, arrival: result?.arrivalTime || null,
+      duration: result?.duration || null, operator: result?.airline || null,
+      bookingLink: result?.bookingLink || null, route: null, flight: result || null
+    };
+  }
+  const route = result;
+  const distanceKm = route?.distanceMeters != null ? route.distanceMeters / 1000 : null;
+  let cost = typeof route?.cost === 'number' && Number.isFinite(route.cost) && route.cost >= 0 ? route.cost : null;
+  let costType = cost == null ? 'unavailable' : 'actual';
+  let costAssumptions = null;
+  if (normalizedMode === 'self_car' && distanceKm != null) {
+    const efficiency = Number(process.env.SELF_CAR_KM_PER_LITRE) || 15;
+    const fuelPrice = Number(process.env.SELF_CAR_FUEL_PRICE_PER_LITRE_INR) || 100;
+    cost = Math.round((distanceKm / efficiency) * fuelPrice);
+    costType = 'estimated';
+    costAssumptions = { fuelEfficiencyKmPerLitre: efficiency, fuelPricePerLitre: fuelPrice, configurableBy: ['SELF_CAR_KM_PER_LITRE', 'SELF_CAR_FUEL_PRICE_PER_LITRE_INR'] };
+  }
+  return {
+    mode: normalizedMode, provider: 'SerpApi', source: 'google_maps_directions', available: Boolean(route),
+    cost: route ? cost : null, costType: route ? costType : 'unavailable', currency: route?.currency || (normalizedMode === 'self_car' && cost != null ? 'INR' : null),
+    distanceKm, distance: route?.formattedDistance || null, duration: route?.formattedDuration || null,
+    durationSeconds: route?.durationSeconds || null, departure: route?.startTime || null, arrival: route?.endTime || null,
+    operator: route?.operators?.join(', ') || null, bookingLink: null, tollInfo: route?.tollInfo || null,
+    costAssumptions, route: route?.route || null, details: route || null
+  };
+}
+
+function describeTransportation(transportation) {
+  if (!transportation?.available) return transportation?.mode === 'train' ? 'No train/transit route was returned by Google Maps Directions.' : transportation?.mode === 'self_car' ? 'Driving route unavailable.' : 'Flight information unavailable.';
+  if (transportation.mode === 'flight') return `Flight selected from live Google Flights data${transportation.operator ? ` (${transportation.operator})` : ''}${transportation.cost != null ? ` at ₹${transportation.cost.toLocaleString('en-IN')}` : ''}.`;
+  if (transportation.mode === 'train') return `Train/transit selected from the Google Maps Directions transit result${transportation.duration ? `; duration ${transportation.duration}` : ''}${transportation.cost != null ? `; returned fare ${transportation.currency || ''} ${transportation.cost}` : '; fare not provided'}.`;
+  return `Self-car driving route${transportation.distance ? ` is ${transportation.distance}` : ''}${transportation.duration ? ` and takes ${transportation.duration}` : ''}. Fuel is an estimate using configured assumptions.`;
+}
+
 /**
  * Dynamic AI Travel Decision & Orchestration Agent
  */
@@ -54,6 +108,7 @@ export async function planTripWorkflow(tripRequest) {
     transportPreference = 'Flight',
     accommodationPreference = 'Hotel'
   } = tripRequest;
+  const transportMode = normalizeTransportMode(tripRequest.transportMode || transportPreference);
 
   // Step 1: If destination is missing, run Destination Discovery
   let targetDestination = destination;
@@ -70,15 +125,15 @@ export async function planTripWorkflow(tripRequest) {
   }
 
   // Step 2: Live SerpApi parallel research
-  const [flights, hotels, places, reviewInsights] = await Promise.all([
-    searchFlights({
+  const [transportOptions, hotels, places, reviewInsights] = await Promise.all([
+    transportMode === 'flight' ? searchFlights({
       origin,
       destination: targetDestination,
       outboundDate: dates.outbound,
       returnDate: dates.return,
       travelers,
       cabinClass: 'economy'
-    }),
+    }) : searchDirections({ origin, destination: targetDestination, mode: transportMode }),
     searchHotels({
       destination: targetDestination,
       checkInDate: dates.outbound,
@@ -97,15 +152,9 @@ export async function planTripWorkflow(tripRequest) {
     })
   ]);
 
-  // Step 3: Select Best Flight based on criteria
-  const selectedFlight = flights[0] || {
-    airline: 'IndiGo / Akasa Air',
-    price: 4500,
-    departureTime: '08:00 AM',
-    arrivalTime: '10:00 AM',
-    duration: '2h 00m',
-    stops: 0
-  };
+  const flightOptions = transportMode === 'flight' ? transportOptions : [];
+  const selectedFlight = transportMode === 'flight' ? flightOptions[0] || null : null;
+  const transportation = normalizeTransportation({ mode: transportMode, result: transportMode === 'flight' ? selectedFlight : transportOptions });
 
   // Step 4: Select Best Hotel based on criteria
   const selectedHotel = hotels[0] || {
@@ -122,12 +171,13 @@ export async function planTripWorkflow(tripRequest) {
     places,
     hotel: selectedHotel,
     interests,
-    travelStyle
+    travelStyle,
+    transportation
   });
 
   // Step 6: Budget Calculation and Over-budget Evaluation
   const budgetBreakdown = calculateTripBudget({
-    flight: selectedFlight,
+    transportation,
     hotel: selectedHotel,
     duration: parseInt(duration, 10) || 3,
     travelers: parseInt(travelers, 10) || 2,
@@ -142,37 +192,37 @@ export async function planTripWorkflow(tripRequest) {
   // Step 7: Alternatives & Optimization Plan if over budget
   let budgetAlternatives = null;
   if (isOverBudget) {
-    const cheaperStay = hotels.find(h => h.pricePerNight < selectedHotel.pricePerNight) || {
-      name: `Budget Traveller Stay, ${targetDestination}`,
-      pricePerNight: Math.max(selectedHotel.pricePerNight - 1200, 1500)
-    };
-    const cheaperFlight = flights.find(f => f.price < selectedFlight.price) || {
-      airline: 'Economy Saver / Express Rail',
-      price: Math.max(selectedFlight.price - 900, 2800)
-    };
-
-    const staySaving = (selectedHotel.pricePerNight - cheaperStay.pricePerNight) * (duration - 1);
-    const flightSaving = (selectedFlight.price - cheaperFlight.price) * travelers;
-    const totalPotentialSavings = staySaving + flightSaving;
+    const cheaperStay = hotels
+      .filter(h => getValidOptionPrice(h.pricePerNight) !== null && getValidOptionPrice(selectedHotel.pricePerNight) !== null && getValidOptionPrice(h.pricePerNight) < getValidOptionPrice(selectedHotel.pricePerNight))
+      .sort((a, b) => getValidOptionPrice(a.pricePerNight) - getValidOptionPrice(b.pricePerNight))[0] || null;
+    const cheaperFlight = transportMode === 'flight' ? flightOptions
+      .filter(f => getValidOptionPrice(f.price) !== null && getValidOptionPrice(selectedFlight.price) !== null && getValidOptionPrice(f.price) < getValidOptionPrice(selectedFlight.price))
+      .sort((a, b) => getValidOptionPrice(a.price) - getValidOptionPrice(b.price))[0] || null : null;
+    const staySaving = cheaperStay
+      ? totalCost - calculateTripBudget({ transportation, hotel: cheaperStay, duration, travelers, travelStyle, itinerary }).totalEstimatedCost
+      : 0;
+    const flightSaving = cheaperFlight
+      ? totalCost - calculateTripBudget({ transportation: normalizeTransportation({ mode: 'flight', result: cheaperFlight }), hotel: selectedHotel, duration, travelers, travelStyle, itinerary }).totalEstimatedCost
+      : 0;
+    const suggestions = [];
+    if (cheaperStay && staySaving > 0) suggestions.push(`Switch to ${cheaperStay.name} to save ₹${staySaving.toLocaleString('en-IN')}`);
+    if (cheaperFlight && flightSaving > 0) suggestions.push(`Choose ${cheaperFlight.airline} to save ₹${flightSaving.toLocaleString('en-IN')}`);
+    const totalPotentialSavings = Math.max(staySaving, 0) + Math.max(flightSaving, 0);
 
     budgetAlternatives = {
       message: `Your current plan exceeds your budget by ₹${overBudgetDifference.toLocaleString('en-IN')}.`,
       cheaperHotel: cheaperStay,
-      cheaperFlight: cheaperFlight,
+      cheaperFlight,
       potentialSavings: totalPotentialSavings,
-      optimizedTotalCost: Math.max(totalCost - totalPotentialSavings, budget - 800),
-      suggestions: [
-        `Switch to ${cheaperStay.name} to save ₹${staySaving.toLocaleString('en-IN')}`,
-        `Choose ${cheaperFlight.airline} to save ₹${flightSaving.toLocaleString('en-IN')}`,
-        'Swap 2 paid ticketed attractions for scenic free beaches & heritage walks'
-      ]
+      suggestions
     };
   }
 
   // Step 8: Assemble AI Decision Reasoning
   const decisions = {
     whyHotel: `Selected "${selectedHotel.name}" because it provides optimal value (₹${selectedHotel.pricePerNight?.toLocaleString('en-IN')}/night) with a strong ${selectedHotel.rating || 4.5}★ rating, and is located within 15 mins of your planned day-by-day activity clusters.`,
-    whyFlight: `Selected "${selectedFlight.airline}" arriving at ${selectedFlight.arrivalTime || '10:00 AM'}. This morning arrival maximizes Day 1 exploration while avoiding peak evening delays.`,
+    whyTransportation: describeTransportation(transportation),
+    whyFlight: transportMode === 'flight' && selectedFlight ? `Selected "${selectedFlight.airline}"${selectedFlight.arrivalTime ? ` arriving at ${selectedFlight.arrivalTime}` : ''} from live Google Flights results.` : null,
     routeEfficiency: `Grouped ${places.length} live places into geographic quadrants to eliminate criss-crossing, keeping average inter-stop travel under 18 minutes.`,
     sentimentSummary: reviewInsights.agentRecommendation
   };
@@ -190,15 +240,19 @@ export async function planTripWorkflow(tripRequest) {
     interests,
     travelStyle,
     transportPreference,
+    transportMode,
+    transportation,
     destinationDiscovery: destinationDiscoveryResults,
     liveData: {
-      flights,
+      flights: flightOptions,
+      transportation,
       hotels,
       places,
       reviews: reviewInsights
     },
     selectedOptions: {
       flight: selectedFlight,
+      transportation,
       hotel: selectedHotel
     },
     itinerary,
@@ -207,7 +261,10 @@ export async function planTripWorkflow(tripRequest) {
       isOverBudget,
       difference: overBudgetDifference,
       remaining: Math.max(budget - totalCost, 0),
-      alternatives: budgetAlternatives
+      alternatives: budgetAlternatives,
+      optimizationRecommendation: isOverBudget
+        ? budgetAlternatives?.suggestions?.[0] || 'No lower-cost alternatives are currently available.'
+        : 'Your budget allocation is within the target.'
     },
     decisions
   };
@@ -223,7 +280,8 @@ export function buildRouteAwareItinerary({
   places = [],
   hotel,
   interests = [],
-  travelStyle = 'Balanced'
+  travelStyle = 'Balanced',
+  transportation = null
 }) {
   const days = [];
   const hotelLat = hotel?.gpsCoordinates?.latitude || 15.4989;
@@ -375,16 +433,17 @@ export function buildRouteAwareItinerary({
     });
   }
 
+  if (days[0] && transportation) days[0].transportationSegment = transportation;
+
   return days;
 }
 
 /**
  * Dynamic Budget Calculator
  */
-export function calculateTripBudget({ flight, hotel, duration, travelers, travelStyle, itinerary = [] }) {
-  // Flights
-  const flightPricePerPerson = flight?.price || 4500;
-  const totalFlights = flightPricePerPerson * travelers;
+export function calculateTripBudget({ transportation, flight, hotel, duration, travelers, travelStyle, itinerary = [] }) {
+  const selectedTransportation = transportation || (flight ? normalizeTransportation({ mode: 'flight', result: flight }) : null);
+  const transportCost = selectedTransportation?.cost == null ? 0 : selectedTransportation.cost;
 
   // Stays
   const nights = Math.max(duration - 1, 1);
@@ -412,13 +471,16 @@ export function calculateTripBudget({ flight, hotel, duration, travelers, travel
   const totalLocalTransit = dailyTransitRate * duration;
 
   // Contingency & Taxes
-  const subtotal = totalFlights + totalHotel + totalFood + totalActivities + totalLocalTransit;
+  const subtotal = transportCost + totalHotel + totalFood + totalActivities + totalLocalTransit;
   const taxesAndBuffer = Math.round(subtotal * 0.08);
 
   const totalEstimatedCost = subtotal + taxesAndBuffer;
 
   return {
-    flights: totalFlights,
+    transportation: transportCost,
+    transportationMode: selectedTransportation?.mode || null,
+    transportationCostUnavailable: Boolean(selectedTransportation && selectedTransportation.cost == null),
+    transportationCostType: selectedTransportation?.costType || (selectedTransportation?.mode === 'flight' ? 'actual' : null),
     accommodation: totalHotel,
     foodAndDining: totalFood,
     activitiesAndSightseeing: totalActivities,
@@ -428,6 +490,105 @@ export function calculateTripBudget({ flight, hotel, duration, travelers, travel
     costPerPerson: Math.round(totalEstimatedCost / Math.max(travelers, 1)),
     currency: 'INR'
   };
+}
+
+/** Select cheaper options already present in this trip without inventing prices. */
+export function optimizeTripForBudget(currentTrip) {
+  const updated = JSON.parse(JSON.stringify(currentTrip));
+  const selected = updated.selectedOptions || {};
+  const liveData = updated.liveData || {};
+  const duration = Math.max(Number(updated.duration) || 1, 1);
+  const travelers = Math.max(Number(updated.travelers) || 1, 1);
+  const target = Number.isFinite(Number(updated.budget)) ? Math.max(Number(updated.budget), 0) : 0;
+  let transportation = updated.transportation || updated.selectedOptions?.transportation || normalizeTransportation({ mode: updated.transportMode || updated.transportPreference, result: selected.flight });
+  const calculate = (transportationChoice, hotel) => {
+    const result = calculateTripBudget({
+      transportation: transportationChoice,
+      hotel,
+      duration,
+      travelers,
+      travelStyle: updated.travelStyle,
+      itinerary: updated.itinerary || []
+    });
+    return Number.isFinite(Number(result.totalEstimatedCost)) ? result : null;
+  };
+  const initialBreakdown = updated.budgetBreakdown || calculate(transportation, selected.hotel) || { totalEstimatedCost: 0 };
+  const initialTotal = Number.isFinite(Number(initialBreakdown.totalEstimatedCost))
+    ? Number(initialBreakdown.totalEstimatedCost)
+    : 0;
+  let flight = selected.flight;
+  let hotel = selected.hotel;
+  let breakdown = calculate(transportation, hotel) || initialBreakdown;
+  const changedOptions = [];
+
+  const bestCheaper = (options, field, current) => {
+    const currentPrice = getValidOptionPrice(current?.[field]);
+    if (currentPrice === null) return null;
+    return (Array.isArray(options) ? options : [])
+      .filter(option => {
+        const price = getValidOptionPrice(option?.[field]);
+        return price !== null && price < currentPrice;
+      })
+      .sort((a, b) => getValidOptionPrice(a[field]) - getValidOptionPrice(b[field]))[0] || null;
+  };
+
+  if (initialTotal > target) {
+    const cheaperHotel = bestCheaper(liveData.hotels, 'pricePerNight', hotel);
+    if (cheaperHotel) {
+      const candidateBreakdown = calculate(transportation, cheaperHotel);
+      if (candidateBreakdown && candidateBreakdown.totalEstimatedCost < breakdown.totalEstimatedCost) {
+        hotel = cheaperHotel;
+        breakdown = candidateBreakdown;
+        changedOptions.push(hotel.name || 'the available lower-cost hotel');
+      }
+    }
+  }
+
+  if (transportation.mode === 'flight' && breakdown.totalEstimatedCost > target) {
+    const cheaperFlight = bestCheaper(liveData.flights, 'price', flight);
+    if (cheaperFlight) {
+      const candidateBreakdown = calculate(normalizeTransportation({ mode: 'flight', result: cheaperFlight }), hotel);
+      if (candidateBreakdown && candidateBreakdown.totalEstimatedCost < breakdown.totalEstimatedCost) {
+        flight = cheaperFlight;
+        transportation = normalizeTransportation({ mode: 'flight', result: cheaperFlight });
+        updated.transportation = transportation;
+        if (updated.liveData) updated.liveData.transportation = transportation;
+        breakdown = candidateBreakdown;
+        changedOptions.push(cheaperFlight.airline || 'the available lower-cost flight');
+      }
+    }
+  }
+
+  selected.flight = flight;
+  selected.transportation = transportation;
+  selected.hotel = hotel;
+  updated.selectedOptions = selected;
+  updated.budgetBreakdown = breakdown;
+
+  const total = breakdown.totalEstimatedCost;
+  const savings = changedOptions.length ? Math.max(initialTotal - total, 0) : 0;
+  let recommendation;
+  if (total <= target) {
+    recommendation = savings > 0
+      ? `Switched to ${changedOptions.join(' and ')} from your existing options, saving ₹${savings.toLocaleString('en-IN')}. Your trip is within budget.`
+      : 'Your trip is already within budget.';
+  } else if (savings > 0) {
+    recommendation = `Switched to ${changedOptions.join(' and ')} from your existing options, saving ₹${savings.toLocaleString('en-IN')}. Your trip remains ₹${(total - target).toLocaleString('en-IN')} over budget.`;
+  } else {
+    recommendation = 'No lower-cost alternatives are currently available.';
+  }
+
+  updated.budgetStatus = {
+    ...(updated.budgetStatus || {}),
+    isOverBudget: total > target,
+    difference: total - target,
+    remaining: Math.max(target - total, 0),
+    optimizationRecommendation: recommendation,
+    alternatives: { suggestions: [] }
+  };
+  updated.replanningReason = recommendation;
+  updated.lastReplannedAt = new Date().toISOString();
+  return updated;
 }
 
 /**
@@ -451,10 +612,12 @@ export async function applyWhatIfSimulation(currentTrip, simulationType, customP
       updated.selectedOptions.hotel.name = `Standard Saver Stay, ${updated.destination}`;
     }
 
-    // 2. Lower flight cost
-    if (updated.liveData?.flights?.length > 1) {
+    // Lower flight cost only when flights are the selected mode.
+    if ((updated.transportMode || updated.transportation?.mode) === 'flight' && updated.liveData?.flights?.length > 1) {
       const sortedFlights = [...updated.liveData.flights].sort((a, b) => a.price - b.price);
       updated.selectedOptions.flight = sortedFlights[0];
+      updated.transportation = normalizeTransportation({ mode: 'flight', result: sortedFlights[0] });
+      updated.selectedOptions.transportation = updated.transportation;
     }
 
     // 3. Trim paid activities in itinerary
@@ -465,7 +628,7 @@ export async function applyWhatIfSimulation(currentTrip, simulationType, customP
     });
 
     updated.budget = Math.min(updated.budget, 16000);
-    explanation = 'Switched to best-rate flight and budget-friendly stay, and prioritized free scenic walks to bring total cost within budget.';
+    explanation = `Kept ${updated.transportation?.mode || updated.transportMode || 'flight'} transportation, selected a lower-cost stay where available, and prioritized lower-cost activities.`;
   } else if (promptLower.includes('increase budget') || promptLower.includes('luxury') || simulationType === 'increase_budget') {
     // Upgrade hotel
     if (updated.liveData?.hotels?.length > 1) {
@@ -585,15 +748,7 @@ export async function applyWhatIfSimulation(currentTrip, simulationType, customP
     });
     explanation = 'Added top-rated evening beach clubs and live music lounges to your itinerary.';
   } else if (promptLower.includes('avoid flights') || promptLower.includes('train')) {
-    updated.selectedOptions.flight = {
-      airline: 'Vande Bharat / Express Sleeper Train',
-      price: 1850,
-      departureTime: '06:00 AM',
-      arrivalTime: '02:30 PM',
-      duration: '8h 30m',
-      stops: 0
-    };
-    explanation = 'Switched to Vande Bharat / Superfast AC Train transit, saving flight ticket expenses.';
+    explanation = `Transportation remains ${updated.transportation?.mode || updated.transportMode || 'flight'}. Change the Primary Transit selection to switch modes.`;
   } else {
     // General customized refinement
     explanation = `Replanned trip reflecting "${customPrompt || simulationType}". Preserved selected hotel and flight while optimizing schedule.`;
@@ -601,7 +756,7 @@ export async function applyWhatIfSimulation(currentTrip, simulationType, customP
 
   // Recalculate dynamic budget
   updated.budgetBreakdown = calculateTripBudget({
-    flight: updated.selectedOptions.flight,
+    transportation: updated.transportation || updated.selectedOptions.transportation,
     hotel: updated.selectedOptions.hotel,
     duration: updated.duration,
     travelers: updated.travelers,

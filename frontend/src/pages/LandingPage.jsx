@@ -5,8 +5,36 @@ import { loadGoogleMaps } from '../utils/loadGoogleMaps';
 import {
   Sparkles, ArrowRight, MapPin, Calendar, IndianRupee,
   Plane, Building, Route, RefreshCw, Brain, ShieldCheck,
-  Star, ChevronRight, Compass, CheckCircle2
+  Star, ChevronRight, Compass, CheckCircle2, Loader2
 } from 'lucide-react';
+
+const destinationResearchCache = new Map();
+const PLACE_IMAGE_FALLBACK = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&auto=format&fit=crop&q=80';
+
+function DestinationPlaceImage({ imageUrl, alt }) {
+  const normalizeImageUrl = value => {
+    if (typeof value !== 'string' || !value.trim()) return '';
+    const url = value.trim().startsWith('//') ? `https:${value.trim()}` : value.trim();
+    return /^https?:\/\//i.test(url) ? url : '';
+  };
+  const liveUrl = normalizeImageUrl(imageUrl);
+  const [src, setSrc] = useState(liveUrl || PLACE_IMAGE_FALLBACK);
+
+  useEffect(() => setSrc(liveUrl || PLACE_IMAGE_FALLBACK), [liveUrl]);
+
+  if (!src) {
+    return <div role="img" aria-label={alt} className="w-full h-44 bg-gradient-to-br from-slate-700 to-slate-900" />;
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className="w-full h-44 object-cover"
+      onError={() => setSrc(current => current === PLACE_IMAGE_FALLBACK ? '' : PLACE_IMAGE_FALLBACK)}
+    />
+  );
+}
 
 const HERO_DESTINATIONS = [
   {
@@ -81,7 +109,7 @@ const QUICK_TRIPS = [
 ];
 
 export default function LandingPage() {
-  const { setFormData, generateTrip, setActiveScreen, theme } = useTrip();
+  const { formData, setFormData, generateTrip, setActiveScreen, theme } = useTrip();
   const isDark = theme === 'dark';
   const [heroIdx, setHeroIdx] = useState(0);
   const [mapsReady, setMapsReady] = useState(false);
@@ -89,6 +117,10 @@ export default function LandingPage() {
   const [to, setTo] = useState('');
   const [days, setDays] = useState(3);
   const [budget, setBudget] = useState(20000);
+  const [journey, setJourney] = useState(null);
+  const [journeyPlaces, setJourneyPlaces] = useState([]);
+  const [journeyLoading, setJourneyLoading] = useState(false);
+  const [journeyError, setJourneyError] = useState(false);
 
   useEffect(() => {
     const t = setInterval(() => setHeroIdx(i => (i + 1) % HERO_DESTINATIONS.length), 5500);
@@ -107,7 +139,7 @@ export default function LandingPage() {
       duration: days, travelers: 2, budget,
       dates: { outbound: '', return: '' },
       interests: ['Beaches', 'Food', 'Culture'],
-      travelStyle: 'Balanced', transportPreference: 'Flight', accommodationPreference: 'Hotel'
+      travelStyle: 'Balanced', transportPreference: formData.transportPreference || 'Flight', accommodationPreference: 'Hotel'
     };
     setFormData(data);
     if (!to) { setActiveScreen('builder'); return; }
@@ -115,13 +147,49 @@ export default function LandingPage() {
   }
 
   function handlePreset(p) {
+    setJourney(p);
+    setJourneyPlaces([]);
+    setJourneyError(false);
+    const cached = destinationResearchCache.get(p.to);
+    if (cached) {
+      setJourneyPlaces(cached);
+      setJourneyLoading(false);
+      return;
+    }
+    loadJourneyPlaces(p.to);
+  }
+
+  async function loadJourneyPlaces(destination) {
+    setJourneyLoading(true);
+    setJourneyError(false);
+    try {
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+      const response = await fetch(`${baseUrl}/api/places/search`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ destination, interests: [], limit: 12 })
+      });
+      if (!response.ok) throw new Error('Destination research failed');
+      const data = await response.json();
+      if (!data.success || !Array.isArray(data.places) || !data.places.length) throw new Error('No live places found');
+      destinationResearchCache.set(destination, data.places);
+      setJourneyPlaces(data.places);
+    } catch {
+      setJourneyError(true);
+    } finally {
+      setJourneyLoading(false);
+    }
+  }
+
+  function planSelectedJourney() {
+    if (!journey) return;
     const data = {
-      origin: p.from, destination: p.to,
+      origin: journey.from, destination: journey.to,
       originCoords: null, destinationCoords: null,
-      duration: p.days, travelers: p.travelers, budget: p.budget,
+      duration: journey.days, travelers: journey.travelers, budget: journey.budget,
       dates: { outbound: '', return: '' },
-      interests: p.interests, travelStyle: p.style,
-      transportPreference: 'Flight', accommodationPreference: 'Hotel'
+      interests: journey.interests, travelStyle: journey.style,
+      transportPreference: formData.transportPreference || 'Flight', accommodationPreference: 'Hotel'
     };
     setFormData(data);
     generateTrip(data);
@@ -129,11 +197,74 @@ export default function LandingPage() {
 
   const hero = HERO_DESTINATIONS[heroIdx];
 
+  if (journey) {
+    return (
+      <section className={`min-h-screen px-4 py-12 sm:px-6 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+        <div className="max-w-6xl mx-auto">
+          <button onClick={() => { setJourney(null); setJourneyError(false); }} className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-cyan-500 hover:text-cyan-400">
+            <ArrowRight className="w-4 h-4 rotate-180" /> Back to Explore
+          </button>
+          <div className="relative h-64 sm:h-96 rounded-3xl overflow-hidden shadow-2xl">
+            <img src={journey.img} alt={journey.to} className="w-full h-full object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/20 to-transparent" />
+            <div className="absolute bottom-6 left-6 sm:bottom-10 sm:left-10 text-white">
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-300">Live destination intelligence</p>
+              <h1 className="text-4xl sm:text-6xl font-black mt-2">{journey.to}</h1>
+              <p className="mt-2 text-sm sm:text-lg text-white/80">{journey.subtitle}</p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-4 py-7">
+            <div>
+              <h2 className="text-2xl font-black">Explore {journey.to}</h2>
+              <p className={`text-sm mt-1 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Popular places and traveler ratings from SerpApi Google Maps.</p>
+            </div>
+            <button onClick={planSelectedJourney} className="px-6 py-3 rounded-2xl bg-gradient-to-r from-cyan-500 to-indigo-600 text-white font-bold shadow-lg hover:-translate-y-0.5 transition-transform">
+              Plan This Trip
+            </button>
+          </div>
+
+          {journeyLoading ? (
+            <div className={`py-20 text-center rounded-3xl border ${isDark ? 'bg-slate-950/60 border-white/10' : 'bg-white/70 border-slate-200'}`}>
+              <Loader2 className="w-9 h-9 mx-auto mb-4 text-cyan-500 animate-spin" />
+              <p className="font-semibold">Researching {journey.to}...</p>
+            </div>
+          ) : journeyError ? (
+            <div className={`py-12 text-center rounded-3xl border ${isDark ? 'bg-slate-950/60 border-white/10' : 'bg-white/70 border-slate-200'}`}>
+              <p className="font-semibold mb-5">Unable to load live destination data right now.</p>
+              <div className="flex justify-center gap-3">
+                <button onClick={() => loadJourneyPlaces(journey.to)} className="px-5 py-2.5 rounded-xl bg-cyan-600 text-white font-bold">Try Again</button>
+                <button onClick={() => setJourney(null)} className={`px-5 py-2.5 rounded-xl border font-bold ${isDark ? 'border-white/15' : 'border-slate-200'}`}>Back to Explore</button>
+              </div>
+            </div>
+          ) : (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 pb-16">
+              {journeyPlaces.map(place => (
+                <article key={place.id} className={`overflow-hidden rounded-2xl border ${isDark ? 'bg-slate-950/70 border-white/10' : 'bg-white/85 border-slate-200 shadow-sm'}`}>
+                  <DestinationPlaceImage imageUrl={place.thumbnail} alt={place.title} />
+                  <div className="p-5">
+                    <div className="flex justify-between gap-3 items-start">
+                      <h3 className="font-black">{place.title}</h3>
+                      {place.rating != null && <span className="shrink-0 text-sm font-bold text-amber-500">★ {place.rating}{place.reviewsCount ? ` · ${Number(place.reviewsCount).toLocaleString()} reviews` : ''}</span>}
+                    </div>
+                    <p className={`text-xs mt-2 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>{place.description}</p>
+                    {place.address && <p className="text-xs text-cyan-500 mt-3">{place.address}</p>}
+                    {place.website && <a href={place.website} target="_blank" rel="noreferrer" className="inline-block mt-3 text-xs font-bold text-indigo-400 hover:underline">More information ↗</a>}
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+    );
+  }
+
   return (
     <div
       className={`relative min-h-screen overflow-hidden font-sans transition-colors duration-500 ${isDark ? 'text-white' : 'text-[#123f52]'}`}
       style={{
-        backgroundImage: `linear-gradient(${isDark ? 'rgba(3, 18, 28, 0.68)' : 'rgba(226, 247, 246, 0.62)'}, ${isDark ? 'rgba(3, 18, 28, 0.82)' : 'rgba(226, 247, 246, 0.72)'}), url(${hero.img})`,
+        backgroundImage: `linear-gradient(${isDark ? 'rgba(13, 20, 17, 0.34)' : 'rgba(20, 31, 27, 0.2)'}, ${isDark ? 'rgba(13, 20, 17, 0.82)' : 'rgba(20, 31, 27, 0.68)'}), url(${hero.img})`,
         backgroundAttachment: 'fixed',
         backgroundPosition: 'center',
         backgroundSize: 'cover'
@@ -159,8 +290,8 @@ export default function LandingPage() {
           {/* Cinematic gradient veil */}
           <div className={`absolute inset-0 ${
             isDark
-              ? 'bg-gradient-to-b from-[#032b34]/72 via-[#07545b]/35 to-[#042d38]/95'
-              : 'bg-gradient-to-b from-[#032b34]/72 via-[#07545b]/35 to-[#042d38]/95'
+              ? 'bg-gradient-to-b from-[#111a16]/55 via-[#111a16]/12 to-[#101513]/95'
+              : 'bg-gradient-to-b from-[#17211c]/42 via-[#17211c]/10 to-[#101513]/88'
           }`} />
           {/* Subtle vignette */}
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_40%,rgba(0,0,0,0.4)_100%)]" />
@@ -202,9 +333,41 @@ export default function LandingPage() {
           </div>
         </div>
 
+        {/* Restrained journey animation in the hero's right margin. */}
+        <div className="hero-flight-path" aria-hidden="true">
+          <svg viewBox="0 0 200 520" className="hero-flight-path__svg" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="heroRouteFade" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#8cecff" stopOpacity=".04" />
+                <stop offset="48%" stopColor="#7de9f4" stopOpacity=".34" />
+                <stop offset="100%" stopColor="#c8ef61" stopOpacity=".07" />
+              </linearGradient>
+              <filter id="heroPlaneGlow" x="-100%" y="-100%" width="300%" height="300%">
+                <feGaussianBlur stdDeviation="3" result="blur" />
+                <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+              </filter>
+              <path id="heroFlightRoute" d="M158 8 C116 88 171 126 131 208 S91 330 132 394 S152 466 111 512" />
+            </defs>
+            <use href="#heroFlightRoute" fill="none" stroke="url(#heroRouteFade)" strokeWidth="1.5" strokeDasharray="2 9" strokeLinecap="round" />
+            <circle r="2" fill="#b8f5ff" opacity=".55">
+              <animateMotion dur="18s" repeatCount="indefinite" begin="-5s"><mpath href="#heroFlightRoute" /></animateMotion>
+              <animate attributeName="opacity" values="0;0.65;0.2;0" dur="18s" repeatCount="indefinite" begin="-5s" />
+            </circle>
+            <circle r="1.5" fill="#c8ef61" opacity=".45">
+              <animateMotion dur="18s" repeatCount="indefinite" begin="-11s"><mpath href="#heroFlightRoute" /></animateMotion>
+              <animate attributeName="opacity" values="0;0.5;0.15;0" dur="18s" repeatCount="indefinite" begin="-11s" />
+            </circle>
+            <g className="hero-flight-path__aircraft" filter="url(#heroPlaneGlow)">
+              <animateMotion dur="18s" repeatCount="indefinite" rotate="auto-90"><mpath href="#heroFlightRoute" /></animateMotion>
+              <path d="M0 -15 L3 -3 L12 3 L11 6 L3 4 L2 12 L6 15 L6 17 L0 15 L-6 17 L-6 15 L-2 12 L-3 4 L-11 6 L-12 3 L-3 -3 Z" fill="#e9fbff" stroke="#70deef" strokeWidth=".8" strokeLinejoin="round" />
+              <path d="M0 -10V11" stroke="#b8f5ff" strokeWidth=".7" opacity=".7" />
+            </g>
+          </svg>
+        </div>
+
         {/* Destination indicator top */}
         <div className="relative z-10 max-w-7xl mx-auto px-4 pt-24 w-full flex items-center justify-between">
-          <div className="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full bg-[#061827]/80 backdrop-blur-2xl border border-white/30 text-white text-sm font-bold shadow-xl">
+          <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-xl bg-[#111815]/70 backdrop-blur-xl border border-white/15 text-white text-sm font-semibold shadow-lg">
             <MapPin className="w-4 h-4 text-white flex-shrink-0" />
             <span className="text-white whitespace-nowrap">{hero.name}, {hero.country}</span>
             <span className="text-white/60">•</span>
@@ -221,11 +384,11 @@ export default function LandingPage() {
 
         {/* Hero Title */}
         <div className="relative z-10 max-w-5xl mx-auto text-center px-4 flex-1 flex flex-col items-center justify-center py-12">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-xl border border-white/20 text-white/90 text-[11px] font-bold uppercase tracking-widest mb-6 shadow-lg">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/25 backdrop-blur-md border border-white/15 text-white/85 text-[10px] font-bold uppercase tracking-[0.18em] mb-6">
             <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
             <span>Next-Gen Autonomous Travel Intelligence</span>
           </div>
-          <h1 className="editorial-display text-5xl sm:text-7xl md:text-8xl font-bold leading-[0.92] text-white drop-shadow-2xl mb-5">
+          <h1 className="editorial-display text-5xl sm:text-7xl md:text-8xl font-semibold leading-[0.88] text-[#f6f5ee] drop-shadow-[0_8px_35px_rgba(0,0,0,0.45)] mb-6">
             Where will<br />
             <span className="text-[#d7ff70]">you go?</span>
           </h1>
@@ -234,8 +397,8 @@ export default function LandingPage() {
           </p>
 
           {/* Floating destination badge */}
-          <div className="mt-6 inline-flex items-center gap-2.5 px-5 py-2.5 rounded-2xl reference-glass text-white floating-3d-fast">
-            <MapPin className="w-4 h-4 text-[#ef6b76]" />
+          <div className="mt-6 inline-flex items-center gap-2.5 px-4 py-2.5 rounded-xl reference-glass text-white">
+            <MapPin className="w-4 h-4 text-[#c8ef61]" />
             <div className="text-left">
               <div className="text-xs font-black">{hero.name}</div>
               <div className="text-[10px] text-white/70">{hero.tag}</div>
@@ -246,8 +409,8 @@ export default function LandingPage() {
         {/* ── FLOATING GLASS SEARCH PANEL ── */}
         <div className="relative z-20 max-w-5xl mx-auto w-full px-4 pb-0 -mb-14">
           <form onSubmit={handleQuickSearch}
-            className="p-5 sm:p-6 rounded-[30px] reference-glass transition-all duration-300">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
+            className="p-5 sm:p-6 rounded-2xl reference-glass transition-all duration-300">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
               <div>
                 <label className={`block text-[10px] font-black uppercase tracking-widest mb-1.5 px-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>From</label>
                 {mapsReady ? (
@@ -280,11 +443,11 @@ export default function LandingPage() {
             </div>
             <div className="flex items-center justify-between mt-3 px-1 pt-2.5 border-t border-white/10">
               <button type="button" onClick={() => setActiveScreen('builder')}
-                className="text-xs font-semibold flex items-center gap-1.5 text-[#247e88] hover:text-[#123f52] transition-colors">
-                <Sparkles className="w-3.5 h-3.5 text-[#ef6b76]" />
+                className="text-xs font-semibold flex items-center gap-1.5 text-[#bce95a] hover:text-white transition-colors">
+                <Sparkles className="w-3.5 h-3.5 text-[#bce95a]" />
                 More options & travel preferences
               </button>
-              <span className="text-[10px] font-medium text-[#174f62]/55">
+              <span className="text-[10px] font-medium text-white/45">
                 Powered by SerpApi Live Google Engines
               </span>
             </div>
@@ -318,10 +481,13 @@ export default function LandingPage() {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {QUICK_TRIPS.map((p) => (
+        <div className="journey-carousel" role="region" aria-label="Popular journeys carousel" aria-roledescription="carousel">
+          <div className="journey-carousel__track">
+            {[0, 1].map(copy => (
+              <div className="journey-carousel__group" key={`journey-loop-${copy}`} aria-hidden={copy === 1}>
+                {QUICK_TRIPS.map((p) => (
             <div key={p.to} onClick={() => handlePreset(p)}
-                className={`group relative rounded-3xl overflow-hidden cursor-pointer transition-all duration-400 card-hover gradient-border ${
+                className={`journey-carousel__card group relative rounded-3xl overflow-hidden cursor-pointer transition-all duration-400 card-hover gradient-border ${
                   isDark
                     ? 'bg-[#071d2c]/72 border border-white/15 shadow-luxury-dark hover:shadow-[0_30px_60px_-10px_rgba(0,0,0,0.7)]'
                     : 'bg-white/78 border border-white/70 shadow-luxury hover:shadow-card-hover'
@@ -388,7 +554,10 @@ export default function LandingPage() {
                 </div>
               </div>
             </div>
-          ))}
+                ))}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -513,9 +682,7 @@ function SearchInput({ isDark, icon, type = 'text', value, onChange, placeholder
       <div className="absolute left-3 top-1/2 -translate-y-1/2">{icon}</div>
       <input type={type} value={value} onChange={onChange} placeholder={placeholder}
         min={min} max={max} step={step}
-        className={`w-full pl-9 pr-3 py-3 rounded-2xl text-xs font-semibold focus:outline-none transition-colors ${
-          'bg-white/75 border border-[#b7d8d7] text-[#123f52] placeholder-[#56808a] focus:border-[#199fa8] shadow-sm'
-        }`}
+        className="w-full pl-10 pr-3 py-3.5 rounded-xl text-sm font-medium bg-white/[0.08] border border-white/15 text-white placeholder-white/40 focus:outline-none focus:border-[#c8ef61] focus:bg-white/[0.11] transition-colors"
       />
     </div>
   );

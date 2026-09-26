@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { useTrip } from '../context/TripContext';
 import { loadGoogleMaps } from '../utils/loadGoogleMaps';
 import { MapPin, Navigation, Sparkles, Car, Compass, Route } from 'lucide-react';
@@ -41,7 +42,7 @@ function getCityCenter(destination) {
   return { lat: 24.5854, lng: 73.7125 };
 }
 
-export default function InteractiveRouteMap({ dayData, hotel, destination }) {
+export default function InteractiveRouteMap({ dayData, hotel, destination, transportation }) {
   const { theme } = useTrip();
   const isDark = theme === 'dark';
 
@@ -82,28 +83,25 @@ export default function InteractiveRouteMap({ dayData, hotel, destination }) {
     if (!lMapRef.current) {
       const map = L.map(mapDivRef.current, {
         zoomControl: true,
-        attributionControl: false
+        attributionControl: true
       }).setView([hotelLat, hotelLng], 13);
 
-      const tileUrl = isDark
-        ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-        : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+      const tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 
-      const tileLayer = L.tileLayer(tileUrl, { maxZoom: 19 }).addTo(map);
+      const tileLayer = L.tileLayer(tileUrl, {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      }).addTo(map);
 
       lMapRef.current = map;
       lTileLayerRef.current = tileLayer;
       lLayerRef.current = L.layerGroup().addTo(map);
     } else if (lTileLayerRef.current) {
-      // Update tile layer on theme toggle
-      const tileUrl = isDark
-        ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-        : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-      lTileLayerRef.current.setUrl(tileUrl);
+      // OSM tiles are shared across themes; marker and route styling stays theme-aware.
     }
 
     renderLeafletRoute();
-  }, [engine, dayData, hotel, destination, isDark]);
+  }, [engine, dayData, hotel, destination, isDark, transportation]);
 
   function renderLeafletRoute() {
     const map = lMapRef.current;
@@ -175,8 +173,21 @@ export default function InteractiveRouteMap({ dayData, hotel, destination }) {
       `);
     });
 
-    // Draw glowing animated polyline route
-    if (latLngs.length > 1) {
+    // Prefer the real SerpApi origin-to-destination route when available.
+    const encodedRoute = transportation?.route?.overviewPolyline;
+    const routeCoordinates = transportation?.route?.coordinates || [];
+    if (encodedRoute || routeCoordinates.length > 1) {
+      const routePoints = encodedRoute
+        ? decodePolyline(encodedRoute).map(([lat, lng]) => [lat, lng])
+        : routeCoordinates.map(point => [point.latitude, point.longitude]);
+      if (routePoints.length > 1) {
+        L.polyline(routePoints, { color: '#06b6d4', weight: 6, opacity: 0.9 }).addTo(layer);
+        map.fitBounds(L.latLngBounds(routePoints), { padding: [55, 55], maxZoom: 10 });
+      }
+    }
+
+    // Draw local activity route when there is no provider route geometry.
+    if (!encodedRoute && routeCoordinates.length < 2 && latLngs.length > 1) {
       const closedRoute = [...latLngs, hotelPos];
       // Outer glow
       L.polyline(closedRoute, {
@@ -201,8 +212,8 @@ export default function InteractiveRouteMap({ dayData, hotel, destination }) {
   }
 
   const stopsCount = dayData?.activities?.length || 3;
-  const distance = dayData?.totalDistanceKm || 14;
-  const transitTime = dayData?.totalTravelTimeMinutes || 35;
+  const distance = transportation?.distanceKm ?? dayData?.totalDistanceKm ?? 14;
+  const transitTime = transportation?.durationSeconds ? Math.round(transportation.durationSeconds / 60) : dayData?.totalTravelTimeMinutes || 35;
 
   return (
     <div className={`relative w-full h-[480px] rounded-3xl overflow-hidden border shadow-2xl transition-colors duration-400 ${
@@ -264,4 +275,23 @@ export default function InteractiveRouteMap({ dayData, hotel, destination }) {
       </div>
     </div>
   );
+}
+
+function decodePolyline(encoded) {
+  const points = [];
+  let index = 0;
+  let lat = 0;
+  let lng = 0;
+  while (index < encoded.length) {
+    let result = 0;
+    let shift = 0;
+    let byte;
+    do { byte = encoded.charCodeAt(index++) - 63; result |= (byte & 0x1f) << shift; shift += 5; } while (byte >= 0x20);
+    lat += result & 1 ? ~(result >> 1) : result >> 1;
+    result = 0; shift = 0;
+    do { byte = encoded.charCodeAt(index++) - 63; result |= (byte & 0x1f) << shift; shift += 5; } while (byte >= 0x20);
+    lng += result & 1 ? ~(result >> 1) : result >> 1;
+    points.push([lat / 1e5, lng / 1e5]);
+  }
+  return points;
 }

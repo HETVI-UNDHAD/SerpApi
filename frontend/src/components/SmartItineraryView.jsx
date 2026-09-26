@@ -58,6 +58,7 @@ export default function SmartItineraryView() {
             dayData={activeDayData}
             hotel={currentTrip.selectedOptions?.hotel}
             destination={currentTrip.destination}
+            transportation={currentTrip.transportation}
           />
 
           {/* Commute Intelligence Bar */}
@@ -94,6 +95,11 @@ export default function SmartItineraryView() {
               <h3 className={`text-2xl font-black mt-0.5 ${isDark ? 'text-white' : 'text-slate-900'}`}>
                 {activeDayData.title}
               </h3>
+              {activeDayData.day === 1 && currentTrip.transportation && (
+                <p className="text-xs mt-1 text-cyan-500">
+                  {currentTrip.origin} → {currentTrip.destination} · {currentTrip.transportation.mode === 'self_car' ? 'Self-car driving route' : currentTrip.transportation.mode === 'train' ? 'Train / transit route' : 'Selected flight'} · {currentTrip.transportation.duration || 'duration unavailable'}
+                </p>
+              )}
             </div>
             <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${
               isDark ? 'bg-white/5 border-white/10 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-700'

@@ -40,6 +40,7 @@ export default function DashboardPage() {
     checkForChanges,
     isCheckingChanges,
     isReplanning,
+    budgetOptimizationError,
     resetTrip,
     theme
   } = useTrip();
@@ -62,8 +63,13 @@ export default function DashboardPage() {
   } = currentTrip;
 
   const totalCost = budgetBreakdown?.totalEstimatedCost || 0;
+  const transportation = currentTrip.transportation || selectedOptions?.transportation;
+  const transportMode = transportation?.mode || 'flight';
   const isOverBudget = budgetStatus?.isOverBudget;
   const overBudgetDiff = budgetStatus?.difference || 0;
+  const budgetUtilization = Number.isFinite(Number(totalCost)) && Number(budget) > 0
+    ? Math.round((Number(totalCost) / Number(budget)) * 100)
+    : null;
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: Compass },
@@ -209,7 +215,7 @@ export default function DashboardPage() {
                   Your plan exceeds your target budget by ₹{overBudgetDiff.toLocaleString('en-IN')}.
                 </strong>
                 <span className="text-xs text-amber-300">
-                  {budgetStatus?.alternatives?.suggestions?.[0] || 'Cheaper flight schedules and alternative 4.5★ stays are available.'}
+                  {budgetOptimizationError || budgetStatus?.optimizationRecommendation || budgetStatus?.alternatives?.suggestions?.[0] || 'No lower-cost alternatives are currently available.'}
                 </span>
               </div>
             </div>
@@ -219,13 +225,13 @@ export default function DashboardPage() {
               disabled={isReplanning}
               className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs whitespace-nowrap shadow-md transition-colors"
             >
-              Auto-Optimize for ₹{budget.toLocaleString('en-IN')}
+              {isReplanning ? 'Optimizing...' : `Auto-Optimize for ₹${budget.toLocaleString('en-IN')}`}
             </button>
           </div>
         )}
 
         {/* ── LUXURY TAB NAVIGATION PILLS ── */}
-        <div className={`p-1.5 rounded-2xl border flex items-center gap-1 overflow-x-auto ${
+        <div className={`p-1 rounded-xl border flex items-center gap-1 overflow-x-auto ${
           isDark ? 'bg-slate-900/60 border-white/8' : 'bg-slate-100/80 border-slate-200'
         }`}>
           {tabs.map(tab => {
@@ -235,9 +241,9 @@ export default function DashboardPage() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap flex items-center gap-2 transition-all duration-300 ${
+                className={`relative px-4 py-2.5 rounded-lg text-xs font-semibold whitespace-nowrap flex items-center gap-2 transition-all duration-200 ${
                   isSelected
-                    ? 'bg-gradient-to-r from-cyan-500 to-indigo-600 text-white shadow-md shadow-indigo-500/25 scale-[1.02]'
+                    ? `after:absolute after:left-3 after:right-3 after:-bottom-0.5 after:h-0.5 after:rounded-full after:bg-[#c8ef61] ${isDark ? 'bg-white/[0.06] text-white' : 'bg-white text-slate-950 shadow-sm'}`
                     : isDark
                     ? 'text-slate-400 hover:text-white hover:bg-white/5'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-white hover:shadow-sm'
@@ -285,8 +291,8 @@ export default function DashboardPage() {
               <StatWidget
                 isDark={isDark}
                 title="Primary Transit"
-                value={selectedOptions.flight?.airline || 'Verified Flight'}
-                sub={`₹${selectedOptions.flight?.price?.toLocaleString('en-IN')} • ${selectedOptions.flight?.duration || 'Nonstop'}`}
+                value={transportMode === 'flight' ? (selectedOptions.flight?.airline || 'Flight information unavailable') : transportMode === 'train' ? 'Train' : 'Self Car'}
+                sub={`${transportation?.distance || transportation?.duration || transportation?.details?.formattedDuration || (transportation?.available ? 'Route available' : 'Route unavailable')} • ${transportation?.cost == null ? 'Cost not provided' : `₹${transportation.cost.toLocaleString('en-IN')}${transportation.costType === 'estimated' ? ' estimated' : ''}`}`}
                 icon={Plane}
                 color="text-cyan-500"
               />
@@ -393,6 +399,7 @@ export default function DashboardPage() {
               dayData={itinerary?.find(d => d.day === selectedDay) || itinerary?.[0]}
               hotel={selectedOptions.hotel}
               destination={destination}
+              transportation={transportation}
             />
           </div>
         )}
@@ -408,15 +415,20 @@ export default function DashboardPage() {
                   isDark ? 'text-white' : 'text-slate-900'
                 }`}>
                   <Plane className="w-5 h-5 text-cyan-500" />
-                  Live Google Flights via SerpApi ({origin} → {destination})
+                  {transportMode === 'flight' ? `Live Google Flights via SerpApi (${origin} → ${destination})` : transportMode === 'train' ? `Train / Transit via Google Maps (${origin} → ${destination})` : `Self Car via Google Maps (${origin} → ${destination})`}
                 </h3>
                 <p className={`text-xs mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-                  Real-time ticket prices, airline schedules, and direct booking links.
+                  {transportMode === 'flight' ? 'Real-time ticket prices, airline schedules, and booking links when returned.' : transportMode === 'train' ? 'Google Maps transit route details; fares appear only when returned by the route API.' : 'Google Maps driving route details and transparently estimated fuel cost.'}
                 </p>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {transportMode !== 'flight' ? (
+              transportation?.available ? <div className={`p-6 rounded-3xl border ${isDark ? 'bg-slate-900/60 border-white/10' : 'bg-white border-slate-200/80 shadow-sm'}`}>
+                <div className="flex items-center justify-between mb-4"><span className="font-black text-base">{transportMode === 'train' ? (transportation.operator || 'Train / Transit') : 'Self Car'}</span><span className="text-lg font-black text-emerald-500">{transportation.cost == null ? 'Cost not provided' : `₹${transportation.cost.toLocaleString('en-IN')}${transportation.costType === 'estimated' ? ' estimated' : ''}`}</span></div>
+                <div className="text-sm space-y-2"><div>{transportation.details?.startAddress || origin} → {transportation.details?.endAddress || destination}</div>{transportation.details?.startStop && <div>Board at {transportation.details.startStop}{transportation.details.endStop ? ` · arrive ${transportation.details.endStop}` : ''}</div>}<div>Distance: {transportation.distance || 'Not provided'} · Duration: {transportation.duration || 'Not provided'}</div>{transportation.operator && <div>Service: {transportation.operator}</div>}{transportation.details?.stops != null && <div>Stops/transfers: {transportation.details.stops}</div>}{transportMode === 'self_car' && <div>{transportation.costAssumptions ? `Fuel estimate uses ${transportation.costAssumptions.fuelEfficiencyKmPerLitre} km/L and ₹${transportation.costAssumptions.fuelPricePerLitre}/L assumptions; it is not a live fuel price.` : 'Fuel cost estimate unavailable because route distance was not returned.'}</div>}{transportation.tollInfo && <div>Toll information: {typeof transportation.tollInfo === 'string' ? transportation.tollInfo : JSON.stringify(transportation.tollInfo)}</div>}{transportation.route?.steps?.map((step, index) => step.instruction && <div key={index} className="text-xs opacity-75">{step.instruction}</div>)}</div>
+              </div> : <div className="p-6 rounded-3xl border border-amber-500/20 text-sm">{transportMode === 'train' ? 'No train route found for this journey.' : 'Driving route unavailable.'}</div>
+            ) : <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {liveData?.flights?.map((fl, idx) => (
                 <div
                   key={fl.id || idx}
@@ -474,19 +486,19 @@ export default function DashboardPage() {
                     <span className={`text-[11px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
                       Grounded via Google Flights
                     </span>
-                    <a
-                      href={fl.bookingLink || 'https://www.google.com/travel/flights'}
+                    {fl.bookingLink && <a
+                      href={fl.bookingLink}
                       target="_blank"
                       rel="noreferrer"
                       className="text-cyan-500 hover:text-cyan-400 font-bold flex items-center gap-1 transition-colors"
                     >
                       <span>View Live Fare</span>
                       <ExternalLink className="w-3 h-3" />
-                    </a>
+                    </a>}
                   </div>
                 </div>
               ))}
-            </div>
+            </div>}
           </div>
         )}
 
@@ -595,7 +607,7 @@ export default function DashboardPage() {
                     disabled={isReplanning}
                     className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-xs shadow-md transition-all hover:scale-105"
                   >
-                    Auto-Optimize
+                    {isReplanning ? 'Optimizing...' : 'Auto-Optimize'}
                   </button>
                 )}
               </div>
@@ -603,7 +615,7 @@ export default function DashboardPage() {
               {/* 5 Category Cards */}
               <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 {[
-                  { title: `Flights`, val: budgetBreakdown?.flights, col: 'text-cyan-500', bg: isDark ? 'bg-cyan-500/10 border-cyan-500/20' : 'bg-cyan-50 border-cyan-200' },
+                  { title: transportMode === 'flight' ? 'Flight' : transportMode === 'train' ? 'Train' : 'Self Car', val: budgetBreakdown?.transportation, unavailable: budgetBreakdown?.transportationCostUnavailable, col: 'text-cyan-500', bg: isDark ? 'bg-cyan-500/10 border-cyan-500/20' : 'bg-cyan-50 border-cyan-200' },
                   { title: `🏨 Hotels`, val: budgetBreakdown?.accommodation, col: 'text-violet-500', bg: isDark ? 'bg-violet-500/10 border-violet-500/20' : 'bg-violet-50 border-violet-200' },
                   { title: `Food`, val: budgetBreakdown?.foodAndDining, col: 'text-amber-500', bg: isDark ? 'bg-amber-500/10 border-amber-500/20' : 'bg-amber-50 border-amber-200' },
                   { title: `🎫 Activities`, val: budgetBreakdown?.activitiesAndSightseeing, col: 'text-emerald-500', bg: isDark ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-emerald-50 border-emerald-200' },
@@ -612,7 +624,7 @@ export default function DashboardPage() {
                   <div key={c.title} className={`p-4 rounded-2xl border ${c.bg}`}>
                     <span className={`text-[11px] block mb-1.5 font-bold ${c.col}`}>{c.title}</span>
                     <span className={`text-base font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                      ₹{c.val?.toLocaleString('en-IN') || 0}
+                      {c.unavailable ? 'Unavailable' : `₹${c.val?.toLocaleString('en-IN') || 0}`}
                     </span>
                   </div>
                 ))}
@@ -623,7 +635,7 @@ export default function DashboardPage() {
                 <div className="flex items-center justify-between text-xs font-bold">
                   <span className={isDark ? 'text-slate-300' : 'text-slate-700'}>Budget Utilization</span>
                   <span className={isOverBudget ? 'text-amber-500' : 'text-emerald-500'}>
-                    {Math.round((totalCost / budget) * 100)}% of ₹{budget.toLocaleString('en-IN')}
+                    {budgetUtilization == null ? '—' : `${budgetUtilization}%`} of ₹{budget.toLocaleString('en-IN')}
                   </span>
                 </div>
                 <div className={`w-full h-3 rounded-full overflow-hidden ${
@@ -633,7 +645,7 @@ export default function DashboardPage() {
                     className={`h-full rounded-full transition-all duration-700 ${
                       isOverBudget ? 'bg-gradient-to-r from-amber-500 to-orange-500' : 'bg-gradient-to-r from-emerald-400 to-cyan-500'
                     }`}
-                    style={{ width: `${Math.min((totalCost / budget) * 100, 100)}%` }}
+                    style={{ width: `${budget > 0 ? Math.min((totalCost / budget) * 100, 100) : totalCost > 0 ? 100 : 0}%` }}
                   />
                 </div>
               </div>
@@ -646,10 +658,9 @@ export default function DashboardPage() {
                 <div>
                   <p className="text-xs font-black text-violet-500 uppercase tracking-wider mb-1">✨ AI Recommendation</p>
                   <p className={`text-xs leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                    {isOverBudget
-                      ? `Switching to the alternative hotel could save ₹${Math.round(overBudgetDiff * 0.6).toLocaleString('en-IN')}. Consider a morning flight for lower fares.`
-                      : `Your budget allocation is well-optimized. Flights and accommodation account for ${Math.round(((budgetBreakdown?.flights || 0) + (budgetBreakdown?.accommodation || 0)) / totalCost * 100)}% of total spend.`
-                    }
+                    {budgetOptimizationError || budgetStatus?.optimizationRecommendation || (isOverBudget
+                      ? 'No lower-cost alternatives are currently available.'
+                      : `Your budget allocation is well-optimized. Transportation and accommodation account for ${totalCost > 0 ? Math.round(((budgetBreakdown?.transportation || 0) + (budgetBreakdown?.accommodation || 0)) / totalCost * 100) : 0}% of total spend.`)}
                   </p>
                 </div>
               </div>
@@ -688,7 +699,7 @@ function StatWidget({ title, value, sub, icon: Icon, color, valueColor, isDark }
           <Icon className={`w-4 h-4 ${color}`} />
         </div>
       </div>
-      <p className={`text-xl font-black truncate ${valueColor || (isDark ? 'text-white' : 'text-slate-900')}`}>{value}</p>
+      <p className={`${title === 'Total Estimated Cost' ? 'text-3xl sm:text-4xl' : 'text-lg'} font-bold tracking-tight truncate ${valueColor || (isDark ? 'text-white' : 'text-slate-900')}`}>{value}</p>
       <p className={`text-[11px] truncate ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{sub}</p>
     </div>
   );

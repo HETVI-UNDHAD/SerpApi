@@ -51,11 +51,12 @@ export function TripProvider({ children }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isDiscovering, setIsDiscovering] = useState(false);
   const [isReplanning, setIsReplanning] = useState(false);
+  const [budgetOptimizationError, setBudgetOptimizationError] = useState('');
   const [destinationsDiscovery, setDestinationsDiscovery] = useState([]);
 
   // Live Research Center stages
   const [researchSteps, setResearchSteps] = useState([
-    { id: 1, title: 'Searching live flights via SerpApi', status: 'pending', detail: 'Google Flights engine' },
+    { id: 1, title: 'Searching selected transportation via SerpApi', status: 'pending', detail: 'Mode-specific travel engine' },
     { id: 2, title: 'Searching verified hotels & live rates', status: 'pending', detail: 'Google Hotels engine' },
     { id: 3, title: 'Discovering attractions with GPS coordinates', status: 'pending', detail: 'Google Maps places API' },
     { id: 4, title: 'Extracting sentiment & review intelligence', status: 'pending', detail: 'Travel forums & reviews' },
@@ -104,12 +105,14 @@ export function TripProvider({ children }) {
    */
   async function generateTrip(customData) {
     const payload = customData || formData;
+    // Invalidate the previous plan immediately so stale transport data cannot survive a new request.
+    setCurrentTrip(null);
     setIsGenerating(true);
     setActiveScreen('research');
 
     // Reset research steps
     setResearchSteps([
-      { id: 1, title: 'Searching live flights via SerpApi', status: 'in-progress', detail: 'Google Flights engine' },
+      { id: 1, title: 'Searching selected transportation via SerpApi', status: 'in-progress', detail: payload.transportPreference || 'Mode-specific travel engine' },
       { id: 2, title: 'Searching verified hotels & live rates', status: 'pending', detail: 'Google Hotels engine' },
       { id: 3, title: 'Discovering attractions with GPS coordinates', status: 'pending', detail: 'Google Maps places API' },
       { id: 4, title: 'Extracting sentiment & review intelligence', status: 'pending', detail: 'Travel forums & reviews' },
@@ -168,7 +171,7 @@ export function TripProvider({ children }) {
         setChatMessages([
           {
             role: 'agent',
-            text: `Hello! I have generated your customized ${data.trip.duration}-day trip to ${data.trip.destination}. Flight options, 4★ hotel rates, and route-optimized attractions have been researched live via SerpApi. How would you like to refine or replan your journey?`
+            text: `Hello! I have generated your customized ${data.trip.duration}-day ${data.trip.transportation?.mode || 'flight'} trip to ${data.trip.destination}. Transportation and destination options have been researched via SerpApi. How would you like to refine or replan your journey?`
           }
         ]);
 
@@ -189,23 +192,27 @@ export function TripProvider({ children }) {
    * Optimize for Budget
    */
   async function optimizeTripBudget() {
-    if (!currentTrip?.id) return;
+    if (!currentTrip?.id) {
+      setBudgetOptimizationError('The current trip is not available to optimize.');
+      return;
+    }
+    setBudgetOptimizationError('');
     setIsReplanning(true);
     try {
       const res = await fetch(`${API_BASE_URL}/api/trips/${currentTrip.id}/optimize`, {
         method: 'POST'
       });
       const data = await res.json();
-      if (data.success && data.trip) {
-        setCurrentTrip(data.trip);
-        setChatMessages(prev => [
-          ...prev,
-          { role: 'user', text: 'Optimize for Budget' },
-          { role: 'agent', text: data.trip.replanningReason || 'Trip has been optimized for budget with cheaper rates and free scenic activities.' }
-        ]);
-      }
+      if (!res.ok || !data.success || !data.trip) throw new Error(data.error || 'Unable to optimize this trip.');
+      setCurrentTrip(data.trip);
+      setChatMessages(prev => [
+        ...prev,
+        { role: 'user', text: 'Optimize for Budget' },
+        { role: 'agent', text: data.trip.replanningReason || 'No lower-cost alternatives are currently available.' }
+      ]);
     } catch (err) {
       console.error('[Error optimizing budget]:', err);
+      setBudgetOptimizationError(err.message || 'Unable to optimize this trip.');
     } finally {
       setIsReplanning(false);
     }
@@ -291,6 +298,7 @@ export function TripProvider({ children }) {
         isGenerating,
         isDiscovering,
         isReplanning,
+        budgetOptimizationError,
         destinationsDiscovery,
         researchSteps,
         liveChangesModalOpen,

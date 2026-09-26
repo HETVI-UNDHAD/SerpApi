@@ -18,7 +18,7 @@ export default function Navbar() {
     <header className={`${isLanding ? 'absolute' : 'sticky'} top-0 z-50 w-full px-3 sm:px-5 transition-all duration-500 ${
       isLanding
         ? scrolled
-          ? 'bg-[#071f3d]/78 backdrop-blur-xl border-b border-[#7eb7e8]/18 shadow-[0_10px_30px_rgba(1,12,32,0.28)]'
+          ? 'bg-[#101513]/82 backdrop-blur-xl border-b border-white/[0.08] shadow-[0_10px_30px_rgba(1,12,18,0.24)]'
           : 'bg-transparent border-b border-transparent'
         : scrolled
           ? isDark
@@ -26,9 +26,9 @@ export default function Navbar() {
             : 'bg-white/90 backdrop-blur-2xl border-b border-slate-200/80 shadow-luxury'
           : 'bg-transparent border-b border-transparent'
     }`}>
-      <div className={`max-w-6xl mx-auto mt-3 h-[62px] px-3 sm:px-4 flex items-center justify-between rounded-full border transition-all duration-500 ${
+      <div className={`max-w-6xl mx-auto mt-3 h-[58px] px-3 sm:px-5 flex items-center justify-between rounded-2xl border transition-all duration-300 ${
         isLanding
-          ? 'bg-[#071f3d]/48 border-[#8fc4ee]/20 shadow-[0_12px_35px_rgba(1,12,32,0.3)] backdrop-blur-xl'
+          ? 'bg-[#111815]/68 border-white/15 shadow-[0_12px_35px_rgba(1,12,18,0.25)] backdrop-blur-xl'
           : isDark
             ? 'bg-slate-950/75 border-white/10 backdrop-blur-xl'
             : 'bg-white/80 border-slate-200/80 backdrop-blur-xl shadow-sm'
@@ -39,34 +39,34 @@ export default function Navbar() {
           onClick={() => setActiveScreen('landing')}
           className="flex items-center gap-3 group focus:outline-none"
         >
-          <div className="relative w-10 h-10 rounded-full bg-[#173f70] text-[#c6e7ff] border border-[#80b9e8]/35 shadow-[0_8px_20px_rgba(2,18,48,0.32)] flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
+          <div className="relative w-9 h-9 rounded-xl bg-[#c8ef61] text-[#182117] border border-white/20 shadow-sm flex items-center justify-center group-hover:scale-[1.03] transition-transform duration-300">
             <Compass className="w-5 h-5" />
             <div className="absolute inset-0 rounded-xl bg-white/20 blur-[8px] opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>
           <div className="flex items-center gap-1.5">
-              <span className={`font-black text-base tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
-              Travel<span className="text-[#9acbfa]">OS</span>
+              <span className={`font-black text-[15px] tracking-tight ${isLanding || isDark ? 'text-white' : 'text-slate-900'}`}>
+              Travel<span className="text-[#c8ef61]">OS</span>
             </span>
             <span className={`text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full border ${
-              isDark ? 'bg-[#9acbfa]/10 border-[#9acbfa]/30 text-[#b9dcff]' : 'bg-sky-50 border-sky-200 text-sky-700'
+              isDark ? 'bg-[#c8ef61]/10 border-[#c8ef61]/25 text-[#d8f79a]' : 'bg-lime-50 border-lime-200 text-lime-800'
             }`}>AI</span>
           </div>
         </button>
 
         {/* Center Nav */}
         <nav className="hidden md:flex items-center gap-1">
-          <NavBtn isDark={isDark} active={activeScreen === 'landing'} onClick={() => setActiveScreen('landing')}>
+          <NavBtn isDark={isDark || isLanding} active={activeScreen === 'landing'} onClick={() => setActiveScreen('landing')}>
             Explore
           </NavBtn>
-          <NavBtn isDark={isDark} active={activeScreen === 'builder'} onClick={() => setActiveScreen('builder')}>
+          <NavBtn isDark={isDark || isLanding} active={activeScreen === 'builder'} onClick={() => setActiveScreen('builder')}>
             Plan Trip
           </NavBtn>
-          <NavBtn isDark={isDark} active={activeScreen === 'design-showcase'} onClick={() => setActiveScreen('design-showcase')}>
+          <NavBtn isDark={isDark || isLanding} active={activeScreen === 'design-showcase'} onClick={() => setActiveScreen('design-showcase')}>
             <Sparkles className="w-3.5 h-3.5 text-violet-400" />
             <span className="text-gradient-indigo-violet font-bold">Showcase</span>
           </NavBtn>
           {currentTrip && (
-            <NavBtn isDark={isDark} active={activeScreen === 'dashboard'} onClick={() => setActiveScreen('dashboard')}>
+            <NavBtn isDark={isDark || isLanding} active={activeScreen === 'dashboard'} onClick={() => setActiveScreen('dashboard')}>
               <Compass className="w-3.5 h-3.5 text-cyan-400" />
               <span>{currentTrip.destination}</span>
             </NavBtn>
@@ -109,7 +109,7 @@ export default function Navbar() {
 
           <button
             onClick={() => setActiveScreen('builder')}
-            className="px-4 py-2.5 rounded-full bg-[#173f70] border border-[#80b9e8]/30 text-[#d5edff] shadow-[0_8px_20px_rgba(2,18,48,0.3)] text-xs font-bold transition-all hover:scale-[1.03] hover:bg-[#24558e]"
+            className="px-4 py-2.5 rounded-xl bg-[#c8ef61] border border-lime-200/50 text-[#182117] shadow-sm text-xs font-bold transition-all hover:-translate-y-0.5 hover:shadow-md"
           >
             Plan Trip
           </button>
@@ -123,11 +123,9 @@ function NavBtn({ children, active, onClick, isDark }) {
   return (
     <button
       onClick={onClick}
-      className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all duration-200 ${
+      className={`relative px-3.5 py-2 text-xs font-semibold flex items-center gap-1.5 transition-all duration-200 ${
         active
-          ? isDark
-            ? 'bg-white/10 text-white border border-white/15 shadow-sm'
-            : 'bg-white text-slate-900 border border-slate-200 shadow-sm'
+          ? `after:absolute after:left-3 after:right-3 after:-bottom-1 after:h-0.5 after:rounded-full after:bg-[#c8ef61] ${isDark ? 'text-white' : 'text-slate-950'}`
           : isDark
           ? 'text-slate-400 hover:text-white hover:bg-white/5'
           : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'

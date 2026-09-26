@@ -92,79 +92,48 @@ export default function DesignShowcasePage() {
     <div className={`min-h-screen transition-colors duration-500 font-sans selection:bg-indigo-500 selection:text-white ${themeStyles.pageBg}`}>
 
       {/* ── TOP SHOWCASE CONTROL BAR ── */}
-      <div className={`sticky top-0 z-50 ${themeStyles.navBg} py-3 px-4 shadow-sm`}>
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 via-indigo-600 to-violet-500 flex items-center justify-center shadow-lg shadow-indigo-500/25">
-              <Sparkles className="w-5 h-5 text-white" />
+      <div className={`relative z-10 mx-4 sm:mx-auto mt-7 max-w-7xl p-4 sm:px-5 sm:py-3 rounded-2xl border ${isDark ? 'bg-slate-950/45 border-white/[0.08]' : 'bg-white/55 border-slate-200/70'} backdrop-blur-md`}>
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-8 h-8 shrink-0 rounded-lg bg-cyan-400/10 border border-cyan-300/20 flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-cyan-400" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className={`font-black text-base tracking-tight ${themeStyles.heading}`}>
-                  Travel<span className="bg-gradient-to-r from-cyan-400 to-indigo-500 bg-clip-text text-transparent">OS</span> AI
-                </span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-violet-500/15 text-violet-400 border border-violet-500/30">
-                  Design System Showcase
-                </span>
-              </div>
-              <p className={`text-[11px] ${themeStyles.subtext}`}>
-                Glassmorphism + 3D Travel Aesthetic · Light & Dark High-Fidelity Presentation
-              </p>
+            <div className="min-w-0">
+              <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-500">Design System Showcase</div>
+              <p className={`text-xs truncate ${themeStyles.subtext}`}>High-fidelity travel intelligence interface</p>
             </div>
           </div>
 
-          {/* Theme & Screen View Filters */}
-          <div className="flex items-center gap-3">
-            {/* Screen Selector */}
-            <div className="hidden md:flex items-center gap-1.5 p-1 rounded-xl bg-slate-500/10 border border-slate-500/20">
-              <button
-                onClick={() => setActiveScreen('all')}
-                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
-                  activeScreen === 'all'
-                    ? 'bg-indigo-600 text-white shadow-md'
-                    : `${themeStyles.subtext} hover:${themeStyles.heading}`
-                }`}
-              >
-                All 8 Screens
-              </button>
-              {SCREENS.map(s => (
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 min-w-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className={`shrink-0 text-[10px] font-bold uppercase tracking-wider ${themeStyles.subtext}`}>Screens</span>
+              <div className="flex max-w-full items-center gap-0.5 p-1 rounded-lg bg-slate-500/[0.07] border border-slate-500/15 overflow-x-auto">
                 <button
-                  key={s.id}
-                  onClick={() => setActiveScreen(s.id)}
-                  className={`px-2 py-1 rounded-lg text-[11px] font-medium transition-all ${
-                    activeScreen === s.id
-                      ? 'bg-indigo-600 text-white shadow-md'
-                      : `${themeStyles.subtext} hover:${themeStyles.heading}`
-                  }`}
-                >
-                  {s.name.split('.')[0]}
-                </button>
-              ))}
+                  onClick={() => setActiveScreen('all')}
+                  className={`px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-all ${activeScreen === 'all' ? 'bg-cyan-500/20 text-cyan-500 shadow-sm' : `${themeStyles.subtext} hover:${themeStyles.heading}`}`}
+                >All</button>
+                {SCREENS.map(s => (
+                  <button
+                    key={s.id}
+                    onClick={() => setActiveScreen(s.id)}
+                    className={`min-w-7 px-2 py-1.5 rounded-md text-[11px] font-medium transition-all ${activeScreen === s.id ? 'bg-cyan-500/20 text-cyan-500 shadow-sm' : `${themeStyles.subtext} hover:${themeStyles.heading}`}`}
+                  >{s.name.split('.')[0]}</button>
+                ))}
+              </div>
             </div>
 
-            {/* LIGHT / DARK MODE TOGGLE */}
-            <div className="flex items-center p-1 rounded-2xl bg-slate-500/15 border border-slate-500/20 shadow-inner">
+            <div className="flex items-center self-start sm:self-auto p-1 rounded-lg bg-slate-500/[0.07] border border-slate-500/15">
               <button
                 onClick={() => setTheme('light')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                  !isDark
-                    ? 'bg-white text-slate-900 shadow-md scale-105'
-                    : 'text-slate-400 hover:text-white'
-                }`}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${!isDark ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-white'}`}
               >
-                <Sun className="w-3.5 h-3.5 text-amber-500" />
-                <span>Light</span>
+                <Sun className="w-3.5 h-3.5 text-amber-500" /><span>Light</span>
               </button>
               <button
                 onClick={() => setTheme('dark')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                  isDark
-                    ? 'bg-slate-900 text-cyan-300 shadow-md border border-white/10 scale-105'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${isDark ? 'bg-slate-900 text-cyan-300 shadow-sm border border-white/10' : 'text-slate-600 hover:text-slate-900'}`}
               >
-                <Moon className="w-3.5 h-3.5 text-indigo-400" />
-                <span>Dark</span>
+                <Moon className="w-3.5 h-3.5 text-indigo-400" /><span>Dark</span>
               </button>
             </div>
           </div>
