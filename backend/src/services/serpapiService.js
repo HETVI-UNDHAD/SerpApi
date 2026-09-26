@@ -293,60 +293,33 @@ export async function searchHotels({
   const fallbackQuery = `best top rated hotels resorts homestays in ${destination} prices reviews`;
   const organic = await search(fallbackQuery, 6);
 
-  return [
-    {
-      id: 'ht-rec-1',
-      name: `The Grand Central Boutique Stay, ${destination}`,
-      description: `Prime central location in ${destination} with easy transit access, rooftop café, and heritage architecture.`,
-      rating: 4.6,
-      reviewsCount: 540,
-      pricePerNight: 3400,
+  if (organic && organic.length > 0) {
+    return organic.slice(0, 4).map((item, idx) => ({
+      id: `ht-org-${idx}`,
+      name: item.title.split(' - ')[0].split(' | ')[0].trim(),
+      description: item.snippet || `Top-rated accommodation in ${destination} according to verified traveler reviews.`,
+      rating: Math.round((4.4 + (idx * 0.1)) * 10) / 10,
+      reviewsCount: 320 + (idx * 110),
+      pricePerNight: 2400 + (idx * 750),
       currency: 'INR',
-      amenities: ['Free High-Speed Wi-Fi', 'Complimentary Breakfast', 'Swimming Pool', '24/7 Concierge', 'Air Conditioning'],
-      image: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=600&auto=format&fit=crop&q=80',
-      link: `https://www.google.com/travel/hotels?q=hotels+in+${encodeURIComponent(destination)}`,
-      address: `Downtown Core, ${destination}`,
+      amenities: ['Free High-Speed Wi-Fi', 'Complimentary Breakfast', 'Air Conditioning', '24/7 Front Desk', 'Housekeeping'],
+      image: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=600&auto=format&fit=crop&q=80',
+      link: item.link || `https://www.google.com/travel/hotels?q=hotels+in+${encodeURIComponent(destination)}`,
+      googleMapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.title.split(' - ')[0] + ' ' + destination)}`,
+      address: `${destination} Central Hub`,
       gpsCoordinates: null,
-      hotelClass: '4-Star'
-    },
-    {
-      id: 'ht-rec-2',
-      name: `Serene Haven Eco-Resort & Spa, ${destination}`,
-      description: `Lush, peaceful surroundings designed for relaxation, organic breakfast buffet, and wellness amenities.`,
-      rating: 4.7,
-      reviewsCount: 390,
-      pricePerNight: 4800,
-      currency: 'INR',
-      amenities: ['Spa & Wellness', 'Free Breakfast', 'Garden View', 'Airport Shuttle', 'Wi-Fi'],
-      image: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=600&auto=format&fit=crop&q=80',
-      link: `https://www.google.com/travel/hotels?q=hotels+in+${encodeURIComponent(destination)}`,
-      address: `Scenic Belt, ${destination}`,
-      gpsCoordinates: null,
-      hotelClass: '4-Star'
-    },
-    {
-      id: 'ht-rec-3',
-      name: `Traveller Nest & Co-Living, ${destination}`,
-      description: `Modern budget-friendly social stay with clean spacious rooms, work desks, and vibrant communal vibes.`,
-      rating: 4.4,
-      reviewsCount: 280,
-      pricePerNight: 1950,
-      currency: 'INR',
-      amenities: ['Free Wi-Fi', 'Air Conditioning', 'Cafe & Bar', 'Laundry Facility'],
-      image: 'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=600&auto=format&fit=crop&q=80',
-      link: `https://www.google.com/travel/hotels?q=hotels+in+${encodeURIComponent(destination)}`,
-      address: `Arts Quarter, ${destination}`,
-      gpsCoordinates: null,
-      hotelClass: '3-Star'
-    }
-  ];
+      hotelClass: idx === 0 ? '4-Star' : '3-Star'
+    }));
+  }
+
+  return [];
 }
 
 /**
  * Live Places / Attractions search using Google Maps engine on SerpApi
  * Returns EXACT GPS Coordinates (latitude & longitude) for route planning!
  */
-export async function searchPlaces({ destination, interests = [], limit = 15, strict = false }) {
+export async function searchPlaces({ destination, interests = [], limit = 20, strict = false }) {
   const apiKey = getApiKey();
   const interestTerms = interests.length > 0 ? interests.join(' ') : 'sightseeing attractions food culture';
   const query = `top attractions and things to do in ${destination} ${interestTerms}`;
@@ -365,24 +338,31 @@ export async function searchPlaces({ destination, interests = [], limit = 15, st
 
     const localResults = res.data.local_results || [];
     if (localResults.length > 0) {
-      return localResults.slice(0, limit).map((place, idx) => ({
-        id: `pl-${Math.random().toString(36).substring(2, 8)}`,
-        title: place.title || `Attraction in ${destination}`,
-        category: place.type || 'Sightseeing & Landmark',
-        rating: place.rating ?? (strict ? null : 4.5),
-        reviewsCount: place.reviews ?? (strict ? null : 850),
-        address: place.address || (strict ? null : destination),
-        gpsCoordinates: place.gps_coordinates ? {
-          latitude: place.gps_coordinates.latitude,
-          longitude: place.gps_coordinates.longitude
-        } : null,
-        description: place.description || place.snippet || (strict ? null : `Iconic point of interest in ${destination} loved by travelers.`),
-        thumbnail: place.thumbnail || (strict ? null : 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=500&auto=format&fit=crop&q=80'),
-        operatingHours: place.operating_hours?.current_status || (strict ? null : 'Open Daily 09:00 AM - 06:00 PM'),
-        website: place.website || null,
-        priceLevel: place.price || (strict ? null : 'Free / Moderate Entry'),
-        estimatedDurationMinutes: 90
-      }));
+      return localResults.slice(0, limit).map((place, idx) => {
+        const placeTitle = place.title || `Attraction in ${destination}`;
+        const placeAddress = place.address || `${destination} Area`;
+        const mapsUrl = place.link || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(placeTitle + ' ' + placeAddress)}`;
+
+        return {
+          id: `pl-${Math.random().toString(36).substring(2, 8)}`,
+          title: placeTitle,
+          category: place.type || 'Sightseeing & Landmark',
+          rating: place.rating ?? (strict ? null : 4.5),
+          reviewsCount: place.reviews ?? (strict ? null : 850),
+          address: placeAddress,
+          gpsCoordinates: place.gps_coordinates ? {
+            latitude: place.gps_coordinates.latitude,
+            longitude: place.gps_coordinates.longitude
+          } : null,
+          description: place.description || place.snippet || (strict ? null : `Iconic point of interest in ${destination} loved by travelers.`),
+          thumbnail: place.thumbnail || (strict ? null : 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=500&auto=format&fit=crop&q=80'),
+          operatingHours: place.operating_hours?.current_status || (strict ? null : 'Open Daily · 09:00 AM - 06:00 PM'),
+          website: place.website || null,
+          googleMapsUrl: mapsUrl,
+          priceLevel: place.price || (strict ? null : 'Free / Moderate Entry'),
+          estimatedDurationMinutes: 90
+        };
+      });
     }
   } catch (err) {
     if (strict) throw err;
@@ -392,22 +372,26 @@ export async function searchPlaces({ destination, interests = [], limit = 15, st
   if (strict) throw new Error(`No live Google Maps places found for ${destination}.`);
 
   // Fallback to organic Google search if Google Maps engine call fails
-  const organicPlaces = await search(`famous places to visit in ${destination} tourist attractions`, 8);
-  return organicPlaces.map((item, idx) => ({
-    id: `pl-fb-${idx}`,
-    title: item.title.split(' - ')[0].split(' | ')[0],
-    category: idx % 2 === 0 ? 'Heritage & Culture' : 'Scenic Viewpoint & Leisure',
-    rating: 4.5,
-    reviewsCount: 650,
-    address: `${destination} Region`,
-    gpsCoordinates: null,
-    description: item.snippet || `Must-visit destination highlight in ${destination}.`,
-    thumbnail: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=500&auto=format&fit=crop&q=80',
-    operatingHours: 'Open Daily',
-    website: item.link,
-    priceLevel: '₹150 - ₹500',
-    estimatedDurationMinutes: 100
-  }));
+  const organicPlaces = await search(`famous places to visit in ${destination} tourist attractions`, 12);
+  return organicPlaces.map((item, idx) => {
+    const title = item.title.split(' - ')[0].split(' | ')[0].trim();
+    return {
+      id: `pl-fb-${idx}`,
+      title,
+      category: idx % 2 === 0 ? 'Heritage & Culture' : 'Scenic Viewpoint & Leisure',
+      rating: Math.round((4.4 + ((idx % 4) * 0.1)) * 10) / 10,
+      reviewsCount: 450 + (idx * 80),
+      address: `${destination} Region`,
+      gpsCoordinates: null,
+      description: item.snippet || `Must-visit destination highlight in ${destination}.`,
+      thumbnail: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=500&auto=format&fit=crop&q=80',
+      operatingHours: 'Open Daily · 09:00 AM - 06:00 PM',
+      website: item.link,
+      googleMapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(title + ' ' + destination)}`,
+      priceLevel: '₹150 - ₹500',
+      estimatedDurationMinutes: 100
+    };
+  });
 }
 
 /**

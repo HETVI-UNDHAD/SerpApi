@@ -261,10 +261,10 @@ export default function TripBuilderPage() {
                 {/* Primary CTA */}
                 <button
                   type="submit"
-                  className="w-full py-4 rounded-xl bg-[#c8ef61] hover:bg-[#d8f58c] text-[#182117] font-extrabold text-sm shadow-lg shadow-lime-500/15 flex items-center justify-center gap-2 transition-all hover:-translate-y-0.5"
+                  className="w-full py-4 rounded-xl bg-[#D92638] hover:bg-[#B91C2C] text-white font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-red-600/25 flex items-center justify-center gap-2 transition-all hover:-translate-y-0.5"
                 >
                   <Sparkles className="w-4 h-4" />
-                  <span>Generate My Trip</span>
+                  <span>Generate Master Itinerary</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
 
@@ -272,14 +272,14 @@ export default function TripBuilderPage() {
                 <button
                   type="button"
                   onClick={openDiscovery}
-                  className={`w-full py-3 rounded-2xl border text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+                  className={`w-full py-3 rounded-xl border text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${
                     isDark
-                      ? 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10 hover:text-white'
-                      : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200 hover:text-slate-900'
+                      ? 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700 hover:text-white'
+                      : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 hover:text-slate-900'
                   }`}
                 >
-                  <Sparkles className="w-3.5 h-3.5 text-cyan-500" />
-                  <span>AI Destination Discovery</span>
+                  <Compass className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Discover Inspiring Destinations</span>
                 </button>
 
                 <p className={`text-[10px] text-center ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
@@ -420,7 +420,7 @@ function Pill({ active, onClick, isDark, children }) {
       onClick={onClick}
       className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
         active
-          ? 'bg-[#c8ef61] text-[#182117] shadow-sm border border-lime-300/50'
+          ? 'bg-[#0C2340] text-white shadow-sm border border-[#0C2340] dark:bg-blue-600 dark:border-blue-500'
           : isDark
           ? 'bg-white/5 text-slate-300 border border-white/10 hover:border-white/25 hover:text-white'
           : 'bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200/70 hover:text-slate-900'
@@ -443,8 +443,8 @@ function PlainInput({ icon, value, onChange, placeholder, required, isDark }) {
         placeholder={placeholder}
         className={`w-full pl-10 pr-4 py-3.5 rounded-xl text-sm font-medium focus:outline-none transition-colors ${
           isDark
-            ? 'bg-white/[0.04] border border-white/10 text-white placeholder-slate-500 focus:border-[#c8ef61] focus:bg-white/[0.07]'
-            : 'bg-white border border-slate-200 text-slate-900 placeholder-slate-400 focus:border-teal-500 shadow-sm'
+            ? 'bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:border-blue-500'
+            : 'bg-white border border-slate-200 text-slate-900 placeholder-slate-400 focus:border-blue-600 shadow-sm'
         }`}
       />
     </div>
@@ -464,8 +464,8 @@ function NumInput({ icon, value, onChange, min, max, step = 1, isDark }) {
         onChange={e => onChange(parseInt(e.target.value, 10) || min)}
         className={`w-full pl-10 pr-4 py-3.5 rounded-xl text-sm font-medium focus:outline-none transition-colors ${
           isDark
-            ? 'bg-white/[0.04] border border-white/10 text-white focus:border-[#c8ef61] focus:bg-white/[0.07]'
-            : 'bg-white border border-slate-200 text-slate-900 focus:border-teal-500 shadow-sm'
+            ? 'bg-slate-900 border border-slate-700 text-white focus:border-blue-500'
+            : 'bg-white border border-slate-200 text-slate-900 focus:border-blue-600 shadow-sm'
         }`}
       />
     </div>

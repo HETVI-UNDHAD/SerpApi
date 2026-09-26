@@ -7,7 +7,8 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000
 
 export function TripProvider({ children }) {
   const [theme, setTheme] = useState(() => {
-    return localStorage.getItem('travelos_theme') || 'dark';
+    const saved = localStorage.getItem('travelos_theme');
+    return saved === 'dark' ? 'light' : (saved || 'light');
   });
 
   React.useEffect(() => {

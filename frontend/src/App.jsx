@@ -14,19 +14,21 @@ function AppContent() {
   const isDark = theme === 'dark';
 
   return (
-    <div className={`relative min-h-screen flex flex-col font-sans transition-colors duration-400 selection:bg-indigo-500 selection:text-white ${
-      isDark ? 'text-slate-100' : 'text-slate-900'
+    <div className={`relative min-h-screen flex flex-col font-sans transition-colors duration-400 selection:bg-blue-600 selection:text-white ${
+      isDark ? 'text-slate-100 bg-[#090D16]' : 'text-slate-900 bg-[#FBFBFA]'
     }`}>
       <TravelBackdrop isDark={isDark} />
       <Navbar />
-      <main className="flex-1">
-        {activeScreen === 'landing' && <LandingPage />}
-        {activeScreen === 'builder' && <TripBuilderPage />}
-        {activeScreen === 'research' && <ResearchCenterPage />}
-        {activeScreen === 'dashboard' && <DashboardPage />}
-        {activeScreen === 'design-showcase' && <DesignShowcasePage />}
-      </main>
-      <Footer />
+      <div className="flex-1 flex flex-col min-w-0 transition-all duration-300">
+        <main className="flex-1">
+          {activeScreen === 'landing' && <LandingPage />}
+          {activeScreen === 'builder' && <TripBuilderPage />}
+          {activeScreen === 'research' && <ResearchCenterPage />}
+          {activeScreen === 'dashboard' && <DashboardPage />}
+          {activeScreen === 'design-showcase' && <DesignShowcasePage />}
+        </main>
+        <Footer />
+      </div>
     </div>
   );
 }

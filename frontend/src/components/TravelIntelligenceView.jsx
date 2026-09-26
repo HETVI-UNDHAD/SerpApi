@@ -54,25 +54,25 @@ export default function TravelIntelligenceView() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
         {/* Why This Hotel? */}
-        <div className={`p-5 sm:p-6 rounded-2xl border shadow-luxury-light dark:shadow-luxury-dark space-y-5 ${
-          isDark ? 'bg-slate-900/70 border-white/10' : 'bg-white border-slate-200/80'
+        <div className={`p-5 sm:p-6 rounded-2xl border shadow-xl space-y-5 ${
+          isDark ? 'bg-[#111726] border-slate-800' : 'bg-white border-slate-200/80'
         }`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-cyan-500/10 text-cyan-500 border border-cyan-500/15 flex items-center justify-center font-bold">
+              <div className="w-9 h-9 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 flex items-center justify-center font-bold">
                 <Building className="w-5 h-5" />
               </div>
               <h3 className={`font-black text-base ${isDark ? 'text-white' : 'text-slate-900'}`}>
                 Why This Hotel Was Selected
               </h3>
             </div>
-            <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-cyan-500/10 text-cyan-600 border border-cyan-500/20">
+            <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
               #1 Ranked
             </span>
           </div>
 
           <div className={`p-4 rounded-2xl border text-xs leading-relaxed ${
-            isDark ? 'bg-white/[0.03] border-white/10 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
+            isDark ? 'bg-[#0B0F19] border-slate-800 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
           }`}>
             {decisions?.whyHotel || `Selected based on high guest rating (${selectedOptions.hotel?.rating || 4.7}★) and optimal proximity to your itinerary destinations.`}
           </div>
@@ -83,10 +83,10 @@ export default function TravelIntelligenceView() {
               <div key={m.label}>
                 <div className="flex justify-between text-xs mb-1">
                   <span className={isDark ? 'text-slate-300' : 'text-slate-700'}>{m.label}</span>
-                  <span className="font-bold text-cyan-600">{m.val}%</span>
+                  <span className="font-bold text-cyan-400">{m.val}%</span>
                 </div>
                 <div className={`h-1.5 rounded-full ${isDark ? 'bg-slate-800' : 'bg-slate-200'}`}>
-                  <div className="h-full rounded-full bg-cyan-500 transition-all duration-700" style={{width:`${m.val}%`}} />
+                  <div className="h-full rounded-full bg-cyan-400 transition-all duration-700" style={{width:`${m.val}%`}} />
                 </div>
               </div>
             ))}
@@ -94,40 +94,40 @@ export default function TravelIntelligenceView() {
 
           <div className="space-y-2 text-xs">
             <div className="flex items-center gap-2.5">
-              <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
               <span className={isDark ? 'text-slate-300' : 'text-slate-700'}><strong>Price Efficiency:</strong> ₹{selectedOptions.hotel?.pricePerNight?.toLocaleString('en-IN')}/night within allocated budget</span>
             </div>
             <div className="flex items-center gap-2.5">
-              <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
               <span className={isDark ? 'text-slate-300' : 'text-slate-700'}><strong>Clustered Basecamp:</strong> Under 15 minutes average drive to daily sightseeing clusters</span>
             </div>
             <div className="flex items-center gap-2.5">
-              <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
               <span className={isDark ? 'text-slate-300' : 'text-slate-700'}><strong>Verified Reviews:</strong> {selectedOptions.hotel?.reviewsCount || 420}+ verified Google reviews</span>
             </div>
           </div>
         </div>
 
         {/* Why This Flight? */}
-        <div className={`p-5 sm:p-6 rounded-2xl border shadow-luxury-light dark:shadow-luxury-dark space-y-5 ${
-          isDark ? 'bg-slate-900/70 border-white/10' : 'bg-white border-slate-200/80'
+        <div className={`p-5 sm:p-6 rounded-2xl border shadow-xl space-y-5 ${
+          isDark ? 'bg-[#111726] border-slate-800' : 'bg-white border-slate-200/80'
         }`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-cyan-500/10 text-cyan-500 border border-cyan-500/15 flex items-center justify-center font-bold">
+              <div className="w-9 h-9 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 flex items-center justify-center font-bold">
                 <Plane className="w-5 h-5" />
               </div>
               <h3 className={`font-black text-base ${isDark ? 'text-white' : 'text-slate-900'}`}>
                 {transportMode === 'flight' ? 'Why This Flight Was Selected' : transportMode === 'train' ? 'Selected Train / Transit' : 'Selected Self-Car Route'}
               </h3>
             </div>
-            <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-cyan-500/10 text-cyan-600 border border-cyan-500/20">
+            <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
               Optimal Schedule
             </span>
           </div>
 
           <div className={`p-4 rounded-2xl border text-xs leading-relaxed ${
-            isDark ? 'bg-cyan-500/[0.06] border-cyan-500/15 text-slate-300' : 'bg-cyan-50/70 border-cyan-200/80 text-slate-700'
+            isDark ? 'bg-[#0B0F19] border-slate-800 text-slate-300' : 'bg-cyan-50/70 border-cyan-200/80 text-slate-700'
           }`}>
             {decisions?.whyTransportation || decisions?.whyFlight || (transportMode === 'flight' ? 'Flight information unavailable.' : transportMode === 'train' ? 'No train/transit route was returned.' : 'Driving route unavailable.')}
           </div>
@@ -138,7 +138,7 @@ export default function TravelIntelligenceView() {
               <div key={m.label}>
                 <div className="flex justify-between text-xs mb-1">
                   <span className={isDark ? 'text-slate-300' : 'text-slate-700'}>{m.label}</span>
-                  <span className="font-semibold text-cyan-500">{m.value}</span>
+                  <span className="font-semibold text-cyan-400">{m.value}</span>
                 </div>
               </div>
             ))}
@@ -146,19 +146,19 @@ export default function TravelIntelligenceView() {
 
           <div className="space-y-2.5 text-xs">
             <div className="flex items-center gap-2.5">
-              <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
               <span className={isDark ? 'text-slate-300' : 'text-slate-700'}>
                 <strong>Selected mode:</strong> {transportMode === 'self_car' ? 'Self Car' : transportMode === 'train' ? 'Train / Transit' : 'Flight'} · {transportation?.duration || 'Duration not provided'}
               </span>
             </div>
             <div className="flex items-center gap-2.5">
-              <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
               <span className={isDark ? 'text-slate-300' : 'text-slate-700'}>
                 <strong>Route source:</strong> {transportation?.source || 'google_flights'}
               </span>
             </div>
             <div className="flex items-center gap-2.5">
-              <ShieldCheck className="w-4 h-4 text-cyan-500 flex-shrink-0" />
+              <ShieldCheck className="w-4 h-4 text-cyan-400 flex-shrink-0" />
               <span className={isDark ? 'text-slate-300' : 'text-slate-700'}>
                 <strong>Transportation cost:</strong> {transportation?.cost == null ? 'Not provided' : `${transportation.costType === 'estimated' ? 'Estimated' : 'Returned'} ₹${transportation.cost.toLocaleString('en-IN')}`}
               </span>
@@ -170,7 +170,7 @@ export default function TravelIntelligenceView() {
 
       {/* ── VERIFIED GUEST REVIEWS SENTIMENT ── */}
       <div className={`p-6 sm:p-8 rounded-3xl border shadow-xl space-y-4 ${
-        isDark ? 'bg-slate-900/70 border-white/8 shadow-luxury-dark' : 'bg-white border-slate-200/80 shadow-luxury'
+        isDark ? 'bg-[#111726] border-slate-800 shadow-xl' : 'bg-white border-slate-200/80 shadow-luxury'
       }`}>
         <div className="flex items-center gap-2">
           <ThumbsUp className="w-5 h-5 text-indigo-500" />
