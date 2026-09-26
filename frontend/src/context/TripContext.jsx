@@ -6,7 +6,26 @@ const TripContext = createContext();
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 
 export function TripProvider({ children }) {
-  const [activeScreen, setActiveScreen] = useState('landing'); // 'landing' | 'builder' | 'research' | 'dashboard'
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem('travelos_theme') || 'dark';
+  });
+
+  React.useEffect(() => {
+    localStorage.setItem('travelos_theme', theme);
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+      document.documentElement.classList.remove('light');
+    } else {
+      document.documentElement.classList.add('light');
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme]);
+
+  function toggleTheme() {
+    setTheme(t => (t === 'dark' ? 'light' : 'dark'));
+  }
+
+  const [activeScreen, setActiveScreen] = useState('landing'); // 'landing' | 'builder' | 'research' | 'dashboard' | 'design-showcase'
   const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'itinerary' | 'map' | 'flights' | 'hotels' | 'budget' | 'intelligence' | 'assistant'
   const [selectedDay, setSelectedDay] = useState(1);
 
@@ -257,6 +276,9 @@ export function TripProvider({ children }) {
   return (
     <TripContext.Provider
       value={{
+        theme,
+        setTheme,
+        toggleTheme,
         activeScreen,
         setActiveScreen,
         activeTab,

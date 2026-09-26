@@ -19,7 +19,7 @@ export default function DestinationResults({ status, destinations, queryUsed, pr
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-12">
           <div>
             <div className="inline-flex items-center gap-2 bg-teal-50 text-teal-700 text-xs font-bold px-3 py-1.5 rounded-full border border-teal-200 mb-4">
-              📍 DESTINATION DISCOVERY
+              DESTINATION DISCOVERY
             </div>
             <h2 className="text-4xl sm:text-5xl font-black text-navy-900 leading-tight">
               {status === 'loading' && 'Finding destinations\nfor you...'}
@@ -31,7 +31,7 @@ export default function DestinationResults({ status, destinations, queryUsed, pr
             {preferences && status !== 'loading' && (
               <div className="flex flex-wrap items-center gap-2 mt-4">
                 <span className="text-xs font-semibold bg-slate-100 text-slate-600 px-3 py-1 rounded-full">
-                  📍 {preferences.origin}
+                  {preferences.origin}
                 </span>
                 <span className="text-xs font-semibold bg-slate-100 text-slate-600 px-3 py-1 rounded-full">
                   📅 {preferences.days} day{preferences.days > 1 ? 's' : ''}

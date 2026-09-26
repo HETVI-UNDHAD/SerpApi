@@ -2,7 +2,7 @@
 // Connect real LLM output here in a later step.
 
 const INSIGHT_ITEMS = [
-  { label: 'Travel style',  value: 'Nature + Food',  icon: '🌿' },
+  { label: 'Travel style',  value: 'Nature + Food',  icon: '•' },
   { label: 'Trip pace',     value: 'Balanced',        icon: '⚖️' },
   { label: 'Best season',   value: 'Oct – Feb',       icon: '🌤️' },
   { label: 'Budget range',  value: '₹15,000',         icon: '💰' },

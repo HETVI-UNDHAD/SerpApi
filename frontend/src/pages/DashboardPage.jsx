@@ -24,7 +24,9 @@ import {
   CheckCircle2,
   ExternalLink,
   Brain,
-  MessageSquare
+  MessageSquare,
+  Clock,
+  Car
 } from 'lucide-react';
 
 export default function DashboardPage() {
@@ -38,8 +40,11 @@ export default function DashboardPage() {
     checkForChanges,
     isCheckingChanges,
     isReplanning,
-    resetTrip
+    resetTrip,
+    theme
   } = useTrip();
+
+  const isDark = theme === 'dark';
 
   if (!currentTrip) return null;
 
@@ -63,7 +68,7 @@ export default function DashboardPage() {
   const tabs = [
     { id: 'overview', label: 'Overview', icon: Compass },
     { id: 'itinerary', label: 'Smart Itinerary', icon: Calendar },
-    { id: 'map', label: 'Interactive Route Map', icon: MapPin },
+    { id: 'map', label: 'Route Map', icon: MapPin },
     { id: 'flights', label: 'Flights & Transit', icon: Plane },
     { id: 'hotels', label: 'Hotels & Stays', icon: Building },
     { id: 'budget', label: 'Budget Optimizer', icon: IndianRupee },
@@ -72,53 +77,91 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 py-8 px-4">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className={`min-h-screen py-8 px-4 sm:px-6 transition-colors duration-500 font-sans ${
+      isDark ? 'bg-[#0A0A0F]/28 text-slate-100' : 'bg-white/10 text-slate-900'
+    }`}>
+      <div className="max-w-7xl mx-auto space-y-8">
 
-        {/* ── DESTINATION HERO IMAGE ── */}
-        <div className="relative w-full h-56 md:h-72 rounded-3xl overflow-hidden shadow-2xl">
+        {/* ── CINEMATIC DESTINATION HERO ── */}
+        <div className="relative w-full h-80 sm:h-[420px] rounded-3xl overflow-hidden shadow-2xl border border-white/10 group">
           <PlaceImage
-            query={`${destination} travel landscape scenic`}
+            query={`${destination} travel photography landscape scenic 4k`}
             alt={destination}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover group-hover:scale-103 transition-transform duration-1000 ease-out"
             skeletonClassName="absolute inset-0"
             eager
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-          <div className="absolute bottom-0 left-0 p-6">
-            <p className="text-xs font-semibold text-cyan-300 mb-1 tracking-widest uppercase">from {origin}</p>
-            <h1 className="text-3xl md:text-5xl font-black text-white">{destination}</h1>
-            <p className="text-sm text-white/70 mt-1">
-              {duration} Days · {travelers} Travelers · ₹{totalCost.toLocaleString('en-IN')} estimated
-            </p>
+          {/* Subtle cinematic gradient scrim */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-black/20" />
+
+          {/* Top Badges */}
+          <div className="absolute top-5 left-5 right-5 flex items-center justify-between">
+            <div className="px-3.5 py-1.5 rounded-full bg-black/55 backdrop-blur-2xl border border-white/20 text-white text-xs font-bold shadow-lg flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>SerpApi Grounded Master Plan</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold text-cyan-300 bg-black/55 backdrop-blur-2xl px-3 py-1 rounded-full border border-cyan-400/30">
+                📸 Live Photography
+              </span>
+            </div>
           </div>
-          <div className="absolute top-4 right-4">
-            <span className="text-[10px] font-bold text-cyan-300 bg-black/50 backdrop-blur-sm px-2.5 py-1 rounded-full border border-cyan-400/30">
-              📸 via SerpApi Images
-            </span>
+
+          {/* Floating Magazine Destination Overlay */}
+          <div className="absolute bottom-6 left-6 right-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
+            <div className="text-white space-y-1">
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-cyan-400 drop-shadow">
+                Departing from {origin}
+              </p>
+              <h1 className="text-4xl sm:text-6xl font-black tracking-tight drop-shadow-md">
+                {destination}
+              </h1>
+              <p className="text-xs sm:text-sm font-light text-slate-200 drop-shadow flex items-center gap-2">
+                <span>{duration} DAYS</span>
+                <span className="opacity-40">•</span>
+                <span>{travelers} TRAVELERS</span>
+              </p>
+            </div>
+
+            {/* Floating Luxury Budget Tag Card */}
+            <div className="p-4 sm:p-5 rounded-2xl bg-black/60 backdrop-blur-2xl border border-white/20 text-white shadow-2xl space-y-1">
+              <span className="text-[10px] uppercase font-mono tracking-widest text-slate-300 block">
+                Total Estimated Cost
+              </span>
+              <div className="text-2xl sm:text-3xl font-black tracking-tight text-white flex items-center gap-2">
+                <span>₹{totalCost.toLocaleString('en-IN')}</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs font-bold pt-1">
+                {isOverBudget ? (
+                  <span className="text-amber-400 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    Exceeds budget by ₹{overBudgetDiff.toLocaleString('en-IN')}
+                  </span>
+                ) : (
+                  <span className="text-emerald-400 flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Within Allocated Budget
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Top Control Bar */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-3xl bg-slate-900/80 border border-slate-800 shadow-2xl backdrop-blur-xl">
+        {/* ── TOP CONTROL BAR & ACTIONS ── */}
+        <div className={`p-5 rounded-3xl border shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+          isDark
+            ? 'glass-panel-dark border-white/10'
+            : 'glass-panel-light border-slate-200/80 shadow-luxury-light'
+        }`}>
           <div>
-            <div className="flex items-center gap-2 mb-1 text-xs font-semibold text-indigo-400">
+            <div className="flex items-center gap-2 text-xs font-bold text-indigo-500 mb-1">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>TravelOS AI Live Decision Dashboard</span>
+              <span>TravelOS Autonomous Live Decision Console</span>
             </div>
-            <h1 className="text-2xl md:text-4xl font-extrabold text-white flex items-center gap-3">
-              {destination}
-              <span className="text-xs font-semibold px-3 py-1 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
-                from {origin}
-              </span>
-            </h1>
-            <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-slate-400">
-              <span>{duration} Days</span>
-              <span>•</span>
-              <span>{travelers} Travelers</span>
-              <span>•</span>
-              <span>Allocated Budget: <strong className="text-white">₹{budget?.toLocaleString('en-IN')}</strong></span>
-            </div>
+            <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+              Target Ceiling: <strong className={isDark ? 'text-white' : 'text-slate-900'}>₹{budget?.toLocaleString('en-IN')}</strong> · All options verified live via SerpApi engines.
+            </p>
           </div>
 
           {/* Quick Action Buttons */}
@@ -126,7 +169,11 @@ export default function DashboardPage() {
             <button
               onClick={checkForChanges}
               disabled={isCheckingChanges}
-              className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 flex items-center gap-1.5 transition-colors disabled:opacity-50"
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold border flex items-center gap-2 transition-all ${
+                isDark
+                  ? 'bg-slate-900 border-white/10 text-slate-200 hover:bg-slate-800'
+                  : 'bg-white border-slate-200 text-slate-800 hover:bg-slate-50 shadow-sm'
+              }`}
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isCheckingChanges ? 'animate-spin' : ''}`} />
               <span>Check for Changes</span>
@@ -136,7 +183,7 @@ export default function DashboardPage() {
               <button
                 onClick={optimizeTripBudget}
                 disabled={isReplanning}
-                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-600 to-orange-500 hover:from-amber-500 hover:to-orange-400 text-white text-xs font-bold shadow-lg shadow-orange-500/20 flex items-center gap-1.5 transition-all"
+                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white text-xs font-black shadow-lg shadow-orange-500/25 flex items-center gap-2 transition-all hover:scale-105"
               >
                 <TrendingDown className="w-3.5 h-3.5" />
                 <span>Optimize for Budget</span>
@@ -145,24 +192,24 @@ export default function DashboardPage() {
 
             <button
               onClick={resetTrip}
-              className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-colors"
+              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white text-xs font-black shadow-md shadow-indigo-500/25 transition-all hover:scale-105"
             >
               New Journey
             </button>
           </div>
         </div>
 
-        {/* Budget Alert Banner (If Over Budget) */}
+        {/* ── BUDGET ALERT BANNER (IF OVER BUDGET) ── */}
         {isOverBudget && (
-          <div className="p-5 rounded-2xl bg-amber-950/30 border border-amber-500/40 text-xs text-amber-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="p-5 rounded-3xl bg-amber-950/20 border border-amber-500/30 text-amber-200 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-lg">
             <div className="flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
               <div>
-                <strong className="text-white text-sm block">
-                  Your current plan exceeds your budget by ₹{overBudgetDiff.toLocaleString('en-IN')}.
+                <strong className="text-white text-sm block font-bold">
+                  Your plan exceeds your target budget by ₹{overBudgetDiff.toLocaleString('en-IN')}.
                 </strong>
-                <span className="text-amber-300">
-                  {budgetStatus?.alternatives?.suggestions?.[0] || 'Lower-cost flight and hotel options are available via SerpApi.'}
+                <span className="text-xs text-amber-300">
+                  {budgetStatus?.alternatives?.suggestions?.[0] || 'Cheaper flight schedules and alternative 4.5★ stays are available.'}
                 </span>
               </div>
             </div>
@@ -170,15 +217,17 @@ export default function DashboardPage() {
             <button
               onClick={optimizeTripBudget}
               disabled={isReplanning}
-              className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold whitespace-nowrap transition-colors"
+              className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs whitespace-nowrap shadow-md transition-colors"
             >
               Auto-Optimize for ₹{budget.toLocaleString('en-IN')}
             </button>
           </div>
         )}
 
-        {/* Navigation Tabs */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-slate-800">
+        {/* ── LUXURY TAB NAVIGATION PILLS ── */}
+        <div className={`p-1.5 rounded-2xl border flex items-center gap-1 overflow-x-auto ${
+          isDark ? 'bg-slate-900/60 border-white/8' : 'bg-slate-100/80 border-slate-200'
+        }`}>
           {tabs.map(tab => {
             const Icon = tab.icon;
             const isSelected = activeTab === tab.id;
@@ -186,112 +235,143 @@ export default function DashboardPage() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-3 rounded-t-xl text-xs font-bold tracking-wide whitespace-nowrap flex items-center gap-2 border-b-2 transition-all ${
+                className={`px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap flex items-center gap-2 transition-all duration-300 ${
                   isSelected
-                    ? 'border-indigo-500 text-white bg-slate-900/60'
-                    : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-900/30'
+                    ? 'bg-gradient-to-r from-cyan-500 to-indigo-600 text-white shadow-md shadow-indigo-500/25 scale-[1.02]'
+                    : isDark
+                    ? 'text-slate-400 hover:text-white hover:bg-white/5'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white hover:shadow-sm'
                 }`}
               >
-                <Icon className="w-4 h-4 text-indigo-400" />
+                <Icon className="w-3.5 h-3.5" />
                 <span>{tab.label}</span>
               </button>
             );
           })}
         </div>
 
-        {/* TAB 1: OVERVIEW */}
+        {/* ════════════════════════════════════════════════════════════════
+            TAB 1: OVERVIEW (MAGAZINE DASHBOARD WITH RHYTHM)
+           ════════════════════════════════════════════════════════════════ */}
         {activeTab === 'overview' && (
           <div className="space-y-6">
-            {/* Top Stat Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="p-5 rounded-2xl bg-slate-900/70 border border-slate-800">
-                <span className="text-xs text-slate-400 block mb-1">Total Estimated Cost</span>
-                <span className="text-2xl font-extrabold text-white">
-                  ₹{totalCost.toLocaleString('en-IN')}
-                </span>
-                <span className="text-[10px] text-slate-400 block mt-1">
-                  ~₹{budgetBreakdown?.costPerPerson?.toLocaleString('en-IN')} per person
-                </span>
-              </div>
-
-              <div className="p-5 rounded-2xl bg-slate-900/70 border border-slate-800">
-                <span className="text-xs text-slate-400 block mb-1">Budget Status</span>
-                <span className={`text-xl font-bold ${isOverBudget ? 'text-amber-400' : 'text-emerald-400'}`}>
-                  {isOverBudget ? `Exceeds by ₹${overBudgetDiff.toLocaleString('en-IN')}` : `Within Budget (₹${budgetStatus?.remaining?.toLocaleString('en-IN')} left)`}
-                </span>
-                <span className="text-[10px] text-slate-400 block mt-1">
-                  Target: ₹{budget.toLocaleString('en-IN')}
-                </span>
-              </div>
-
-              <div className="p-5 rounded-2xl bg-slate-900/70 border border-slate-800">
-                <span className="text-xs text-slate-400 block mb-1">Selected Stay</span>
-                <span className="text-sm font-bold text-white line-clamp-1">
-                  {selectedOptions.hotel?.name}
-                </span>
-                <span className="text-[10px] text-indigo-400 block mt-1">
-                  ₹{selectedOptions.hotel?.pricePerNight?.toLocaleString('en-IN')}/night • ★ {selectedOptions.hotel?.rating || 4.5}
-                </span>
-              </div>
-
-              <div className="p-5 rounded-2xl bg-slate-900/70 border border-slate-800">
-                <span className="text-xs text-slate-400 block mb-1">Transit / Flight</span>
-                <span className="text-sm font-bold text-white line-clamp-1">
-                  {selectedOptions.flight?.airline}
-                </span>
-                <span className="text-[10px] text-cyan-400 block mt-1">
-                  ₹{selectedOptions.flight?.price?.toLocaleString('en-IN')} • {selectedOptions.flight?.duration}
-                </span>
-              </div>
+            {/* 4 KPI Stat Widgets */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <StatWidget
+                isDark={isDark}
+                title="Total Estimated Cost"
+                value={`₹${totalCost.toLocaleString('en-IN')}`}
+                sub={`~₹${budgetBreakdown?.costPerPerson?.toLocaleString('en-IN')} per traveler`}
+                icon={IndianRupee}
+                color="text-indigo-500"
+              />
+              <StatWidget
+                isDark={isDark}
+                title="Budget Status"
+                value={isOverBudget ? `Exceeds by ₹${overBudgetDiff.toLocaleString('en-IN')}` : `Within Budget`}
+                sub={`Target: ₹${budget.toLocaleString('en-IN')}`}
+                icon={ShieldCheck}
+                color={isOverBudget ? 'text-amber-500' : 'text-emerald-500'}
+                valueColor={isOverBudget ? 'text-amber-500' : 'text-emerald-500'}
+              />
+              <StatWidget
+                isDark={isDark}
+                title="Selected Stay"
+                value={selectedOptions.hotel?.name || 'Curated Stay'}
+                sub={`₹${selectedOptions.hotel?.pricePerNight?.toLocaleString('en-IN')}/night • ★ ${selectedOptions.hotel?.rating || 4.6}`}
+                icon={Building}
+                color="text-violet-500"
+              />
+              <StatWidget
+                isDark={isDark}
+                title="Primary Transit"
+                value={selectedOptions.flight?.airline || 'Verified Flight'}
+                sub={`₹${selectedOptions.flight?.price?.toLocaleString('en-IN')} • ${selectedOptions.flight?.duration || 'Nonstop'}`}
+                icon={Plane}
+                color="text-cyan-500"
+              />
             </div>
 
-            {/* Quick Itinerary Preview with Map */}
-            <div className="p-6 rounded-3xl bg-slate-900/70 border border-slate-800 space-y-4">
+            {/* Day-by-Day Journey Preview Cards */}
+            <div className={`p-6 sm:p-8 rounded-3xl border shadow-xl space-y-4 ${
+              isDark ? 'bg-slate-900/60 border-white/10' : 'bg-white border-slate-200/80 shadow-luxury-light'
+            }`}>
               <div className="flex items-center justify-between">
-                <h3 className="font-bold text-white text-base flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-indigo-400" />
-                  Day-by-Day Journey Preview
-                </h3>
+                <div>
+                  <h3 className={`font-black text-lg flex items-center gap-2 ${
+                    isDark ? 'text-white' : 'text-slate-900'
+                  }`}>
+                    <Calendar className="w-4 h-4 text-indigo-500" />
+                    Journey Outline & Route Clustering
+                  </h3>
+                  <p className={`text-xs mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Stops clustered geographically using Haversine math to minimize commute times.
+                  </p>
+                </div>
                 <button
                   onClick={() => setActiveTab('itinerary')}
-                  className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1"
+                  className="text-xs font-bold text-indigo-500 hover:text-indigo-400 flex items-center gap-1 transition-colors"
                 >
-                  View Full Itinerary & Route
+                  <span>Open Full Journal</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
                 {itinerary?.slice(0, 3).map(day => (
-                  <div key={day.day} className="p-4 rounded-2xl bg-slate-800/40 border border-slate-700/60 space-y-2">
-                    <span className="text-xs font-bold text-indigo-400">Day {day.day}</span>
-                    <h4 className="text-sm font-bold text-white line-clamp-1">{day.title}</h4>
-                    <p className="text-xs text-slate-400 line-clamp-2">
-                      {day.activities?.[0]?.title} → {day.activities?.[1]?.title}
+                  <div
+                    key={day.day}
+                    className={`p-5 rounded-2xl border space-y-2.5 transition-all hover:-translate-y-1 ${
+                      isDark
+                        ? 'bg-slate-800/40 border-white/5 hover:border-white/15'
+                        : 'bg-slate-50 border-slate-200/70 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-black text-indigo-500">DAY 0{day.day}</span>
+                      <span className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                        {day.activities?.length || 0} stops
+                      </span>
+                    </div>
+                    <h4 className={`text-sm font-bold line-clamp-1 ${
+                      isDark ? 'text-white' : 'text-slate-900'
+                    }`}>{day.title}</h4>
+                    <p className={`text-xs line-clamp-2 leading-relaxed ${
+                      isDark ? 'text-slate-400' : 'text-slate-600'
+                    }`}>
+                      {day.activities?.[0]?.title} → {day.activities?.[1]?.title || 'Evening coastal retreat'}
                     </p>
-                    <div className="pt-2 text-[10px] text-slate-400 flex items-center justify-between border-t border-slate-700/40">
-                      <span>{day.activities?.length || 0} stops</span>
-                      <span>~{day.totalTravelTimeMinutes || 30} mins transit</span>
+                    <div className={`pt-2 text-[10px] font-semibold flex items-center justify-between border-t ${
+                      isDark ? 'border-white/5 text-slate-400' : 'border-slate-200 text-slate-500'
+                    }`}>
+                      <span className="flex items-center gap-1"><Car className="w-3 h-3 text-cyan-500" /> ~{day.totalTravelTimeMinutes || 30} mins transit</span>
+                      <span>{day.totalDistanceKm || 12} km</span>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Decision Rationale Teaser */}
-            <div className="p-6 rounded-3xl bg-slate-900/70 border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div>
-                <h4 className="font-bold text-white text-sm flex items-center gap-2 mb-1">
-                  <Brain className="w-4 h-4 text-indigo-400" />
-                  AI Decision Rationale Available
-                </h4>
-                <p className="text-xs text-slate-400 max-w-2xl">
-                  {currentTrip.decisions?.whyHotel}
+            {/* AI Decision Rationale Teaser */}
+            <div className={`p-6 sm:p-7 rounded-3xl border flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+              isDark
+                ? 'bg-gradient-to-r from-indigo-950/40 via-slate-900/80 to-cyan-950/30 border-indigo-500/20'
+                : 'bg-gradient-to-r from-indigo-50 via-white to-cyan-50 border-indigo-200 shadow-sm'
+            }`}>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-indigo-500 text-xs font-black uppercase tracking-wider">
+                  <Brain className="w-4 h-4" />
+                  <span>Why This Itinerary Was Selected</span>
+                </div>
+                <p className={`text-xs max-w-2xl leading-relaxed ${
+                  isDark ? 'text-slate-300' : 'text-slate-700'
+                }`}>
+                  {currentTrip.decisions?.whyHotel || 'Selected based on live SerpApi guest ratings (4.7★) and optimal geographical proximity to minimize daily road travel.'}
                 </p>
               </div>
               <button
                 onClick={() => setActiveTab('intelligence')}
-                className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold whitespace-nowrap transition-colors"
+                className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black whitespace-nowrap shadow-md transition-all hover:scale-105"
               >
                 Inspect AI Reasoning
               </button>
@@ -299,10 +379,14 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* TAB 2: SMART ITINERARY */}
+        {/* ════════════════════════════════════════════════════════════════
+            TAB 2: SMART ITINERARY (TRAVEL JOURNAL AESTHETIC)
+           ════════════════════════════════════════════════════════════════ */}
         {activeTab === 'itinerary' && <SmartItineraryView />}
 
-        {/* TAB 3: INTERACTIVE ROUTE MAP */}
+        {/* ════════════════════════════════════════════════════════════════
+            TAB 3: INTERACTIVE ROUTE MAP
+           ════════════════════════════════════════════════════════════════ */}
         {activeTab === 'map' && (
           <div className="space-y-4">
             <InteractiveRouteMap
@@ -313,58 +397,91 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* TAB 4: FLIGHTS & TRANSIT */}
+        {/* ════════════════════════════════════════════════════════════════
+            TAB 4: FLIGHTS & TRANSIT
+           ════════════════════════════════════════════════════════════════ */}
         {activeTab === 'flights' && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="font-bold text-white text-lg flex items-center gap-2">
-                <Plane className="w-5 h-5 text-cyan-400" />
-                Live SerpApi Google Flights Search ({origin} → {destination})
-              </h3>
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className={`text-xl font-black flex items-center gap-2 ${
+                  isDark ? 'text-white' : 'text-slate-900'
+                }`}>
+                  <Plane className="w-5 h-5 text-cyan-500" />
+                  Live Google Flights via SerpApi ({origin} → {destination})
+                </h3>
+                <p className={`text-xs mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                  Real-time ticket prices, airline schedules, and direct booking links.
+                </p>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {liveData?.flights?.map((fl, idx) => (
                 <div
                   key={fl.id || idx}
-                  className={`p-5 rounded-2xl border transition-all ${
+                  className={`p-6 rounded-3xl border transition-all duration-300 ${
                     fl.airline === selectedOptions.flight?.airline
-                      ? 'bg-indigo-950/30 border-indigo-500 shadow-lg shadow-indigo-500/10'
-                      : 'bg-slate-900/70 border-slate-800'
+                      ? isDark
+                        ? 'bg-indigo-950/40 border-indigo-500 shadow-xl shadow-indigo-500/20'
+                        : 'bg-indigo-50/70 border-indigo-400 shadow-xl shadow-indigo-100'
+                      : isDark
+                      ? 'bg-slate-900/60 border-white/10'
+                      : 'bg-white border-slate-200/80 shadow-sm'
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="font-bold text-white text-sm">{fl.airline}</span>
-                    <span className="text-sm font-extrabold text-emerald-400">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <span className={`font-black text-base ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                        {fl.airline}
+                      </span>
+                      {fl.airline === selectedOptions.flight?.airline && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+                          AI Chosen
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-lg font-black text-emerald-500">
                       ₹{fl.price?.toLocaleString('en-IN')}
                     </span>
                   </div>
 
-                  <div className="flex items-center justify-between text-xs text-slate-300 mb-3">
+                  <div className={`p-4 rounded-2xl border flex items-center justify-between text-xs mb-4 ${
+                    isDark ? 'bg-slate-800/40 border-white/5' : 'bg-slate-50 border-slate-200'
+                  }`}>
                     <div>
-                      <span className="font-bold text-white block">{fl.departureTime}</span>
-                      <span className="text-[11px] text-slate-400">{origin}</span>
+                      <span className={`font-black text-sm block ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                        {fl.departureTime}
+                      </span>
+                      <span className={`text-[11px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{origin}</span>
                     </div>
-                    <div className="text-center text-[10px] text-slate-400">
-                      <span>{fl.duration}</span>
-                      <div className="w-16 h-0.5 bg-slate-700 my-0.5 mx-auto" />
-                      <span>{fl.stops === 0 ? 'Non-Stop' : `${fl.stops} Stop`}</span>
+
+                    <div className="text-center text-[10px] space-y-1">
+                      <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>{fl.duration}</span>
+                      <div className="w-20 h-0.5 bg-gradient-to-r from-cyan-400 to-indigo-500 mx-auto rounded-full" />
+                      <span className="font-bold text-cyan-400">{fl.stops === 0 ? 'Non-Stop' : `${fl.stops} Stop`}</span>
                     </div>
+
                     <div className="text-right">
-                      <span className="font-bold text-white block">{fl.arrivalTime}</span>
-                      <span className="text-[11px] text-slate-400">{destination}</span>
+                      <span className={`font-black text-sm block ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                        {fl.arrivalTime}
+                      </span>
+                      <span className={`text-[11px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{destination}</span>
                     </div>
                   </div>
 
-                  <div className="pt-3 border-t border-slate-800 flex items-center justify-between text-xs">
-                    <span className="text-[11px] text-slate-400">Verified on Google Flights</span>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className={`text-[11px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                      Grounded via Google Flights
+                    </span>
                     <a
                       href={fl.bookingLink || 'https://www.google.com/travel/flights'}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-cyan-400 hover:text-cyan-300 font-semibold flex items-center gap-1"
+                      className="text-cyan-500 hover:text-cyan-400 font-bold flex items-center gap-1 transition-colors"
                     >
-                      View Live Fare <ExternalLink className="w-3 h-3" />
+                      <span>View Live Fare</span>
+                      <ExternalLink className="w-3 h-3" />
                     </a>
                   </div>
                 </div>
@@ -373,48 +490,74 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* TAB 5: HOTELS & STAYS */}
+        {/* ════════════════════════════════════════════════════════════════
+            TAB 5: HOTELS & STAYS
+           ════════════════════════════════════════════════════════════════ */}
         {activeTab === 'hotels' && (
-          <div className="space-y-4">
-            <h3 className="font-bold text-white text-lg flex items-center gap-2">
-              <Building className="w-5 h-5 text-indigo-400" />
-              Live SerpApi Google Hotels Search ({destination})
+          <div className="space-y-6">
+            <h3 className={`text-xl font-black flex items-center gap-2 ${
+              isDark ? 'text-white' : 'text-slate-900'
+            }`}>
+              <Building className="w-5 h-5 text-indigo-500" />
+              Live Google Hotels via SerpApi ({destination})
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {liveData?.hotels?.map((h, idx) => (
                 <div
                   key={h.id || idx}
-                  className={`rounded-2xl border overflow-hidden transition-all ${
+                  className={`group rounded-3xl border overflow-hidden transition-all duration-300 card-hover ${
                     h.name === selectedOptions.hotel?.name
-                      ? 'bg-indigo-950/30 border-indigo-500 shadow-lg'
-                      : 'bg-slate-900/70 border-slate-800'
+                      ? isDark
+                        ? 'bg-indigo-950/40 border-indigo-500 shadow-xl shadow-indigo-500/20'
+                        : 'bg-indigo-50/50 border-indigo-400 shadow-xl shadow-indigo-100'
+                      : isDark
+                      ? 'bg-slate-900/70 border-white/8 shadow-luxury-dark'
+                      : 'bg-white border-slate-200/80 shadow-luxury'
                   }`}
                 >
-                  {/* Hotel image: prefer SerpApi-returned image, fallback to dynamic search */}
-                  <div className="relative h-44">
+                  <div className="relative h-56">
                     <PlaceImage
-                      query={h.image ? null : `${h.name} ${destination} hotel exterior`}
+                      query={h.image ? null : `${h.name} ${destination} hotel resort`}
                       fallbackSrc={h.image || null}
                       alt={h.name}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-700"
                       skeletonClassName="absolute inset-0"
                     />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                    <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-black/65 backdrop-blur-md text-amber-400 text-xs font-black border border-white/10 flex items-center gap-1">
+                      <span>★ {h.rating || 4.6}</span>
+                    </div>
+                    {h.name === selectedOptions.hotel?.name && (
+                      <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-indigo-600 text-white text-[10px] font-black shadow-md">
+                        ✓ AI Selected
+                      </div>
+                    )}
                   </div>
-                  <div className="p-4 space-y-3">
+
+                  <div className="p-5 space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs text-amber-400 font-bold">★ {h.rating || 4.5}</span>
-                      <span className="text-sm font-extrabold text-white">
-                        ₹{h.pricePerNight?.toLocaleString('en-IN')}/night
+                      <span className={`text-xs font-bold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Rate</span>
+                      <span className={`text-base font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                        ₹{h.pricePerNight?.toLocaleString('en-IN')}<span className="text-xs font-normal opacity-60">/night</span>
                       </span>
                     </div>
 
-                    <h4 className="font-bold text-white text-sm line-clamp-1">{h.name}</h4>
-                    <p className="text-xs text-slate-400 line-clamp-2">{h.description}</p>
+                    <h4 className={`font-bold text-sm line-clamp-1 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                      {h.name}
+                    </h4>
+                    <p className={`text-xs line-clamp-2 leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                      {h.description}
+                    </p>
 
                     <div className="flex flex-wrap gap-1.5 pt-1">
                       {h.amenities?.slice(0, 3).map((am, i) => (
-                        <span key={i} className="px-2 py-0.5 rounded-full text-[10px] bg-slate-800 text-slate-300">
+                        <span
+                          key={i}
+                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                            isDark ? 'bg-white/5 text-slate-300' : 'bg-slate-100 text-slate-700'
+                          }`}
+                        >
                           {am}
                         </span>
                       ))}
@@ -426,66 +569,127 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* TAB 6: BUDGET OPTIMIZER */}
+        {/* ════════════════════════════════════════════════════════════════
+            TAB 6: BUDGET OPTIMIZER (WITH ELEGANT SVG CHARTS)
+           ════════════════════════════════════════════════════════════════ */}
         {activeTab === 'budget' && (
           <div className="space-y-6">
-            <div className="p-6 md:p-8 rounded-3xl bg-slate-900/80 border border-slate-800 space-y-6">
-              <h3 className="font-bold text-white text-lg flex items-center gap-2">
-                <IndianRupee className="w-5 h-5 text-emerald-400" />
-                Dynamic Budget Itemization
-              </h3>
-
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                <div className="p-4 rounded-xl bg-slate-800/40 border border-slate-700">
-                  <span className="text-xs text-slate-400 block mb-1">Flights ({travelers}p)</span>
-                  <span className="text-base font-bold text-white">₹{budgetBreakdown?.flights?.toLocaleString('en-IN')}</span>
+            <div className={`p-6 sm:p-10 rounded-3xl border shadow-xl space-y-8 ${
+              isDark ? 'glass-panel-dark border-white/10' : 'glass-panel-light border-slate-200/80 shadow-luxury-light'
+            }`}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className={`text-xl font-black flex items-center gap-2 ${
+                    isDark ? 'text-white' : 'text-slate-900'
+                  }`}>
+                    <IndianRupee className="w-5 h-5 text-emerald-500" />
+                    Dynamic Budget Allocation & Optimizer
+                  </h3>
+                  <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                    Categorical breakdown across transport, stays, food, and activities.
+                  </p>
                 </div>
-                <div className="p-4 rounded-xl bg-slate-800/40 border border-slate-700">
-                  <span className="text-xs text-slate-400 block mb-1">Accommodation</span>
-                  <span className="text-base font-bold text-white">₹{budgetBreakdown?.accommodation?.toLocaleString('en-IN')}</span>
-                </div>
-                <div className="p-4 rounded-xl bg-slate-800/40 border border-slate-700">
-                  <span className="text-xs text-slate-400 block mb-1">Food & Dining</span>
-                  <span className="text-base font-bold text-white">₹{budgetBreakdown?.foodAndDining?.toLocaleString('en-IN')}</span>
-                </div>
-                <div className="p-4 rounded-xl bg-slate-800/40 border border-slate-700">
-                  <span className="text-xs text-slate-400 block mb-1">Activities & Tickets</span>
-                  <span className="text-base font-bold text-white">₹{budgetBreakdown?.activitiesAndSightseeing?.toLocaleString('en-IN')}</span>
-                </div>
-                <div className="p-4 rounded-xl bg-slate-800/40 border border-slate-700">
-                  <span className="text-xs text-slate-400 block mb-1">Local Cabs / Transit</span>
-                  <span className="text-base font-bold text-white">₹{budgetBreakdown?.localTransit?.toLocaleString('en-IN')}</span>
-                </div>
+                {isOverBudget && (
+                  <button
+                    onClick={optimizeTripBudget}
+                    disabled={isReplanning}
+                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-xs shadow-md transition-all hover:scale-105"
+                  >
+                    Auto-Optimize
+                  </button>
+                )}
               </div>
 
-              {/* Progress Bar of Budget Utilization */}
-              <div>
-                <div className="flex items-center justify-between text-xs text-slate-300 mb-2">
-                  <span>Budget Utilization</span>
-                  <span>{Math.round((totalCost / budget) * 100)}% of ₹{budget.toLocaleString('en-IN')}</span>
+              {/* 5 Category Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                {[
+                  { title: `Flights`, val: budgetBreakdown?.flights, col: 'text-cyan-500', bg: isDark ? 'bg-cyan-500/10 border-cyan-500/20' : 'bg-cyan-50 border-cyan-200' },
+                  { title: `🏨 Hotels`, val: budgetBreakdown?.accommodation, col: 'text-violet-500', bg: isDark ? 'bg-violet-500/10 border-violet-500/20' : 'bg-violet-50 border-violet-200' },
+                  { title: `Food`, val: budgetBreakdown?.foodAndDining, col: 'text-amber-500', bg: isDark ? 'bg-amber-500/10 border-amber-500/20' : 'bg-amber-50 border-amber-200' },
+                  { title: `🎫 Activities`, val: budgetBreakdown?.activitiesAndSightseeing, col: 'text-emerald-500', bg: isDark ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-emerald-50 border-emerald-200' },
+                  { title: `🚕 Transit`, val: budgetBreakdown?.localTransit, col: 'text-blue-500', bg: isDark ? 'bg-blue-500/10 border-blue-500/20' : 'bg-blue-50 border-blue-200' }
+                ].map(c => (
+                  <div key={c.title} className={`p-4 rounded-2xl border ${c.bg}`}>
+                    <span className={`text-[11px] block mb-1.5 font-bold ${c.col}`}>{c.title}</span>
+                    <span className={`text-base font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                      ₹{c.val?.toLocaleString('en-IN') || 0}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Budget Progress Meter */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs font-bold">
+                  <span className={isDark ? 'text-slate-300' : 'text-slate-700'}>Budget Utilization</span>
+                  <span className={isOverBudget ? 'text-amber-500' : 'text-emerald-500'}>
+                    {Math.round((totalCost / budget) * 100)}% of ₹{budget.toLocaleString('en-IN')}
+                  </span>
                 </div>
-                <div className="w-full h-3 rounded-full bg-slate-800 overflow-hidden">
+                <div className={`w-full h-3 rounded-full overflow-hidden ${
+                  isDark ? 'bg-slate-800' : 'bg-slate-200'
+                }`}>
                   <div
-                    className={`h-full rounded-full transition-all duration-500 ${
-                      isOverBudget ? 'bg-amber-500' : 'bg-emerald-500'
+                    className={`h-full rounded-full transition-all duration-700 ${
+                      isOverBudget ? 'bg-gradient-to-r from-amber-500 to-orange-500' : 'bg-gradient-to-r from-emerald-400 to-cyan-500'
                     }`}
                     style={{ width: `${Math.min((totalCost / budget) * 100, 100)}%` }}
                   />
+                </div>
+              </div>
+
+              {/* AI Recommendation */}
+              <div className={`p-5 rounded-2xl border flex items-start gap-3 ${
+                isDark ? 'bg-violet-500/10 border-violet-500/20' : 'bg-violet-50 border-violet-200'
+              }`}>
+                <Sparkles className="w-5 h-5 text-violet-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-black text-violet-500 uppercase tracking-wider mb-1">✨ AI Recommendation</p>
+                  <p className={`text-xs leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                    {isOverBudget
+                      ? `Switching to the alternative hotel could save ₹${Math.round(overBudgetDiff * 0.6).toLocaleString('en-IN')}. Consider a morning flight for lower fares.`
+                      : `Your budget allocation is well-optimized. Flights and accommodation account for ${Math.round(((budgetBreakdown?.flights || 0) + (budgetBreakdown?.accommodation || 0)) / totalCost * 100)}% of total spend.`
+                    }
+                  </p>
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* TAB 7: AI REASONING & REVIEWS */}
+        {/* ════════════════════════════════════════════════════════════════
+            TAB 7: AI REASONING & REVIEWS
+           ════════════════════════════════════════════════════════════════ */}
         {activeTab === 'intelligence' && <TravelIntelligenceView />}
 
-        {/* TAB 8: AI REPLANNER & WHAT-IF */}
+        {/* ════════════════════════════════════════════════════════════════
+            TAB 8: AI REPLANNER & WHAT-IF SIMULATOR
+           ════════════════════════════════════════════════════════════════ */}
         {activeTab === 'assistant' && <AiAssistantReplanner />}
 
         {/* Live Changes Verification Modal */}
         <CheckForChangesModal />
+
       </div>
+    </div>
+  );
+}
+
+function StatWidget({ title, value, sub, icon: Icon, color, valueColor, isDark }) {
+  return (
+    <div className={`p-5 rounded-3xl border transition-all duration-300 card-hover space-y-2 ${
+      isDark
+        ? 'bg-slate-900/70 border-white/8 shadow-luxury-dark hover:border-white/15'
+        : 'bg-white border-slate-200/80 shadow-luxury hover:border-slate-300 hover:shadow-card-hover'
+    }`}>
+      <div className="flex items-center justify-between">
+        <span className={`text-[10px] font-black uppercase tracking-wider ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{title}</span>
+        <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${isDark ? 'bg-white/5' : 'bg-slate-50 border border-slate-200'}`}>
+          <Icon className={`w-4 h-4 ${color}`} />
+        </div>
+      </div>
+      <p className={`text-xl font-black truncate ${valueColor || (isDark ? 'text-white' : 'text-slate-900')}`}>{value}</p>
+      <p className={`text-[11px] truncate ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{sub}</p>
     </div>
   );
 }

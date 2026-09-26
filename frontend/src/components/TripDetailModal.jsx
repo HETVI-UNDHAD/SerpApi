@@ -136,8 +136,8 @@ export default function TripDetailModal({ destination, preferences, onClose }) {
             {[
               { id: 'itinerary', label: '🗓️ AI Itinerary' },
               { id: 'hotels', label: '🏨 Hotels & Stays' },
-              { id: 'flights', label: '✈️ Flights & Transit' },
-              { id: 'attractions', label: '📍 Top Attractions' },
+              { id: 'flights', label: 'Flights & Transit' },
+              { id: 'attractions', label: 'Top Attractions' },
             ].map(tab => (
               <button
                 key={tab.id}
@@ -187,7 +187,7 @@ export default function TripDetailModal({ destination, preferences, onClose }) {
                               <span className="font-bold text-slate-800">₹{itinerary.budget_breakdown.accommodation?.toLocaleString('en-IN')}</span>
                             </div>
                             <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                              <span className="text-slate-500 block">🍜 Food</span>
+                              <span className="text-slate-500 block">Food</span>
                               <span className="font-bold text-slate-800">₹{itinerary.budget_breakdown.food_and_dining?.toLocaleString('en-IN')}</span>
                             </div>
                             <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
@@ -265,7 +265,7 @@ export default function TripDetailModal({ destination, preferences, onClose }) {
                           <div className="bg-orange-50/50 p-4 rounded-xl border border-orange-100 flex flex-col justify-between">
                             <div>
                               <div className="flex items-center justify-between text-xs font-bold text-orange-800 mb-1">
-                                <span>☀️ Afternoon</span>
+                                <span>Afternoon</span>
                                 <span className="font-mono text-[11px] text-orange-700">{day.afternoon.time}</span>
                               </div>
                               <h5 className="font-bold text-slate-800 text-sm">{day.afternoon.title}</h5>
@@ -285,7 +285,7 @@ export default function TripDetailModal({ destination, preferences, onClose }) {
                           <div className="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 flex flex-col justify-between">
                             <div>
                               <div className="flex items-center justify-between text-xs font-bold text-indigo-800 mb-1">
-                                <span>🌙 Evening</span>
+                                <span>Evening</span>
                                 <span className="font-mono text-[11px] text-indigo-700">{day.evening.time}</span>
                               </div>
                               <h5 className="font-bold text-slate-800 text-sm">{day.evening.title}</h5>
@@ -376,7 +376,7 @@ export default function TripDetailModal({ destination, preferences, onClose }) {
             <div>
               {loadingFlights ? (
                 <div className="py-16 text-center space-y-3">
-                  <div className="animate-spin text-3xl">✈️</div>
+                  <div className="animate-spin text-3xl">...</div>
                   <p className="text-base font-bold text-navy-900">Searching routes & fares via SerpApi Google Flights...</p>
                 </div>
               ) : flights.length === 0 ? (
@@ -387,7 +387,7 @@ export default function TripDetailModal({ destination, preferences, onClose }) {
                     <div key={idx} className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div className="flex items-center gap-4">
                         <div className="w-10 h-10 rounded-xl bg-cyan-50 border border-cyan-200 flex items-center justify-center text-xl">
-                          ✈️
+                          →
                         </div>
                         <div>
                           <h4 className="font-bold text-slate-900 text-sm sm:text-base">{flight.airline}</h4>
@@ -419,7 +419,7 @@ export default function TripDetailModal({ destination, preferences, onClose }) {
             <div>
               {loadingAttractions ? (
                 <div className="py-16 text-center space-y-3">
-                  <div className="animate-spin text-3xl">📍</div>
+                  <div className="animate-spin text-3xl">...</div>
                   <p className="text-base font-bold text-navy-900">Discovering top spots via SerpApi Local Discovery...</p>
                 </div>
               ) : attractions.length === 0 ? (

@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react'
 const BADGES = [
   { icon: '⚡', label: 'Live Data',   delay: '0s',    pos: 'top-[18%] right-[8%]' },
   { icon: '🤖', label: 'AI Planning', delay: '0.4s',  pos: 'top-[52%] right-[2%]' },
-  { icon: '📍', label: 'Real Places', delay: '0.8s',  pos: 'bottom-[22%] right-[12%]' },
+  { icon: '•', label: 'Real Places', delay: '0.8s',  pos: 'bottom-[22%] right-[12%]' },
 ]
 
 const DESTINATIONS = ['Rann of Kutch', 'Coorg', 'Spiti Valley', 'Hampi', 'Pondicherry']

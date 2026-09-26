@@ -1,15 +1,16 @@
 import { useState } from 'react'
 import { submitTripPreferences, fetchDestinations } from '../services/api'
 import DestinationResults from './DestinationResults'
+import { Leaf, Mountain, Utensils, Landmark, ShoppingBag, Camera, HeartHandshake } from 'lucide-react'
 
 const INTERESTS = [
-  { id: 'Nature',      emoji: '🌿' },
-  { id: 'Adventure',   emoji: '🧗' },
-  { id: 'Food',        emoji: '🍜' },
-  { id: 'Culture',     emoji: '🏛️' },
-  { id: 'Shopping',    emoji: '🛍️' },
-  { id: 'Photography', emoji: '📷' },
-  { id: 'Relaxation',  emoji: '🧘' },
+  { id: 'Nature',      icon: Leaf },
+  { id: 'Adventure',   icon: Mountain },
+  { id: 'Food',        icon: Utensils },
+  { id: 'Culture',     icon: Landmark },
+  { id: 'Shopping',    icon: ShoppingBag },
+  { id: 'Photography', icon: Camera },
+  { id: 'Relaxation',  icon: HeartHandshake },
 ]
 
 const INITIAL = {
@@ -128,7 +129,7 @@ export default function TripPlanner() {
         {/* Section header */}
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-2 bg-cyan-50 text-cyan-700 text-xs font-bold px-3 py-1.5 rounded-full border border-cyan-200 mb-4">
-            ✈️ TRIP PLANNER
+            TRIP PLANNER
           </div>
           <h2 className="text-4xl sm:text-5xl font-black text-navy-900 mb-4">
             Where are you going next?
@@ -228,7 +229,7 @@ export default function TripPlanner() {
                   <span className="normal-case font-normal text-slate-400 ml-2">(select at least one)</span>
                 </label>
                 <div className="flex flex-wrap gap-2">
-                  {INTERESTS.map(({ id, emoji }) => {
+                  {INTERESTS.map(({ id, icon: Icon }) => {
                     const active = form.interests.includes(id)
                     return (
                       <button key={id} type="button" onClick={() => toggleInterest(id)}
@@ -238,7 +239,7 @@ export default function TripPlanner() {
                             ? 'bg-navy-900 text-cyan-400 border-navy-700 shadow-sm scale-105'
                             : 'bg-white text-slate-600 border-slate-200 hover:border-navy-300 hover:text-navy-800'
                           }`}>
-                        <span>{emoji}</span> {id}
+                        <Icon className="w-4 h-4" /> {id}
                       </button>
                     )
                   })}

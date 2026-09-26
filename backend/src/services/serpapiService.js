@@ -538,6 +538,111 @@ export async function discoverDestinations({
       matchKey: ['adventure', 'nature', 'relaxation', 'photography', 'backpacking'],
       coverImage: 'https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?w=700&auto=format&fit=crop&q=80',
       highlights: ['Solang Valley Glacier Views', 'Old Manali Apple Orchard Cafes', 'Jogini Waterfall Pine Trail', 'Atal Tunnel Mountain Drive']
+    },
+    {
+      name: 'Rishikesh, Uttarakhand', tagline: 'Riverfront ashrams, forest trails & white-water adventure', region: 'North India',
+      baseFlightEstimate: 4800, baseStayPerNight: 2100, dailyFoodCost: 600,
+      matchKey: ['adventure', 'nature', 'relaxation', 'family', 'photography'],
+      coverImage: 'https://images.unsplash.com/photo-1598970605070-a38a6ccd3a2d?w=700&auto=format&fit=crop&q=80',
+      highlights: ['Ganga Riverside Walk', 'Beatles Ashram Murals', 'River Rafting Rapids', 'Sunrise Yoga by the Ghats']
+    },
+    {
+      name: 'Varanasi, Uttar Pradesh', tagline: 'Ancient ghats, evening aarti & living riverside culture', region: 'North India',
+      baseFlightEstimate: 4200, baseStayPerNight: 1900, dailyFoodCost: 550,
+      matchKey: ['culture', 'history', 'food', 'photography'],
+      coverImage: 'https://images.unsplash.com/photo-1561361513-2d000a50f0dc?w=700&auto=format&fit=crop&q=80',
+      highlights: ['Dashashwamedh Ghat Aarti', 'Sunrise Ganges Boat Ride', 'Sarnath Heritage Circuit', 'Old City Food Walk']
+    },
+    {
+      name: 'Andaman Islands', tagline: 'Clear lagoons, coral reefs & quiet island sunsets', region: 'Bay of Bengal',
+      baseFlightEstimate: 8200, baseStayPerNight: 3400, dailyFoodCost: 900,
+      matchKey: ['beaches', 'adventure', 'nature', 'relaxation', 'photography'],
+      coverImage: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=700&auto=format&fit=crop&q=80',
+      highlights: ['Radhanagar Beach', 'North Bay Snorkeling', 'Cellular Jail Light Show', 'Mangrove Kayaking']
+    },
+    {
+      name: 'Srinagar & Gulmarg, Kashmir', tagline: 'Alpine lakes, cedar valleys & houseboats beneath snow peaks', region: 'North India',
+      baseFlightEstimate: 6500, baseStayPerNight: 3000, dailyFoodCost: 750,
+      matchKey: ['nature', 'adventure', 'relaxation', 'photography', 'family'],
+      coverImage: 'https://images.unsplash.com/photo-1595815771614-ade9d652a65d?w=700&auto=format&fit=crop&q=80',
+      highlights: ['Dal Lake Shikara Ride', 'Gulmarg Gondola', 'Mughal Garden Circuit', 'Pahalgam Valley Drive']
+    },
+    {
+      name: 'Mysuru, Karnataka', tagline: 'Palace lights, silk markets & fragrant southern gardens', region: 'South India',
+      baseFlightEstimate: 4600, baseStayPerNight: 2200, dailyFoodCost: 650,
+      matchKey: ['culture', 'history', 'food', 'family', 'photography'],
+      coverImage: 'https://images.unsplash.com/photo-1590766940558-7c2b6f9e7b8c?w=700&auto=format&fit=crop&q=80',
+      highlights: ['Mysore Palace', 'Chamundi Hill Sunrise', 'Devaraja Market', 'Brindavan Gardens']
+    },
+    {
+      name: 'Bali, Indonesia', tagline: 'Temple ceremonies, jungle terraces & warm island beaches', region: 'Southeast Asia',
+      baseFlightEstimate: 14500, baseStayPerNight: 3600, dailyFoodCost: 850,
+      matchKey: ['beaches', 'culture', 'nature', 'relaxation', 'food', 'photography'],
+      coverImage: 'https://images.unsplash.com/photo-1537996194471-e657df975ab4?w=700&auto=format&fit=crop&q=80',
+      highlights: ['Uluwatu Temple Sunset', 'Ubud Rice Terraces', 'Nusa Penida Cliffs', 'Seminyak Beach Dining']
+    },
+    {
+      name: 'Dubai, United Arab Emirates', tagline: 'Desert horizons, bold architecture & city luxury', region: 'Middle East',
+      baseFlightEstimate: 12500, baseStayPerNight: 6500, dailyFoodCost: 1800,
+      matchKey: ['luxury', 'shopping', 'adventure', 'family', 'food'],
+      coverImage: 'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?w=700&auto=format&fit=crop&q=80',
+      highlights: ['Burj Khalifa', 'Old Dubai Creek Walk', 'Desert Safari', 'Dubai Mall Aquarium']
+    },
+    {
+      name: 'Singapore', tagline: 'Garden skylines, hawker flavours & seamless island exploring', region: 'Southeast Asia',
+      baseFlightEstimate: 13500, baseStayPerNight: 6200, dailyFoodCost: 1400,
+      matchKey: ['food', 'shopping', 'family', 'culture', 'photography'],
+      coverImage: 'https://images.unsplash.com/photo-1525625293386-3f8f99389edd?w=700&auto=format&fit=crop&q=80',
+      highlights: ['Gardens by the Bay', 'Chinatown Hawker Trail', 'Sentosa Island', 'Marina Bay Night Walk']
+    },
+    {
+      name: 'Bangkok, Thailand', tagline: 'Golden temples, riverside markets & electric street food nights', region: 'Southeast Asia',
+      baseFlightEstimate: 11500, baseStayPerNight: 2600, dailyFoodCost: 850,
+      matchKey: ['food', 'culture', 'shopping', 'nightlife', 'history'],
+      coverImage: 'https://images.unsplash.com/photo-1508009603885-50cf7c579365?w=700&auto=format&fit=crop&q=80',
+      highlights: ['Grand Palace & Wat Pho', 'Chao Phraya River Cruise', 'Chatuchak Market', 'Yaowarat Food Street']
+    },
+    {
+      name: 'Paris, France', tagline: 'Museum mornings, riverside cafes & golden boulevards', region: 'Western Europe',
+      baseFlightEstimate: 42000, baseStayPerNight: 10500, dailyFoodCost: 3200,
+      matchKey: ['culture', 'history', 'food', 'shopping', 'photography', 'luxury'],
+      coverImage: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=700&auto=format&fit=crop&q=80',
+      highlights: ['Eiffel Tower Sunset', 'Louvre Art Trail', 'Montmartre Walk', 'Seine Evening Cruise']
+    },
+    {
+      name: 'Istanbul, Turkey', tagline: 'Mosque silhouettes, spice markets & two continents by the Bosphorus', region: 'Eurasia',
+      baseFlightEstimate: 35000, baseStayPerNight: 4800, dailyFoodCost: 1600,
+      matchKey: ['culture', 'history', 'food', 'shopping', 'photography'],
+      coverImage: 'https://images.unsplash.com/photo-1524231757912-21f4fe3a7200?w=700&auto=format&fit=crop&q=80',
+      highlights: ['Hagia Sophia Square', 'Bosphorus Ferry', 'Grand Bazaar', 'Galata Tower Sunset']
+    },
+    {
+      name: 'Lisbon, Portugal', tagline: 'Hillside trams, tiled streets & Atlantic light over old quarters', region: 'Southern Europe',
+      baseFlightEstimate: 46000, baseStayPerNight: 6200, dailyFoodCost: 1900,
+      matchKey: ['culture', 'history', 'food', 'photography', 'relaxation'],
+      coverImage: 'https://images.unsplash.com/photo-1555881400-74d7acaacd8b?w=700&auto=format&fit=crop&q=80',
+      highlights: ['Alfama Tram Ride', 'Belem Waterfront', 'Sintra Day Trip', 'Time Out Market']
+    },
+    {
+      name: 'Tokyo, Japan', tagline: 'Quiet shrines, neon districts & precise everyday wonder', region: 'East Asia',
+      baseFlightEstimate: 51000, baseStayPerNight: 7600, dailyFoodCost: 2400,
+      matchKey: ['culture', 'food', 'shopping', 'photography', 'family', 'history'],
+      coverImage: 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=700&auto=format&fit=crop&q=80',
+      highlights: ['Shibuya Crossing', 'Meiji Shrine Gardens', 'Tsukiji Food Market', 'Asakusa Temple Walk']
+    },
+    {
+      name: 'Cape Town, South Africa', tagline: 'Mountain-backed coastlines, vineyards & ocean road trips', region: 'Southern Africa',
+      baseFlightEstimate: 52000, baseStayPerNight: 5800, dailyFoodCost: 1800,
+      matchKey: ['nature', 'adventure', 'food', 'photography', 'relaxation'],
+      coverImage: 'https://images.unsplash.com/photo-1580060839134-75a5edca2e99?w=700&auto=format&fit=crop&q=80',
+      highlights: ['Table Mountain Cableway', 'Cape Peninsula Drive', 'Bo-Kaap Colour Walk', 'Constantia Wine Valley']
+    },
+    {
+      name: 'Marrakech, Morocco', tagline: 'Rose-toned riads, lantern-lit souks & Atlas Mountain air', region: 'North Africa',
+      baseFlightEstimate: 48000, baseStayPerNight: 4200, dailyFoodCost: 1300,
+      matchKey: ['culture', 'history', 'food', 'shopping', 'photography', 'adventure'],
+      coverImage: 'https://images.unsplash.com/photo-1597212618440-806262de4f6b?w=700&auto=format&fit=crop&q=80',
+      highlights: ['Jemaa el-Fnaa Square', 'Majorelle Garden', 'Medina Souk Trail', 'Atlas Foothills Day Trip']
     }
   ];
 

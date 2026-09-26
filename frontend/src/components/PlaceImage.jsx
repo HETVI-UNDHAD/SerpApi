@@ -31,7 +31,10 @@ export default function PlaceImage({
   const fetchedRef = useRef(false);
 
   useEffect(() => {
-    if (!query && fallbackSrc) {
+    // Curated destination thumbnails are already available and avoid an extra
+    // image-search request for every discovery row.
+    if (fallbackSrc) {
+      if (query) imageCache.set(query, fallbackSrc);
       setSrc(fallbackSrc);
       return;
     }
@@ -100,7 +103,9 @@ export default function PlaceImage({
         <img
           src={src}
           alt={alt}
-          loading="lazy"
+          loading={eager ? 'eager' : 'lazy'}
+          decoding="async"
+          fetchPriority={eager ? 'high' : 'auto'}
           onLoad={() => setLoaded(true)}
           onError={() => setSrc('')}
           className={`${className} transition-opacity duration-500 ${loaded ? 'opacity-100' : 'opacity-0'}`}

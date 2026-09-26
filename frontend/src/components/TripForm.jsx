@@ -1,13 +1,14 @@
 import { useState } from 'react'
+import { Leaf, Mountain, Utensils, Landmark, ShoppingBag, Camera, HeartHandshake } from 'lucide-react'
 
 const INTERESTS = [
-  { id: 'nature',      label: 'Nature',      emoji: '🌿' },
-  { id: 'adventure',   label: 'Adventure',   emoji: '🧗' },
-  { id: 'food',        label: 'Food',        emoji: '🍜' },
-  { id: 'culture',     label: 'Culture',     emoji: '🏛️' },
-  { id: 'shopping',    label: 'Shopping',    emoji: '🛍️' },
-  { id: 'photography', label: 'Photography', emoji: '📷' },
-  { id: 'relaxation',  label: 'Relaxation',  emoji: '🧘' },
+  { id: 'nature',      label: 'Nature',      icon: Leaf },
+  { id: 'adventure',   label: 'Adventure',   icon: Mountain },
+  { id: 'food',        label: 'Food',        icon: Utensils },
+  { id: 'culture',     label: 'Culture',     icon: Landmark },
+  { id: 'shopping',    label: 'Shopping',    icon: ShoppingBag },
+  { id: 'photography', label: 'Photography', icon: Camera },
+  { id: 'relaxation',  label: 'Relaxation',  icon: HeartHandshake },
 ]
 
 const INITIAL = {
@@ -168,7 +169,7 @@ export default function TripForm() {
                   Interests <span className="text-slate-400 font-normal">(select all that apply)</span>
                 </label>
                 <div className="flex flex-wrap gap-2">
-                  {INTERESTS.map(({ id, label, emoji }) => {
+                  {INTERESTS.map(({ id, label, icon: Icon }) => {
                     const active = form.interests.includes(id)
                     return (
                       <button
@@ -181,7 +182,7 @@ export default function TripForm() {
                             : 'bg-white text-slate-600 border-slate-200 hover:border-brand-400 hover:text-brand-600'
                           }`}
                       >
-                        <span>{emoji}</span> {label}
+                        <Icon className="w-4 h-4" /> {label}
                       </button>
                     )
                   })}
@@ -193,7 +194,7 @@ export default function TripForm() {
                 type="submit"
                 className="w-full bg-brand-600 hover:bg-brand-700 active:scale-95 text-white font-bold text-base py-4 rounded-2xl shadow-lg transition-all duration-200 mt-2"
               >
-                ✈️ Generate My Itinerary
+                Generate My Itinerary
               </button>
 
             </form>

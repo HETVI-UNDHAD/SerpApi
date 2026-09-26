@@ -5,7 +5,7 @@ export default function Header() {
 
         {/* Logo */}
         <div className="flex items-center gap-2">
-          <span className="text-2xl">✈️</span>
+          <span className="text-2xl" aria-hidden="true">✦</span>
           <span className="text-xl font-bold text-brand-700">TripWise AI</span>
         </div>
 

@@ -9,8 +9,6 @@ export default function HeroSection({ onPlanClick }) {
       {/* Floating emoji landmarks */}
       <div className="absolute top-32 left-[8%] text-4xl opacity-20 rotate-[-15deg] select-none">🗼</div>
       <div className="absolute top-48 right-[10%] text-4xl opacity-20 rotate-[10deg] select-none">🏔️</div>
-      <div className="absolute bottom-40 left-[12%] text-3xl opacity-20 rotate-[8deg] select-none">🌴</div>
-      <div className="absolute bottom-32 right-[8%] text-3xl opacity-20 rotate-[-12deg] select-none">🏖️</div>
 
       {/* Content */}
       <div className="relative z-10 text-center px-4 sm:px-6 max-w-3xl mx-auto">
@@ -32,7 +30,7 @@ export default function HeroSection({ onPlanClick }) {
           onClick={onPlanClick}
           className="inline-flex items-center gap-2 bg-white text-brand-700 font-bold text-lg px-8 py-4 rounded-2xl shadow-xl hover:bg-blue-50 hover:scale-105 active:scale-95 transition-all duration-200"
         >
-          ✈️ Plan My Trip
+          Plan My Trip
         </button>
 
         {/* Stats row */}

@@ -5,16 +5,18 @@ import PlaceImage from '../components/PlaceImage';
 import { loadGoogleMaps } from '../utils/loadGoogleMaps';
 import {
   MapPin, Calendar, Users, IndianRupee, Sparkles,
-  ArrowRight, CheckCircle2, X, Loader2, ChevronRight
+  ArrowRight, CheckCircle2, X, Loader2, ChevronRight,
+  Compass, Heart, ShieldCheck, Umbrella, Utensils, Landmark, Castle, Mountain,
+  Leaf, ShoppingBag, Music2, UsersRound, Camera, HeartHandshake
 } from 'lucide-react';
 
 const INTERESTS = [
-  { id: 'Beaches', emoji: '🏖️' }, { id: 'Food', emoji: '🍜' },
-  { id: 'Culture', emoji: '🏛️' }, { id: 'History', emoji: '🏰' },
-  { id: 'Adventure', emoji: '🧗' }, { id: 'Nature', emoji: '🌿' },
-  { id: 'Shopping', emoji: '🛍️' }, { id: 'Nightlife', emoji: '🎶' },
-  { id: 'Family', emoji: '👨‍👩‍👧' }, { id: 'Photography', emoji: '📷' },
-  { id: 'Relaxation', emoji: '🧘' },
+  { id: 'Beaches', icon: Umbrella }, { id: 'Food', icon: Utensils },
+  { id: 'Culture', icon: Landmark }, { id: 'History', icon: Castle },
+  { id: 'Adventure', icon: Mountain }, { id: 'Nature', icon: Leaf },
+  { id: 'Shopping', icon: ShoppingBag }, { id: 'Nightlife', icon: Music2 },
+  { id: 'Family', icon: UsersRound }, { id: 'Photography', icon: Camera },
+  { id: 'Relaxation', icon: HeartHandshake },
 ];
 
 const STYLES = ['Budget', 'Balanced', 'Luxury', 'Adventure', 'Relaxed', 'Family', 'Backpacking'];
@@ -22,7 +24,13 @@ const STAYS = ['Hotel', 'Boutique Resort', 'Hostel / Co-living', 'Homestay'];
 const TRANSITS = ['Flight', 'Train / Express Rail', 'Self-Drive / Taxi'];
 
 export default function TripBuilderPage() {
-  const { formData, setFormData, generateTrip, runDestinationDiscovery, destinationsDiscovery, isDiscovering, setActiveScreen } = useTrip();
+  const {
+    formData, setFormData, generateTrip,
+    runDestinationDiscovery, destinationsDiscovery,
+    isDiscovering, setActiveScreen, theme
+  } = useTrip();
+
+  const isDark = theme === 'dark';
   const [mapsReady, setMapsReady] = useState(false);
   const [discoveryOpen, setDiscoveryOpen] = useState(false);
 
@@ -57,203 +65,314 @@ export default function TripBuilderPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-white py-10 px-4">
-      <div className="max-w-5xl mx-auto">
+    <div className={`min-h-screen py-10 px-4 sm:px-6 transition-colors duration-400 font-sans backdrop-blur-[2px] ${
+      isDark ? 'bg-[#080A0F]/28 text-slate-100' : 'bg-white/10 text-slate-900'
+    }`}>
+      <div className="max-w-6xl mx-auto">
 
-        {/* Header */}
-        <div className="mb-8">
-          <button onClick={() => setActiveScreen('landing')} className="text-xs text-white/30 hover:text-white/60 mb-4 flex items-center gap-1 transition-colors">
-            ← Home
+        {/* Editorial Header */}
+        <div className="mb-10">
+          <button
+            onClick={() => setActiveScreen('landing')}
+            className={`text-xs font-semibold mb-3 flex items-center gap-1.5 transition-colors ${
+              isDark ? 'text-slate-200 hover:text-white' : 'text-slate-700 hover:text-slate-950'
+            }`}
+          >
+            ← Back to Explore
           </button>
-          <h1 className="text-3xl md:text-4xl font-black text-white">Plan your trip</h1>
-          <p className="text-white/40 text-sm mt-1">Fill in your details. AI researches live data and builds your itinerary.</p>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-[10px] font-black uppercase tracking-widest text-cyan-500 bg-cyan-500/10 px-2.5 py-0.5 rounded-full border border-cyan-500/20">
+              Trip Architect
+            </span>
+          </div>
+          <h1 className={`text-3xl sm:text-5xl font-black tracking-tight ${
+            isDark ? 'text-white' : 'text-slate-900'
+          }`}>
+            Design Your Journey
+          </h1>
+          <p className={`text-sm mt-1 max-w-xl ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
+            Enter your destination and constraints. TravelOS AI searches live flights, hotels, and attractions via SerpApi.
+          </p>
         </div>
 
         <form onSubmit={handleSubmit}>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
-            {/* ── LEFT: Main Form ── */}
-            <div className="lg:col-span-2 space-y-5">
+            {/* ── LEFT: Main Configuration Cards ── */}
+            <div className="lg:col-span-8 space-y-6">
 
-              {/* Route */}
-              <Card title="Where are you going?">
+              {/* Destination & Origin Card */}
+              <Card isDark={isDark} title="Where are you traveling?">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Field label="From">
+                  <Field isDark={isDark} label="Departure City (From)">
                     {mapsReady
-                      ? <LocationAutocomplete value={formData.origin} onChange={handleOriginChange} placeholder="Origin city" icon={MapPin} iconColor="text-white/40" required />
-                      : <PlainInput icon={<MapPin className="w-4 h-4 text-white/40" />} value={formData.origin} onChange={v => setFormData(p => ({ ...p, origin: v }))} placeholder="Origin city" required />
+                      ? <LocationAutocomplete value={formData.origin} onChange={handleOriginChange} placeholder="Origin city" icon={MapPin} iconColor="text-slate-400" required />
+                      : <PlainInput isDark={isDark} icon={<MapPin className="w-4 h-4 text-slate-400" />} value={formData.origin} onChange={v => setFormData(p => ({ ...p, origin: v }))} placeholder="Origin city" required />
                     }
                   </Field>
-                  <Field label={
+
+                  <Field isDark={isDark} label={
                     <div className="flex items-center justify-between">
-                      <span>To</span>
-                      <button type="button" onClick={openDiscovery} className="text-[10px] text-cyan-400 hover:text-cyan-300 flex items-center gap-0.5 transition-colors">
+                      <span>Destination (To)</span>
+                      <button
+                        type="button"
+                        onClick={openDiscovery}
+                        className="text-[10px] font-bold text-cyan-500 hover:text-cyan-400 flex items-center gap-1 transition-colors"
+                      >
                         <Sparkles className="w-3 h-3" /> Help me choose
                       </button>
                     </div>
                   }>
                     {mapsReady
-                      ? <LocationAutocomplete value={formData.destination} onChange={handleDestChange} placeholder="Destination (or leave empty)" icon={MapPin} iconColor="text-cyan-400" />
-                      : <PlainInput icon={<MapPin className="w-4 h-4 text-cyan-400" />} value={formData.destination} onChange={v => setFormData(p => ({ ...p, destination: v }))} placeholder="Destination" />
+                      ? <LocationAutocomplete value={formData.destination} onChange={handleDestChange} placeholder="Destination (or click 'Help me choose')" icon={MapPin} iconColor="text-cyan-500" />
+                      : <PlainInput isDark={isDark} icon={<MapPin className="w-4 h-4 text-cyan-500" />} value={formData.destination} onChange={v => setFormData(p => ({ ...p, destination: v }))} placeholder="Destination (or leave empty)" />
                     }
                   </Field>
                 </div>
               </Card>
 
-              {/* Trip Details */}
-              <Card title="Trip details">
-                <div className="grid grid-cols-3 gap-4">
-                  <Field label="Days">
-                    <NumInput icon={<Calendar className="w-4 h-4 text-white/40" />} value={formData.duration} min={1} max={14}
+              {/* Trip Dimensions: Days, Travelers, Budget */}
+              <Card isDark={isDark} title="Duration, Travelers & Budget">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <Field isDark={isDark} label="Trip Days">
+                    <NumInput isDark={isDark} icon={<Calendar className="w-4 h-4 text-slate-400" />} value={formData.duration} min={1} max={14}
                       onChange={v => setFormData(p => ({ ...p, duration: v }))} />
                   </Field>
-                  <Field label="Travelers">
-                    <NumInput icon={<Users className="w-4 h-4 text-white/40" />} value={formData.travelers} min={1} max={10}
+
+                  <Field isDark={isDark} label="Travelers">
+                    <NumInput isDark={isDark} icon={<Users className="w-4 h-4 text-slate-400" />} value={formData.travelers} min={1} max={10}
                       onChange={v => setFormData(p => ({ ...p, travelers: v }))} />
                   </Field>
-                  <Field label="Budget (₹)">
-                    <NumInput icon={<IndianRupee className="w-4 h-4 text-emerald-400" />} value={formData.budget} min={5000} step={1000}
+
+                  <Field isDark={isDark} label="Allocated Budget (₹)">
+                    <NumInput isDark={isDark} icon={<IndianRupee className="w-4 h-4 text-emerald-500" />} value={formData.budget} min={5000} step={1000}
                       onChange={v => setFormData(p => ({ ...p, budget: v }))} />
                   </Field>
                 </div>
               </Card>
 
               {/* Travel Style */}
-              <Card title="Travel style">
+              <Card isDark={isDark} title="Travel Rhythm & Style">
                 <div className="flex flex-wrap gap-2">
                   {STYLES.map(s => (
-                    <Pill key={s} active={formData.travelStyle === s} onClick={() => setFormData(p => ({ ...p, travelStyle: s }))}>
+                    <Pill key={s} isDark={isDark} active={formData.travelStyle === s} onClick={() => setFormData(p => ({ ...p, travelStyle: s }))}>
                       {s}
                     </Pill>
                   ))}
                 </div>
               </Card>
 
-              {/* Interests */}
-              <Card title="Interests">
+              {/* Interests (Luxury Tags) */}
+              <Card isDark={isDark} title="Interests & Passions">
                 <div className="flex flex-wrap gap-2">
-                  {INTERESTS.map(({ id, emoji }) => (
-                    <Pill key={id} active={formData.interests.includes(id)} onClick={() => toggleInterest(id)}>
-                      <span>{emoji}</span> {id}
+                  {INTERESTS.map(({ id, icon: Icon }) => (
+                    <Pill key={id} isDark={isDark} active={formData.interests.includes(id)} onClick={() => toggleInterest(id)}>
+                      <Icon className="w-3.5 h-3.5" />
+                      <span>{id}</span>
                     </Pill>
                   ))}
                 </div>
               </Card>
 
               {/* Preferences */}
-              <Card title="Preferences">
+              <Card isDark={isDark} title="Accommodation & Transit Preferences">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Field label="Stay">
-                    <select value={formData.accommodationPreference}
+                  <Field isDark={isDark} label="Preferred Stay">
+                    <select
+                      value={formData.accommodationPreference}
                       onChange={e => setFormData(p => ({ ...p, accommodationPreference: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-indigo-500">
-                      {STAYS.map(s => <option key={s} value={s} className="bg-[#111118]">{s}</option>)}
+                      className={`w-full px-4 py-3 rounded-2xl text-xs font-semibold focus:outline-none transition-colors ${
+                        isDark
+                          ? 'bg-slate-900 border border-white/10 text-white focus:border-cyan-400'
+                          : 'bg-white border border-slate-200 text-slate-900 focus:border-indigo-500 shadow-sm'
+                      }`}
+                    >
+                      {STAYS.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                   </Field>
-                  <Field label="Transit">
-                    <select value={formData.transportPreference}
+
+                  <Field isDark={isDark} label="Primary Transit">
+                    <select
+                      value={formData.transportPreference}
                       onChange={e => setFormData(p => ({ ...p, transportPreference: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-indigo-500">
-                      {TRANSITS.map(t => <option key={t} value={t} className="bg-[#111118]">{t}</option>)}
+                      className={`w-full px-4 py-3 rounded-2xl text-xs font-semibold focus:outline-none transition-colors ${
+                        isDark
+                          ? 'bg-slate-900 border border-white/10 text-white focus:border-cyan-400'
+                          : 'bg-white border border-slate-200 text-slate-900 focus:border-indigo-500 shadow-sm'
+                      }`}
+                    >
+                      {TRANSITS.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
                   </Field>
                 </div>
               </Card>
+
             </div>
 
-            {/* ── RIGHT: Summary + CTA ── */}
-            <div className="space-y-4">
-              <div className="sticky top-20 space-y-4">
-                <div className="p-5 rounded-2xl bg-[#111118] border border-white/8">
-                  <h3 className="text-sm font-bold text-white mb-4">Trip Summary</h3>
-                  <div className="space-y-3 text-xs">
-                    <SummaryRow label="From" value={formData.origin || '—'} />
-                    <SummaryRow label="To" value={formData.destination || 'Not set'} highlight={!formData.destination} />
-                    <SummaryRow label="Duration" value={`${formData.duration} days`} />
-                    <SummaryRow label="Travelers" value={formData.travelers} />
-                    <SummaryRow label="Budget" value={`₹${Number(formData.budget).toLocaleString('en-IN')}`} green />
-                    <SummaryRow label="Style" value={formData.travelStyle} />
+            {/* ── RIGHT: Summary & Submit Action ── */}
+            <div className="lg:col-span-4 space-y-6">
+              <div className="sticky top-24 space-y-5">
+                <div className={`p-6 rounded-3xl border shadow-xl ${
+                  isDark ? 'bg-slate-950 border-white/15' : 'bg-white border-white shadow-luxury-light'
+                }`}>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className={`text-sm font-black uppercase tracking-wider ${
+                      isDark ? 'text-white' : 'text-slate-900'
+                    }`}>
+                      Journey Blueprint
+                    </h3>
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  </div>
+
+                  <div className="space-y-3.5 text-xs">
+                    <SummaryRow isDark={isDark} label="Origin" value={formData.origin || '—'} />
+                    <SummaryRow isDark={isDark} label="Destination" value={formData.destination || 'AI Suggested'} highlight={!formData.destination} />
+                    <SummaryRow isDark={isDark} label="Duration" value={`${formData.duration} days`} />
+                    <SummaryRow isDark={isDark} label="Travelers" value={`${formData.travelers} pax`} />
+                    <SummaryRow isDark={isDark} label="Budget" value={`₹${Number(formData.budget).toLocaleString('en-IN')}`} green />
+                    <SummaryRow isDark={isDark} label="Pace & Style" value={formData.travelStyle} />
                   </div>
 
                   {formData.interests.length > 0 && (
-                    <div className="mt-4 pt-4 border-t border-white/5">
-                      <p className="text-[10px] text-white/30 uppercase tracking-widest mb-2">Interests</p>
+                    <div className={`mt-5 pt-4 border-t ${isDark ? 'border-white/10' : 'border-slate-100'}`}>
+                      <p className={`text-[10px] font-bold uppercase tracking-widest mb-2 ${
+                        isDark ? 'text-slate-400' : 'text-slate-500'
+                      }`}>
+                        Selected Themes
+                      </p>
                       <div className="flex flex-wrap gap-1.5">
                         {formData.interests.map(i => (
-                          <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">{i}</span>
+                          <span
+                            key={i}
+                            className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold border ${
+                              isDark
+                                ? 'bg-indigo-500/10 text-indigo-300 border-indigo-500/20'
+                                : 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                            }`}
+                          >
+                            {i}
+                          </span>
                         ))}
                       </div>
                     </div>
                   )}
                 </div>
 
-                <button type="submit"
-                  className="w-full py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white font-bold text-sm shadow-xl shadow-indigo-500/20 flex items-center justify-center gap-2 transition-all hover:-translate-y-0.5">
+                {/* Primary CTA */}
+                <button
+                  type="submit"
+                  className="w-full py-4 rounded-2xl bg-gradient-to-r from-cyan-500 via-indigo-600 to-violet-600 hover:from-cyan-400 hover:to-indigo-500 text-white font-black text-sm shadow-xl shadow-indigo-500/30 flex items-center justify-center gap-2 transition-all hover:scale-[1.02]"
+                >
                   <Sparkles className="w-4 h-4" />
-                  Generate My Trip
+                  <span>Generate My Trip</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
 
-                <button type="button" onClick={openDiscovery}
-                  className="w-full py-3 rounded-xl bg-white/5 hover:bg-white/8 border border-white/10 text-white/50 hover:text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors">
-                  <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-                  Help me choose a destination
+                {/* AI Discovery Trigger */}
+                <button
+                  type="button"
+                  onClick={openDiscovery}
+                  className={`w-full py-3 rounded-2xl border text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+                    isDark
+                      ? 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10 hover:text-white'
+                      : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200 hover:text-slate-900'
+                  }`}
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-cyan-500" />
+                  <span>AI Destination Discovery</span>
                 </button>
 
-                <p className="text-[10px] text-white/20 text-center">
+                <p className={`text-[10px] text-center ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
                   Live data via SerpApi · Google Flights · Hotels · Maps
                 </p>
               </div>
             </div>
+
           </div>
         </form>
       </div>
 
-      {/* Destination Discovery Modal */}
+      {/* ── AI DESTINATION DISCOVERY SCREEN (EDITORIAL DRAWER) ── */}
       {discoveryOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-[#111118] border border-white/10 rounded-3xl max-w-2xl w-full p-6 shadow-2xl my-8 relative">
-            <button onClick={() => setDiscoveryOpen(false)}
-              className="absolute top-5 right-5 w-8 h-8 rounded-full bg-white/5 text-white/40 hover:text-white flex items-center justify-center transition-colors">
+        <div className="fixed inset-0 z-50 bg-black/68 backdrop-blur-lg flex items-center justify-center p-4 overflow-y-auto">
+          <div className={`border rounded-3xl max-w-3xl w-full p-6 sm:p-8 shadow-2xl my-8 relative transition-colors duration-300 ${
+            isDark ? 'bg-slate-950 border-white/20' : 'bg-white border-slate-200'
+          }`}>
+            <button
+              onClick={() => setDiscoveryOpen(false)}
+              className={`absolute top-5 right-5 w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+                isDark ? 'bg-white/10 text-white hover:bg-white/20' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
               <X className="w-4 h-4" />
             </button>
-            <div className="mb-5">
-              <p className="text-xs font-bold uppercase tracking-widest text-cyan-400 mb-1">AI Discovery</p>
-              <h2 className="text-xl font-black text-white">Best destinations from {formData.origin || 'your city'}</h2>
-              <p className="text-xs text-white/30 mt-1">Ranked by interest match, travel cost & accessibility within ₹{Number(formData.budget).toLocaleString('en-IN')}</p>
+
+            <div className="mb-6">
+              <span className="text-[10px] font-black uppercase tracking-widest text-cyan-500 bg-cyan-500/10 px-2.5 py-0.5 rounded-full border border-cyan-500/20">
+                AI Discovery Engine
+              </span>
+              <h2 className={`text-2xl sm:text-3xl font-black mt-2 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                Recommended Destinations from {formData.origin || 'your origin'}
+              </h2>
+              <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                Ranked by interest match and live estimated fares within ₹{Number(formData.budget).toLocaleString('en-IN')}.
+              </p>
             </div>
 
             {isDiscovering ? (
-              <div className="py-16 text-center">
-                <Loader2 className="w-8 h-8 text-cyan-400 animate-spin mx-auto mb-3" />
-                <p className="text-sm text-white/50">Searching destinations...</p>
+              <div className="py-20 text-center space-y-4">
+                <Loader2 className="w-10 h-10 text-cyan-400 animate-spin mx-auto" />
+                <p className={`text-sm font-semibold ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                  Analyzing flight corridors & verified hotel rates...
+                </p>
               </div>
             ) : (
-              <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+              <div className="space-y-3.5 max-h-[60vh] overflow-y-auto pr-1">
                 {destinationsDiscovery.map(dest => (
-                  <div key={dest.name}
-                    className="flex items-center gap-4 p-4 rounded-2xl bg-white/3 border border-white/8 hover:border-white/20 transition-all cursor-pointer group"
-                    onClick={() => selectDest(dest)}>
-                    <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 relative">
+                  <div
+                    key={dest.name}
+                    onClick={() => selectDest(dest)}
+                    className={`flex items-center gap-4 p-4 rounded-2xl border transition-all cursor-pointer group hover:-translate-y-0.5 hover:shadow-lg ${
+                      isDark
+                        ? 'bg-slate-900/60 border-white/10 hover:border-cyan-400/40'
+                        : 'bg-slate-50 border-slate-200/80 hover:border-indigo-400/50'
+                    }`}
+                  >
+                    <div className="w-20 h-20 rounded-2xl overflow-hidden flex-shrink-0 relative shadow-md">
                       <PlaceImage
-                        query={`${dest.name} travel destination India`}
+                        query={`${dest.name} travel photography landscape`}
                         fallbackSrc={dest.coverImage || null}
                         alt={dest.name}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                         skeletonClassName="absolute inset-0"
                       />
                     </div>
+
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="font-bold text-white text-sm">{dest.name}</span>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${dest.interestMatch === 'High' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'}`}>
-                          {dest.interestMatch} Match
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={`font-black text-base ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                          {dest.name}
+                        </span>
+                        <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                          {dest.interestMatch || '95%'} Match
                         </span>
                       </div>
-                      <p className="text-xs text-white/30 truncate">{dest.tagline}</p>
-                      <p className="text-xs text-emerald-400 font-semibold mt-1">{dest.estimatedCostFormatted}</p>
+                      <p className={`text-xs line-clamp-1 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                        {dest.tagline || 'Scenic viewpoints, cultural landmarks and coastal breezes.'}
+                      </p>
+                      <div className="flex items-center gap-3 mt-1.5">
+                        <span className="text-xs font-black text-emerald-400">
+                          {dest.estimatedCostFormatted || `~₹${(formData.budget * 0.9).toLocaleString('en-IN')}`}
+                        </span>
+                        <span className={`text-[10px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                          {formData.duration} Days Plan
+                        </span>
+                      </div>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-white/20 group-hover:text-white/60 transition-colors flex-shrink-0" />
+
+                    <div className="w-8 h-8 rounded-full bg-indigo-600/15 text-indigo-400 group-hover:bg-indigo-600 group-hover:text-white flex items-center justify-center transition-colors flex-shrink-0">
+                      <ChevronRight className="w-4 h-4" />
+                    </div>
                   </div>
                 ))}
               </div>
@@ -261,24 +380,32 @@ export default function TripBuilderPage() {
           </div>
         </div>
       )}
+
     </div>
   );
 }
 
 // ── Sub-components ──
-function Card({ title, children }) {
+
+function Card({ title, isDark, children }) {
   return (
-    <div className="p-5 rounded-2xl bg-[#111118] border border-white/8">
-      <h3 className="text-xs font-bold uppercase tracking-widest text-white/30 mb-4">{title}</h3>
+    <div className={`p-6 rounded-3xl border shadow-sm ${
+      isDark ? 'bg-slate-950 border-white/15' : 'bg-white border-white shadow-luxury-light'
+    }`}>
+      <h3 className={`text-xs font-black uppercase tracking-widest mb-4 ${
+        isDark ? 'text-slate-200' : 'text-slate-700'
+      }`}>{title}</h3>
       {children}
     </div>
   );
 }
 
-function Field({ label, children }) {
+function Field({ label, isDark, children }) {
   return (
     <div>
-      <label className="block text-xs font-semibold text-white/50 mb-1.5">
+      <label className={`block text-xs font-bold mb-1.5 ${
+        isDark ? 'text-slate-100' : 'text-slate-800'
+      }`}>
         {typeof label === 'string' ? label : label}
       </label>
       {children}
@@ -286,45 +413,80 @@ function Field({ label, children }) {
   );
 }
 
-function Pill({ active, onClick, children }) {
+function Pill({ active, onClick, isDark, children }) {
   return (
-    <button type="button" onClick={onClick}
-      className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
+    <button
+      type="button"
+      onClick={onClick}
+      className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
         active
-          ? 'bg-indigo-600/80 text-white border border-indigo-400/50 shadow-md shadow-indigo-500/20'
-          : 'bg-white/5 text-white/50 border border-white/8 hover:border-white/20 hover:text-white'
-      }`}>
+          ? 'bg-gradient-to-r from-cyan-500 to-indigo-600 text-white shadow-md shadow-indigo-500/25 border border-transparent scale-105'
+          : isDark
+          ? 'bg-white/5 text-slate-300 border border-white/10 hover:border-white/25 hover:text-white'
+          : 'bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200/70 hover:text-slate-900'
+      }`}
+    >
       {children}
     </button>
   );
 }
 
-function PlainInput({ icon, value, onChange, placeholder, required }) {
+function PlainInput({ icon, value, onChange, placeholder, required, isDark }) {
   return (
     <div className="relative">
       <div className="absolute left-3 top-1/2 -translate-y-1/2">{icon}</div>
-      <input type="text" required={required} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-        className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/20 text-sm focus:outline-none focus:border-indigo-500 transition-colors" />
+      <input
+        type="text"
+        required={required}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        className={`w-full pl-10 pr-4 py-3 rounded-2xl text-xs font-semibold focus:outline-none transition-colors ${
+          isDark
+            ? 'bg-slate-900 border border-white/10 text-white placeholder-slate-500 focus:border-cyan-400'
+            : 'bg-white border border-slate-200 text-slate-900 placeholder-slate-400 focus:border-indigo-500 shadow-sm'
+        }`}
+      />
     </div>
   );
 }
 
-function NumInput({ icon, value, onChange, min, max, step = 1 }) {
+function NumInput({ icon, value, onChange, min, max, step = 1, isDark }) {
   return (
     <div className="relative">
       <div className="absolute left-3 top-1/2 -translate-y-1/2">{icon}</div>
-      <input type="number" min={min} max={max} step={step} value={value}
+      <input
+        type="number"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
         onChange={e => onChange(parseInt(e.target.value, 10) || min)}
-        className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-indigo-500 transition-colors" />
+        className={`w-full pl-10 pr-4 py-3 rounded-2xl text-xs font-semibold focus:outline-none transition-colors ${
+          isDark
+            ? 'bg-slate-900 border border-white/10 text-white focus:border-cyan-400'
+            : 'bg-white border border-slate-200 text-slate-900 focus:border-indigo-500 shadow-sm'
+        }`}
+      />
     </div>
   );
 }
 
-function SummaryRow({ label, value, highlight, green }) {
+function SummaryRow({ label, value, highlight, green, isDark }) {
   return (
     <div className="flex items-center justify-between">
-      <span className="text-white/30">{label}</span>
-      <span className={`font-semibold ${highlight ? 'text-amber-400' : green ? 'text-emerald-400' : 'text-white'}`}>{value}</span>
+      <span className={isDark ? 'text-slate-300' : 'text-slate-600'}>{label}</span>
+      <span className={`font-bold ${
+        highlight
+          ? 'text-amber-500'
+          : green
+          ? 'text-emerald-500'
+          : isDark
+          ? 'text-white'
+          : 'text-slate-950'
+      }`}>
+        {value}
+      </span>
     </div>
   );
 }
