@@ -126,7 +126,7 @@ function describeTransportation(transportation) {
 /**
  * Dynamic AI Travel Decision & Orchestration Agent
  */
-export async function planTripWorkflow(tripRequest) {
+export async function planTripWorkflow(tripRequest, onProgress = null) {
   const {
     origin = 'Ahmedabad',
     destination,
@@ -140,6 +140,52 @@ export async function planTripWorkflow(tripRequest) {
     accommodationPreference = 'Hotel'
   } = tripRequest;
   const transportMode = normalizeTransportMode(tripRequest.transportMode || transportPreference);
+
+  const notifyStage = (event, stage, data = {}) => {
+    if (typeof onProgress === 'function') {
+      try {
+        onProgress({
+          event,
+          stage,
+          timestamp: new Date().toISOString(),
+          ...data
+        });
+      } catch (err) {
+        // Non-blocking callback error
+      }
+    }
+  };
+
+  async function timedStage(stage, startEvent, completeEvent, failedEvent, startDetail, executeFn, getMetrics) {
+    const t0 = Date.now();
+    notifyStage(startEvent, stage, {
+      status: 'IN_PROGRESS',
+      duration_ms: 0,
+      result_count: 0,
+      detail: startDetail
+    });
+    try {
+      const res = await executeFn();
+      const elapsed = Date.now() - t0;
+      const { status, result_count, detail } = getMetrics(res, elapsed);
+      notifyStage(completeEvent, stage, {
+        status,
+        duration_ms: elapsed,
+        result_count,
+        detail
+      });
+      return res;
+    } catch (err) {
+      const elapsed = Date.now() - t0;
+      notifyStage(failedEvent, stage, {
+        status: 'FAILED',
+        duration_ms: elapsed,
+        result_count: 0,
+        detail: `Failed: ${err.message}`
+      });
+      throw err;
+    }
+  }
 
   // Step 1: If destination is missing, run Destination Discovery
   let targetDestination = destination;
@@ -155,35 +201,105 @@ export async function planTripWorkflow(tripRequest) {
     targetDestination = destinationDiscoveryResults[0]?.name || 'Goa';
   }
 
-  // Step 2: Live SerpApi parallel research
+  // Step 2: Live SerpApi parallel research with real stage tracking
   const [transportOptions, hotels, places, reviewInsights, liveEvents] = await Promise.all([
-    transportMode === 'flight' ? searchFlights({
-      origin,
-      destination: targetDestination,
-      outboundDate: dates.outbound,
-      returnDate: dates.return,
-      travelers,
-      cabinClass: 'economy'
-    }) : searchDirections({ origin, destination: targetDestination, mode: transportMode }),
-    searchHotels({
-      destination: targetDestination,
-      checkInDate: dates.outbound,
-      checkOutDate: dates.return,
-      adults: travelers,
-      style: travelStyle
-    }),
-    searchPlaces({
-      destination: targetDestination,
-      interests,
-      limit: Math.max(duration * 5, 20)
-    }),
-    searchReviews({
-      destination: targetDestination,
-      subject: targetDestination
-    }),
-    searchEvents({
-      destination: targetDestination
-    })
+    timedStage(
+      'TRANSPORT',
+      'TRANSPORT_SEARCH_STARTED',
+      'TRANSPORT_SEARCH_COMPLETE',
+      'TRANSPORT_SEARCH_FAILED',
+      `Searching ${transportMode} options between ${origin} and ${targetDestination}...`,
+      () => transportMode === 'flight' ? searchFlights({
+        origin,
+        destination: targetDestination,
+        outboundDate: dates.outbound,
+        returnDate: dates.return,
+        travelers,
+        cabinClass: 'economy'
+      }) : searchDirections({ origin, destination: targetDestination, mode: transportMode }),
+      (res) => {
+        const count = transportMode === 'flight' ? (Array.isArray(res) ? res.length : 0) : (res ? 1 : 0);
+        const status = count > 0 ? 'LIVE' : 'UNAVAILABLE';
+        const detail = count > 0
+          ? `Found ${count} ${transportMode === 'flight' ? 'live flight itineraries' : 'transit routes'} via SerpApi`
+          : `No live ${transportMode} options found; marked unavailable`;
+        return { status, result_count: count, detail };
+      }
+    ),
+    timedStage(
+      'HOTEL',
+      'HOTEL_SEARCH_STARTED',
+      'HOTEL_SEARCH_COMPLETE',
+      'HOTEL_SEARCH_FAILED',
+      `Searching hotels and basecamps in ${targetDestination}...`,
+      () => searchHotels({
+        destination: targetDestination,
+        checkInDate: dates.outbound,
+        checkOutDate: dates.return,
+        adults: travelers,
+        style: travelStyle
+      }),
+      (res) => {
+        const count = Array.isArray(res) ? res.length : 0;
+        const hasLive = res.some(h => h.provenance?.price?.status === 'LIVE');
+        const status = hasLive ? 'LIVE' : count > 0 ? 'FALLBACK' : 'UNAVAILABLE';
+        const detail = count > 0
+          ? `Found ${count} stays in ${targetDestination} (${status === 'LIVE' ? 'Live pricing' : 'Organic fallback'})`
+          : 'No hotel options available';
+        return { status, result_count: count, detail };
+      }
+    ),
+    timedStage(
+      'PLACES',
+      'PLACES_SEARCH_STARTED',
+      'PLACES_SEARCH_COMPLETE',
+      'PLACES_SEARCH_FAILED',
+      `Discovering attractions for ${targetDestination}...`,
+      () => searchPlaces({
+        destination: targetDestination,
+        interests,
+        limit: Math.max(duration * 5, 20)
+      }),
+      (res) => {
+        const count = Array.isArray(res) ? res.length : 0;
+        const status = count > 0 ? 'LIVE' : 'UNAVAILABLE';
+        const detail = count > 0 ? `Retrieved ${count} attractions with live coordinates` : 'No attractions found';
+        return { status, result_count: count, detail };
+      }
+    ),
+    timedStage(
+      'REVIEWS',
+      'REVIEWS_SEARCH_STARTED',
+      'REVIEWS_SEARCH_COMPLETE',
+      'REVIEWS_SEARCH_FAILED',
+      `Analyzing traveler sentiment for ${targetDestination}...`,
+      () => searchReviews({
+        destination: targetDestination,
+        subject: targetDestination
+      }),
+      (res) => {
+        const count = res?.snippetsCount || 0;
+        const status = count > 0 ? 'LIVE' : 'UNAVAILABLE';
+        const detail = count > 0 ? `Analyzed sentiment from ${count} verified review snippets` : 'Review snippets unavailable';
+        return { status, result_count: count, detail };
+      }
+    ),
+    timedStage(
+      'EVENTS',
+      'EVENTS_SEARCH_STARTED',
+      'EVENTS_SEARCH_COMPLETE',
+      'EVENTS_SEARCH_FAILED',
+      `Searching local events and pop-ups in ${targetDestination}...`,
+      () => searchEvents({
+        destination: targetDestination
+      }),
+      (res) => {
+        const count = Array.isArray(res) ? res.length : 0;
+        const status = count > 0 ? 'LIVE' : 'UNAVAILABLE';
+        const detail = count > 0 ? `Discovered ${count} local events via Google Search` : 'No live local events found';
+        return { status, result_count: count, detail };
+      }
+    )
   ]);
 
   const flightOptions = transportMode === 'flight' ? transportOptions : [];
@@ -210,6 +326,14 @@ export async function planTripWorkflow(tripRequest) {
   };
 
   // Step 5: Route Optimization & Geographic Clustering with Physical Journey Legs
+  const tRouting = Date.now();
+  notifyStage('ROUTING_STARTED', 'ROUTING', {
+    status: 'IN_PROGRESS',
+    duration_ms: 0,
+    result_count: 0,
+    detail: 'Routing daily activity legs with Google Maps Directions & caching...'
+  });
+
   const itinerary = await buildRouteAwareItinerary({
     origin,
     destination: targetDestination,
@@ -223,6 +347,18 @@ export async function planTripWorkflow(tripRequest) {
     transportMode
   });
 
+  const routingDuration = Date.now() - tRouting;
+  const totalLegs = itinerary.reduce((sum, d) => sum + (d.totalLegsCount || 0), 0);
+  const liveLegs = itinerary.reduce((sum, d) => sum + (d.liveRoutedCount || 0), 0);
+  const routingStatus = (liveLegs === totalLegs && totalLegs > 0) ? 'LIVE' : (liveLegs > 0 ? 'ESTIMATED' : 'FALLBACK');
+
+  notifyStage('ROUTING_COMPLETE', 'ROUTING', {
+    status: routingStatus,
+    duration_ms: routingDuration,
+    result_count: totalLegs,
+    detail: `${liveLegs} of ${totalLegs} legs live-routed`
+  });
+
   // Step 5b: Enrich Hotel with Geographic Anchor Metrics
   const enrichedHotel = enrichHotelAnchorMetrics(selectedHotel, targetDestination, itinerary) || selectedHotel;
   itinerary.forEach(d => { d.hotelBase = enrichedHotel; });
@@ -231,6 +367,14 @@ export async function planTripWorkflow(tripRequest) {
   const geospatialMetrics = calculateGeospatialMetrics(itinerary);
 
   // Step 7: Budget Calculation and Over-budget Evaluation
+  const tBudget = Date.now();
+  notifyStage('BUDGET_EVALUATION_STARTED', 'BUDGET', {
+    status: 'IN_PROGRESS',
+    duration_ms: 0,
+    result_count: 0,
+    detail: `Computing budget breakdown for ${travelers} travelers across ${duration} days...`
+  });
+
   const budgetBreakdown = calculateTripBudget({
     transportation,
     hotel: selectedHotel,
@@ -243,8 +387,24 @@ export async function planTripWorkflow(tripRequest) {
   const totalCost = budgetBreakdown.totalEstimatedCost;
   const isOverBudget = totalCost > budget;
   const overBudgetDifference = totalCost - budget;
+  const budgetDuration = Date.now() - tBudget;
+
+  notifyStage('BUDGET_EVALUATION_COMPLETE', 'BUDGET', {
+    status: 'ESTIMATED',
+    duration_ms: budgetDuration,
+    result_count: 1,
+    detail: `Estimated total ₹${totalCost.toLocaleString('en-IN')} (${isOverBudget ? 'Over Budget' : 'Within Budget'})`
+  });
 
   // Step 8: Constraint Model & Validation
+  const tValidation = Date.now();
+  notifyStage('VALIDATION_STARTED', 'VALIDATION', {
+    status: 'IN_PROGRESS',
+    duration_ms: 0,
+    result_count: 0,
+    detail: 'Validating feasibility constraints and explainability...'
+  });
+
   const constraintModel = buildConstraintModel({
     budget: parseInt(budget, 10) || 20000,
     duration: parseInt(duration, 10) || 3,
@@ -261,6 +421,14 @@ export async function planTripWorkflow(tripRequest) {
     transportation,
     selectedOptions: { hotel: selectedHotel, flight: selectedFlight }
   }, constraintModel);
+
+  const validationDuration = Date.now() - tValidation;
+  notifyStage('VALIDATION_COMPLETE', 'VALIDATION', {
+    status: 'INFERRED',
+    duration_ms: validationDuration,
+    result_count: constraintReport.violations?.length || 0,
+    detail: `Validated with ${constraintReport.violations?.length || 0} violations (${constraintReport.isValid ? 'Feasible' : 'Relaxation Recommended'})`
+  });
 
   // Step 9: Alternatives & Optimization Plan if over budget
   let budgetAlternatives = null;
@@ -341,8 +509,6 @@ export async function planTripWorkflow(tripRequest) {
     sentimentSummary: reviewInsights.agentRecommendation
   };
 
-  const totalLegs = itinerary.reduce((sum, d) => sum + (d.totalLegsCount || 0), 0);
-  const liveLegs = itinerary.reduce((sum, d) => sum + (d.liveRoutedCount || 0), 0);
   const liveRoutingSummary = {
     liveLegs,
     totalLegs,

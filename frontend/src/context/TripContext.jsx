@@ -5,6 +5,17 @@ const TripContext = createContext();
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 
+export const INITIAL_RESEARCH_STAGES = [
+  { id: 1, key: 'TRANSPORT', title: 'Flights & Inter-city Transit', status: 'pending', duration_ms: null, result_count: 0, detail: 'Google Flights engine via SerpApi' },
+  { id: 2, key: 'HOTEL', title: 'Hotels & Basecamps', status: 'pending', duration_ms: null, result_count: 0, detail: 'Google Hotels engine via SerpApi' },
+  { id: 3, key: 'PLACES', title: 'Places & Attractions', status: 'pending', duration_ms: null, result_count: 0, detail: 'Google Maps Places engine via SerpApi' },
+  { id: 4, key: 'REVIEWS', title: 'Traveler Reviews & Sentiment', status: 'pending', duration_ms: null, result_count: 0, detail: 'Real review snippet sentiment analysis' },
+  { id: 5, key: 'EVENTS', title: 'Live Events & Pop-ups', status: 'pending', duration_ms: null, result_count: 0, detail: 'Google Search local events via SerpApi' },
+  { id: 6, key: 'ROUTING', title: 'Live Road Routing & Buffers', status: 'pending', duration_ms: null, result_count: 0, detail: 'Google Maps Directions with concurrency & caching' },
+  { id: 7, key: 'BUDGET', title: 'Hard Constraints & Budget', status: 'pending', duration_ms: null, result_count: 0, detail: 'Deterministic Constraint Engine' },
+  { id: 8, key: 'VALIDATION', title: 'Master Itinerary & Validation', status: 'pending', duration_ms: null, result_count: 0, detail: 'Explainable Journey Engine' }
+];
+
 export function TripProvider({ children }) {
   const [theme, setTheme] = useState(() => {
     const saved = localStorage.getItem('travelos_theme');
@@ -55,17 +66,8 @@ export function TripProvider({ children }) {
   const [budgetOptimizationError, setBudgetOptimizationError] = useState('');
   const [destinationsDiscovery, setDestinationsDiscovery] = useState([]);
 
-  // Live Research Center stages (Requirement 27)
-  const [researchSteps, setResearchSteps] = useState([
-    { id: 1, title: 'Flights & Inter-city Transit researched', status: 'pending', detail: 'Google Flights engine via SerpApi' },
-    { id: 2, title: 'Hotels & Basecamps researched', status: 'pending', detail: 'Google Hotels engine via SerpApi' },
-    { id: 3, title: 'Places & Attractions collected', status: 'pending', detail: 'Google Maps Places engine via SerpApi' },
-    { id: 4, title: 'Live Events & Pop-ups retrieved', status: 'pending', detail: 'Google Search engine via SerpApi' },
-    { id: 5, title: 'Route data & Travel buffers evaluated', status: 'pending', detail: 'Google Maps Directions via SerpApi' },
-    { id: 6, title: 'Hard Constraints & Budget evaluated', status: 'pending', detail: 'Deterministic Constraint Engine' },
-    { id: 7, title: 'Geospatial Route loops optimized', status: 'pending', detail: 'Nearest-Neighbor clustering' },
-    { id: 8, title: 'Master Itinerary generated', status: 'pending', detail: 'Explainable Journey Engine' }
-  ]);
+  // Live Research Center stages (Real Server-Sent Events)
+  const [researchSteps, setResearchSteps] = useState(INITIAL_RESEARCH_STAGES);
 
   // Live changes monitor state
   const [liveChangesModalOpen, setLiveChangesModalOpen] = useState(false);
@@ -104,88 +106,123 @@ export function TripProvider({ children }) {
   }
 
   /**
-   * Main Trip Generation Workflow with animated real-time research stages
+   * Main Trip Generation Workflow streaming real Server-Sent Events (SSE)
    */
   async function generateTrip(customData) {
     const payload = customData || formData;
-    // Invalidate the previous plan immediately so stale transport data cannot survive a new request.
     setCurrentTrip(null);
     setIsGenerating(true);
     setActiveScreen('research');
 
-    // Reset research steps
-    setResearchSteps([
-      { id: 1, title: 'Flights & Inter-city Transit researched', status: 'in-progress', detail: payload.transportPreference || 'Google Flights engine via SerpApi' },
-      { id: 2, title: 'Hotels & Basecamps researched', status: 'pending', detail: 'Google Hotels engine via SerpApi' },
-      { id: 3, title: 'Places & Attractions collected', status: 'pending', detail: 'Google Maps Places engine via SerpApi' },
-      { id: 4, title: 'Live Events & Pop-ups retrieved', status: 'pending', detail: 'Google Search engine via SerpApi' },
-      { id: 5, title: 'Route data & Travel buffers evaluated', status: 'pending', detail: 'Google Maps Directions via SerpApi' },
-      { id: 6, title: 'Hard Constraints & Budget evaluated', status: 'pending', detail: 'Deterministic Constraint Engine' },
-      { id: 7, title: 'Geospatial Route loops optimized', status: 'pending', detail: 'Nearest-Neighbor clustering' },
-      { id: 8, title: 'Master Itinerary generated', status: 'pending', detail: 'Explainable Journey Engine' }
-    ]);
+    // Reset research steps with clean pending state
+    setResearchSteps(INITIAL_RESEARCH_STAGES.map(s => ({ ...s })));
 
-    // Animate stages smoothly while backend works
-    const stepInterval = setInterval(() => {
-      setResearchSteps(prev => {
-        const nextPending = prev.findIndex(s => s.status === 'in-progress');
-        if (nextPending !== -1 && nextPending < prev.length - 1) {
-          const updated = [...prev];
-          updated[nextPending].status = 'done';
-          updated[nextPending + 1].status = 'in-progress';
-          return updated;
-        }
-        return prev;
-      });
-    }, 600);
+    let finalTrip = null;
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/trips`, {
+      // 1. Stream real stage events via SSE endpoint
+      const streamRes = await fetch(`${API_BASE_URL}/api/trips/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      const data = await res.json();
 
-      clearInterval(stepInterval);
-
-      if (data.success && data.trip) {
-        // Mark all steps done
-        setResearchSteps(prev => prev.map(s => ({ ...s, status: 'done' })));
-
-        setCurrentTrip(data.trip);
-        setSelectedDay(1);
-        setActiveTab('overview');
-
-        // Confetti celebration
-        try {
-          confetti({
-            particleCount: 80,
-            spread: 70,
-            origin: { y: 0.6 }
-          });
-        } catch (_) {}
-
-        // Small delay so user sees 100% completed research screen
-        setTimeout(() => {
-          setActiveScreen('dashboard');
-          setIsGenerating(false);
-        }, 800);
-
-        // Initialize chat history with agent welcome
-        setChatMessages([
-          {
-            role: 'agent',
-            text: `Hello! I have generated your customized ${data.trip.duration}-day ${data.trip.transportation?.mode || 'flight'} trip to ${data.trip.destination}. Transportation and destination options have been researched via SerpApi. How would you like to refine or replan your journey?`
-          }
-        ]);
-
-        return data.trip;
-      } else {
-        throw new Error(data.error || 'Failed to generate trip');
+      if (!streamRes.ok || !streamRes.body) {
+        throw new Error(`SSE stream failed (HTTP ${streamRes.status})`);
       }
+
+      const reader = streamRes.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const parts = buffer.split('\n\n');
+        buffer = parts.pop() || '';
+
+        for (const part of parts) {
+          if (!part.trim()) continue;
+          let eventType = 'message';
+          let dataStr = '';
+
+          for (const line of part.split('\n')) {
+            if (line.startsWith('event: ')) eventType = line.slice(7).trim();
+            else if (line.startsWith('data: ')) dataStr = line.slice(6).trim();
+          }
+
+          if (dataStr) {
+            try {
+              const data = JSON.parse(dataStr);
+              if (eventType === 'stage') {
+                setResearchSteps(prev => prev.map(step => {
+                  if (step.key === data.stage) {
+                    return {
+                      ...step,
+                      status: data.status,
+                      duration_ms: data.duration_ms,
+                      result_count: data.result_count,
+                      detail: data.detail || step.detail
+                    };
+                  }
+                  return step;
+                }));
+              } else if (eventType === 'complete' && data.trip) {
+                finalTrip = data.trip;
+              } else if (eventType === 'error') {
+                throw new Error(data.error || 'Server error occurred during trip generation');
+              }
+            } catch (err) {
+              // Ignore partial JSON parse errors
+            }
+          }
+        }
+      }
+
+      // Fallback: If stream closed without complete event, query standard POST /api/trips
+      if (!finalTrip) {
+        const fallbackRes = await fetch(`${API_BASE_URL}/api/trips`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const fallbackData = await fallbackRes.json();
+        if (fallbackData.success && fallbackData.trip) {
+          finalTrip = fallbackData.trip;
+        } else {
+          throw new Error(fallbackData.error || 'Failed to generate trip');
+        }
+      }
+
+      setCurrentTrip(finalTrip);
+      setSelectedDay(1);
+      setActiveTab('overview');
+
+      // Confetti celebration
+      try {
+        confetti({
+          particleCount: 80,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
+      } catch (_) {}
+
+      setTimeout(() => {
+        setActiveScreen('dashboard');
+        setIsGenerating(false);
+      }, 900);
+
+      setChatMessages([
+        {
+          role: 'agent',
+          text: `Hello! I have generated your customized ${finalTrip.duration}-day ${finalTrip.transportation?.mode || 'flight'} trip to ${finalTrip.destination}. Transportation, hotels, places, and routes have been grounded via live SerpApi queries. How would you like to refine or replan your journey?`
+        }
+      ]);
+
+      return finalTrip;
     } catch (err) {
-      clearInterval(stepInterval);
       console.error('[Error generating trip]:', err);
       alert(`Trip Generation Error: ${err.message}. Please verify the backend is running.`);
       setActiveScreen('builder');

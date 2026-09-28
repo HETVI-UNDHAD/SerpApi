@@ -31,7 +31,7 @@ router.post('/trips/parse-prompt', async (req, res) => {
   }
 });
 
-// 1. Initialize or Generate a Trip
+// 1. Initialize or Generate a Trip (Standard HTTP)
 router.post('/trips', async (req, res) => {
   try {
     const tripData = req.body;
@@ -41,6 +41,34 @@ router.post('/trips', async (req, res) => {
   } catch (err) {
     console.error('[Error in POST /api/trips]:', err);
     res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 1b. Stream Trip Generation via Server-Sent Events (SSE) (P1-2)
+router.post('/trips/stream', async (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  if (res.flushHeaders) res.flushHeaders();
+
+  const sendSSE = (eventType, payload) => {
+    res.write(`event: ${eventType}\n`);
+    res.write(`data: ${JSON.stringify(payload)}\n\n`);
+  };
+
+  try {
+    const tripData = req.body;
+    const plan = await planTripWorkflow(tripData, (stageEvent) => {
+      sendSSE('stage', stageEvent);
+    });
+    await saveTrip(plan);
+    sendSSE('complete', { success: true, trip: plan });
+    res.end();
+  } catch (err) {
+    console.error('[Error in POST /api/trips/stream]:', err);
+    sendSSE('error', { success: false, error: err.message });
+    res.end();
   }
 });
 

@@ -17,12 +17,45 @@ const ICONS = {
   8: Calendar
 };
 
+function formatElapsed(ms) {
+  if (ms == null) return null;
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
+function renderStatusBadge(status) {
+  switch (status) {
+    case 'LIVE':
+      return <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">LIVE</span>;
+    case 'ESTIMATED':
+      return <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-sky-500/20 text-sky-400 border border-sky-500/30">ESTIMATED</span>;
+    case 'INFERRED':
+      return <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-purple-500/20 text-purple-400 border border-purple-500/30">INFERRED</span>;
+    case 'FALLBACK':
+      return <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40">FALLBACK</span>;
+    case 'FAILED':
+      return <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/40">FAILED</span>;
+    case 'UNAVAILABLE':
+      return <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-slate-500/20 text-slate-400 border border-slate-500/30">UNAVAILABLE</span>;
+    case 'IN_PROGRESS':
+    case 'in-progress':
+      return <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 animate-pulse">SEARCHING</span>;
+    default:
+      return null;
+  }
+}
+
 export default function ResearchCenterPage() {
   const { researchSteps, formData, theme } = useTrip();
   const isDark = theme === 'dark';
 
-  const doneCount = researchSteps.filter(s => s.status === 'done').length;
-  const progress = Math.max(15, Math.round((doneCount / researchSteps.length) * 100));
+  const completedCount = researchSteps.filter(s =>
+    ['LIVE', 'ESTIMATED', 'INFERRED', 'FALLBACK', 'FAILED', 'UNAVAILABLE', 'done'].includes(s.status)
+  ).length;
+  const inProgressCount = researchSteps.filter(s =>
+    ['IN_PROGRESS', 'in-progress'].includes(s.status)
+  ).length;
+  const progress = Math.max(12, Math.round(((completedCount + (inProgressCount * 0.5)) / researchSteps.length) * 100));
 
   const destQuery = formData?.destination || 'Goa';
 
@@ -66,10 +99,9 @@ export default function ResearchCenterPage() {
           {/* Glowing Ambient Core Light */}
           <div className="absolute inset-4 rounded-full bg-gradient-to-tr from-cyan-400 via-indigo-500 to-violet-600 blur-2xl opacity-60 animate-pulse" />
 
-          {/* Central Iridescent Orb (Reference Image 2 Style) */}
+          {/* Central Iridescent Orb */}
           <div className="relative w-24 h-24 rounded-full bg-gradient-to-tr from-cyan-400 via-indigo-600 to-violet-600 p-[2px] shadow-2xl shadow-indigo-500/40">
             <div className="w-full h-full rounded-full bg-slate-950/80 backdrop-blur-md flex flex-col items-center justify-center relative overflow-hidden">
-              {/* Internal light sheen */}
               <div className="absolute -top-4 -left-4 w-12 h-12 rounded-full bg-white/30 blur-md pointer-events-none" />
               <Sparkles className="w-8 h-8 text-cyan-300 animate-pulse" />
               <span className="text-[9px] font-black tracking-widest text-violet-300 mt-1 uppercase">
@@ -83,7 +115,7 @@ export default function ResearchCenterPage() {
         <div className="space-y-1.5">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-violet-500/10 text-violet-400 border border-violet-500/20">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Autonomous Multi-Engine Intelligence</span>
+            <span>Autonomous Multi-Engine Grounding</span>
           </div>
           <h2 className={`text-2xl sm:text-3xl font-black tracking-tight ${
             isDark ? 'text-white' : 'text-slate-900'
@@ -104,7 +136,7 @@ export default function ResearchCenterPage() {
         {/* Progress bar & Percent */}
         <div className="space-y-2 max-w-sm mx-auto">
           <div className="flex items-center justify-between text-xs font-mono">
-            <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>Grounding Live Data</span>
+            <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>Real-Time Pipeline</span>
             <span className="font-bold text-cyan-400">{progress}%</span>
           </div>
           <div className={`w-full h-2 rounded-full overflow-hidden p-0.5 border ${
@@ -117,26 +149,38 @@ export default function ResearchCenterPage() {
           </div>
         </div>
 
-        {/* ── VERTICAL TIMELINE OF 6 RESEARCH STAGES ── */}
+        {/* ── VERTICAL TIMELINE OF 8 REAL RESEARCH STAGES ── */}
         <div className={`p-5 rounded-3xl border text-left space-y-3 shadow-xl ${
           isDark
             ? 'glass-panel-dark border-white/10'
             : 'glass-panel-light border-slate-200/80 shadow-luxury-light'
         }`}>
-          {researchSteps.map((step, idx) => {
+          {researchSteps.map((step) => {
             const Icon = ICONS[step.id] || Sparkles;
-            const done = step.status === 'done';
-            const active = step.status === 'in-progress';
+            const isDone = ['LIVE', 'ESTIMATED', 'INFERRED', 'done'].includes(step.status);
+            const isFallbackOrFailed = ['FALLBACK', 'FAILED'].includes(step.status);
+            const isUnavailable = step.status === 'UNAVAILABLE';
+            const isActive = step.status === 'IN_PROGRESS' || step.status === 'in-progress';
+            const isPending = !step.status || step.status === 'pending';
+            const elapsed = formatElapsed(step.duration_ms);
 
             return (
               <div
                 key={step.id}
                 className={`flex items-center gap-3.5 p-3 rounded-2xl border transition-all duration-300 ${
-                  done
+                  isDone
                     ? isDark
                       ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
                       : 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                    : active
+                    : isFallbackOrFailed
+                    ? isDark
+                      ? 'bg-amber-500/10 border-amber-500/30 text-amber-200'
+                      : 'bg-amber-50 border-amber-300 text-amber-900'
+                    : isUnavailable
+                    ? isDark
+                      ? 'bg-slate-500/10 border-slate-500/20 text-slate-400'
+                      : 'bg-slate-100 border-slate-200 text-slate-600'
+                    : isActive
                     ? isDark
                       ? 'bg-indigo-500/15 border-indigo-500/30 text-white shadow-md'
                       : 'bg-indigo-50 border-indigo-200 text-indigo-950 shadow-md'
@@ -147,9 +191,13 @@ export default function ResearchCenterPage() {
               >
                 {/* Timeline Icon */}
                 <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                  done
+                  isDone
                     ? 'bg-emerald-500/20 text-emerald-400'
-                    : active
+                    : isFallbackOrFailed
+                    ? 'bg-amber-500/20 text-amber-400'
+                    : isUnavailable
+                    ? 'bg-slate-500/20 text-slate-400'
+                    : isActive
                     ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30'
                     : isDark
                     ? 'bg-white/5 text-slate-500'
@@ -160,25 +208,39 @@ export default function ResearchCenterPage() {
 
                 {/* Text details */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold truncate">
-                    {step.title}
-                  </p>
-                  <p className={`text-[10px] truncate ${
-                    done
-                      ? isDark ? 'text-emerald-400/70' : 'text-emerald-700/70'
-                      : active
-                      ? isDark ? 'text-cyan-300' : 'text-indigo-600 font-semibold'
-                      : isDark ? 'text-slate-500' : 'text-slate-400'
-                  }`}>
-                    {step.detail}
-                  </p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-bold truncate">
+                      {step.title}
+                    </p>
+                    {elapsed && (
+                      <span className="text-[10px] font-mono text-cyan-400/90 flex-shrink-0">
+                        {elapsed}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    {renderStatusBadge(step.status)}
+                    <p className={`text-[10px] truncate ${
+                      isDone
+                        ? isDark ? 'text-emerald-400/70' : 'text-emerald-700/70'
+                        : isFallbackOrFailed
+                        ? isDark ? 'text-amber-300/80' : 'text-amber-800/80'
+                        : isActive
+                        ? isDark ? 'text-cyan-300' : 'text-indigo-600 font-semibold'
+                        : isDark ? 'text-slate-500' : 'text-slate-400'
+                    }`}>
+                      {step.detail}
+                    </p>
+                  </div>
                 </div>
 
                 {/* Status Indicator */}
                 <div className="flex-shrink-0">
-                  {done && <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
-                  {active && <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" />}
-                  {!done && !active && <Circle className="w-3.5 h-3.5 opacity-30" />}
+                  {isDone && <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
+                  {isFallbackOrFailed && <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block shadow-sm shadow-amber-400/50" />}
+                  {isUnavailable && <span className="w-2 h-2 rounded-full bg-slate-500 inline-block" />}
+                  {isActive && <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" />}
+                  {isPending && <Circle className="w-3.5 h-3.5 opacity-30" />}
                 </div>
               </div>
             );
