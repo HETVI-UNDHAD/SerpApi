@@ -128,6 +128,21 @@ async function runTestSuite() {
   assert(replanned.replanDiff.changed && replanned.replanDiff.changed.length > 0, 'Identified adapted schedules (arrival, check-in, morning tours)');
   assert(replanned.replanDiff.timelineComparison?.before !== undefined, 'Includes before timeline');
   assert(replanned.replanDiff.timelineComparison?.after !== undefined, 'Includes after timeline');
+  assert(replanned.replanDiff.impactAnalysis?.flightDelay === '+3 hours', 'Impact analysis panel tracks flight delay');
+  assert(replanned.replanDiff.impactAnalysis?.rescheduledCount === 2, 'Impact analysis tracks rescheduled activities count');
+
+  // ──── TEST SUITE 7: Physical Journey Transfers & Hotel Anchor ────
+  console.log('\n--- Suite 7: Physical Route Intelligence & Hotel Anchor ---');
+  assert(trip.itinerary[0].originTransfer !== undefined, 'Day 1 includes Origin Transfer (Home -> Departure Airport)');
+  assert(trip.itinerary[0].originTransfer.safetyBufferMinutes === 120, 'Origin transfer includes 2-hour flight safety buffer');
+  assert(trip.itinerary[0].destinationArrivalTransfer !== undefined, 'Day 1 includes Destination Arrival Transfer (Airport -> Hotel)');
+  assert(trip.itinerary[0].destinationArrivalTransfer.roadDistanceKm > 0, 'Destination arrival transfer calculates road distance');
+  assert(trip.itinerary[trip.itinerary.length - 1].returnDepartureTransfer !== undefined, 'Final day includes Return Departure Transfer (Hotel -> Airport -> Home)');
+  assert(trip.hotelAnchor?.isGeographicAnchor === true, 'Hotel is designated as the Trip Basecamp Geographic Anchor');
+  assert(trip.hotelAnchor?.airportContext?.roadDistanceKm > 0, 'Hotel anchor provides airport road distance context');
+  assert(trip.itinerary[0].routeSummary?.hotelReturnConfirmed === true, 'Day route summary confirms hotel return loop');
+  assert(trip.itinerary[0].activities[0].distanceFromHotelKm >= 0, 'Activities track distance relative to the hotel anchor');
+  assert(trip.itinerary[0].activities[0].isRoadEstimated === true, 'Activities transparently label estimated road distance');
 
   const totalTime = Date.now() - startTime;
   console.log('\n======================================================');

@@ -55,14 +55,16 @@ export function TripProvider({ children }) {
   const [budgetOptimizationError, setBudgetOptimizationError] = useState('');
   const [destinationsDiscovery, setDestinationsDiscovery] = useState([]);
 
-  // Live Research Center stages
+  // Live Research Center stages (Requirement 27)
   const [researchSteps, setResearchSteps] = useState([
-    { id: 1, title: 'Searching selected transportation via SerpApi', status: 'pending', detail: 'Mode-specific travel engine' },
-    { id: 2, title: 'Searching verified hotels & live rates', status: 'pending', detail: 'Google Hotels engine' },
-    { id: 3, title: 'Discovering attractions with GPS coordinates', status: 'pending', detail: 'Google Maps places API' },
-    { id: 4, title: 'Extracting sentiment & review intelligence', status: 'pending', detail: 'Travel forums & reviews' },
-    { id: 5, title: 'Comparing options & calculating budget', status: 'pending', detail: 'Dynamic constraint optimizer' },
-    { id: 6, title: 'Optimizing routes & travel times', status: 'pending', detail: 'Haversine geographical clustering' }
+    { id: 1, title: 'Flights & Inter-city Transit researched', status: 'pending', detail: 'Google Flights engine via SerpApi' },
+    { id: 2, title: 'Hotels & Basecamps researched', status: 'pending', detail: 'Google Hotels engine via SerpApi' },
+    { id: 3, title: 'Places & Attractions collected', status: 'pending', detail: 'Google Maps Places engine via SerpApi' },
+    { id: 4, title: 'Live Events & Pop-ups retrieved', status: 'pending', detail: 'Google Search engine via SerpApi' },
+    { id: 5, title: 'Route data & Travel buffers evaluated', status: 'pending', detail: 'Google Maps Directions via SerpApi' },
+    { id: 6, title: 'Hard Constraints & Budget evaluated', status: 'pending', detail: 'Deterministic Constraint Engine' },
+    { id: 7, title: 'Geospatial Route loops optimized', status: 'pending', detail: 'Nearest-Neighbor clustering' },
+    { id: 8, title: 'Master Itinerary generated', status: 'pending', detail: 'Explainable Journey Engine' }
   ]);
 
   // Live changes monitor state
@@ -113,12 +115,14 @@ export function TripProvider({ children }) {
 
     // Reset research steps
     setResearchSteps([
-      { id: 1, title: 'Searching selected transportation via SerpApi', status: 'in-progress', detail: payload.transportPreference || 'Mode-specific travel engine' },
-      { id: 2, title: 'Searching verified hotels & live rates', status: 'pending', detail: 'Google Hotels engine' },
-      { id: 3, title: 'Discovering attractions with GPS coordinates', status: 'pending', detail: 'Google Maps places API' },
-      { id: 4, title: 'Extracting sentiment & review intelligence', status: 'pending', detail: 'Travel forums & reviews' },
-      { id: 5, title: 'Comparing options & calculating budget', status: 'pending', detail: 'Dynamic constraint optimizer' },
-      { id: 6, title: 'Optimizing routes & travel times', status: 'pending', detail: 'Haversine geographical clustering' }
+      { id: 1, title: 'Flights & Inter-city Transit researched', status: 'in-progress', detail: payload.transportPreference || 'Google Flights engine via SerpApi' },
+      { id: 2, title: 'Hotels & Basecamps researched', status: 'pending', detail: 'Google Hotels engine via SerpApi' },
+      { id: 3, title: 'Places & Attractions collected', status: 'pending', detail: 'Google Maps Places engine via SerpApi' },
+      { id: 4, title: 'Live Events & Pop-ups retrieved', status: 'pending', detail: 'Google Search engine via SerpApi' },
+      { id: 5, title: 'Route data & Travel buffers evaluated', status: 'pending', detail: 'Google Maps Directions via SerpApi' },
+      { id: 6, title: 'Hard Constraints & Budget evaluated', status: 'pending', detail: 'Deterministic Constraint Engine' },
+      { id: 7, title: 'Geospatial Route loops optimized', status: 'pending', detail: 'Nearest-Neighbor clustering' },
+      { id: 8, title: 'Master Itinerary generated', status: 'pending', detail: 'Explainable Journey Engine' }
     ]);
 
     // Animate stages smoothly while backend works

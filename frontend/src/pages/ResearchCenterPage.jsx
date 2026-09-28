@@ -3,10 +3,19 @@ import { useTrip } from '../context/TripContext';
 import {
   Sparkles, Plane, Building, MapPin, MessageSquare,
   Calculator, Sliders, CheckCircle2, Loader2, Circle,
-  Compass, ShieldCheck, Heart
+  Compass, ShieldCheck, Heart, Calendar, Route, Zap
 } from 'lucide-react';
 
-const ICONS = { 1: Plane, 2: Building, 3: MapPin, 4: MessageSquare, 5: Calculator, 6: Sliders };
+const ICONS = {
+  1: Plane,
+  2: Building,
+  3: MapPin,
+  4: Zap,
+  5: Route,
+  6: ShieldCheck,
+  7: Compass,
+  8: Calendar
+};
 
 export default function ResearchCenterPage() {
   const { researchSteps, formData, theme } = useTrip();

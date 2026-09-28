@@ -3,8 +3,21 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useTrip } from '../context/TripContext';
 import { loadGoogleMaps } from '../utils/loadGoogleMaps';
-import { MapPin, Navigation, Sparkles, Car, Compass, Route } from 'lucide-react';
+import {
+  MapPin,
+  Navigation,
+  Sparkles,
+  Car,
+  Compass,
+  Route,
+  Plane,
+  Building,
+  Info,
+  Layers,
+  ArrowRight
+} from 'lucide-react';
 
+const DAY_COLORS = ['#06b6d4', '#f59e0b', '#a855f7', '#10b981', '#ec4899'];
 const PIN_COLORS = ['#06b6d4', '#f59e0b', '#ec4899', '#10b981', '#8b5cf6'];
 
 const CITY_COORDINATES = {
@@ -42,17 +55,19 @@ function getCityCenter(destination) {
   return { lat: 24.5854, lng: 73.7125 };
 }
 
-export default function InteractiveRouteMap({ dayData, hotel, destination, transportation }) {
-  const { theme } = useTrip();
+export default function InteractiveRouteMap({
+  dayData,
+  hotel,
+  destination,
+  transportation,
+  activeFocusWaypoint = null
+}) {
+  const { currentTrip, selectedDay, setSelectedDay, theme } = useTrip();
   const isDark = theme === 'dark';
 
   const mapDivRef = useRef(null);
   const [engine, setEngine] = useState('detecting');
-
-  // Google Maps refs
-  const gMapRef = useRef(null);
-  const gMarkersRef = useRef([]);
-  const gRendererRef = useRef(null);
+  const [viewMode, setViewMode] = useState('day'); // 'day' or 'full'
 
   // Leaflet refs
   const lMapRef = useRef(null);
@@ -62,6 +77,10 @@ export default function InteractiveRouteMap({ dayData, hotel, destination, trans
   const cityCenter = getCityCenter(destination);
   const hotelLat = hotel?.gpsCoordinates?.latitude || cityCenter.lat;
   const hotelLng = hotel?.gpsCoordinates?.longitude || cityCenter.lng;
+  const hotelName = hotel?.name || 'Hotel Basecamp';
+
+  const allItineraryDays = currentTrip?.itinerary || [];
+  const currentDay = dayData || allItineraryDays.find(d => d.day === selectedDay) || allItineraryDays[0];
 
   // 1. Detect if Google Maps API key is configured
   useEffect(() => {
@@ -96,62 +115,167 @@ export default function InteractiveRouteMap({ dayData, hotel, destination, trans
       lMapRef.current = map;
       lTileLayerRef.current = tileLayer;
       lLayerRef.current = L.layerGroup().addTo(map);
-    } else if (lTileLayerRef.current) {
-      // OSM tiles are shared across themes; marker and route styling stays theme-aware.
     }
 
-    renderLeafletRoute();
-  }, [engine, dayData, hotel, destination, isDark, transportation]);
+    renderRoute();
+  }, [engine, viewMode, currentDay, hotel, destination, isDark, transportation, allItineraryDays]);
 
-  function renderLeafletRoute() {
+  // Handle external focus triggers
+  useEffect(() => {
+    if (activeFocusWaypoint != null) {
+      focusWaypoint(activeFocusWaypoint);
+    }
+  }, [activeFocusWaypoint]);
+
+  function renderRoute() {
     const map = lMapRef.current;
     const layer = lLayerRef.current;
     if (!map || !layer) return;
 
     layer.clearLayers();
 
-    const latLngs = [];
-    const activities = dayData?.activities || [];
-
-    // Hotel Basecamp marker with 3D pulsing styling
     const hotelPos = [hotelLat, hotelLng];
-    latLngs.push(hotelPos);
+    const allBoundPoints = [hotelPos];
 
+    // ── 1. HOTEL BASECAMP ANCHOR PIN ──
     const hotelIcon = L.divIcon({
       className: 'hotel-icon',
       html: `
-        <div style="background:#4f46e5;color:white;width:38px;height:38px;border-radius:14px;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 18px rgba(79,70,229,0.55);border:2.5px solid #ffffff;font-size:18px;">
+        <div style="background:#4f46e5;color:white;width:42px;height:42px;border-radius:14px;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(79,70,229,0.65);border:3px solid #ffffff;font-size:20px;cursor:pointer;">
           🏨
         </div>
       `,
-      iconSize: [38, 38],
-      iconAnchor: [19, 19]
+      iconSize: [42, 42],
+      iconAnchor: [21, 21]
     });
 
     const hotelMarker = L.marker(hotelPos, { icon: hotelIcon }).addTo(layer);
     hotelMarker.bindPopup(`
-      <div style="padding:8px;min-width:200px">
-        <strong style="color:#4f46e5;font-size:12px;text-transform:uppercase;letter-spacing:1px">🏨 Hotel Basecamp</strong>
-        <p style="margin:4px 0 2px;font-size:13px;font-weight:bold;color:#0f172a">${hotel?.name || 'Selected Stay'}</p>
+      <div style="padding:8px;min-width:220px">
+        <strong style="color:#4f46e5;font-size:11px;text-transform:uppercase;letter-spacing:1px">🏨 Trip Geographic Anchor</strong>
+        <p style="margin:4px 0 2px;font-size:14px;font-weight:bold;color:#0f172a">${hotelName}</p>
         <span style="font-size:11px;color:#64748b">${hotel?.address || destination}</span>
+        <div style="margin-top:6px;padding:4px 8px;background:#eef2ff;border-radius:8px;font-size:10px;font-weight:bold;color:#4338ca">
+          All daily routes depart from & return to this stay
+        </div>
       </div>
     `);
 
-    // Activities stops with glossy 3D numbered pins (1..N)
-    activities.forEach((act, idx) => {
+    // ── 2. VIEW MODE: FULL TRIP OVERVIEW ──
+    if (viewMode === 'full') {
+      allItineraryDays.forEach((day, dIdx) => {
+        const dayColor = DAY_COLORS[dIdx % DAY_COLORS.length];
+        const dayLatLngs = [hotelPos];
+        const acts = day.activities || [];
+
+        acts.forEach((act, aIdx) => {
+          const offsetLat = (aIdx === 0 ? 0.012 : aIdx === 1 ? -0.015 : aIdx === 2 ? 0.022 : -0.018) + (dIdx * 0.01);
+          const offsetLng = (aIdx === 0 ? 0.014 : aIdx === 1 ? -0.012 : aIdx === 2 ? -0.018 : 0.021) + (dIdx * 0.01);
+          const lat = act.placeDetails?.gpsCoordinates?.latitude || (hotelLat + offsetLat);
+          const lng = act.placeDetails?.gpsCoordinates?.longitude || (hotelLng + offsetLng);
+          const pos = [lat, lng];
+          dayLatLngs.push(pos);
+          allBoundPoints.push(pos);
+
+          const actIcon = L.divIcon({
+            className: 'full-trip-icon',
+            html: `
+              <div style="background:${dayColor};color:white;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;border:2px solid #ffffff;box-shadow:0 4px 12px rgba(0,0,0,0.3);">
+                D${day.day}
+              </div>
+            `,
+            iconSize: [28, 28],
+            iconAnchor: [14, 14]
+          });
+
+          L.marker(pos, { icon: actIcon })
+            .addTo(layer)
+            .bindPopup(`<strong>Day ${day.day}: ${act.title}</strong><br/><span style="font-size:11px;color:#64748b">${act.category}</span>`);
+        });
+
+        // Close day loop back to hotel
+        dayLatLngs.push(hotelPos);
+
+        L.polyline(dayLatLngs, {
+          color: dayColor,
+          weight: 3.5,
+          opacity: 0.85,
+          dashArray: '6, 6',
+          lineCap: 'round',
+          lineJoin: 'round'
+        }).addTo(layer);
+      });
+
+      if (allBoundPoints.length > 1) {
+        map.fitBounds(L.latLngBounds(allBoundPoints), { padding: [40, 40], maxZoom: 13 });
+      }
+      return;
+    }
+
+    // ── 3. VIEW MODE: SINGLE DAY WITH REAL CORRIDORS ──
+    const acts = currentDay?.activities || [];
+    const dayLatLngs = [hotelPos];
+    const isArrivalDay = currentDay?.day === 1;
+    const isDepartureDay = currentDay?.day === allItineraryDays.length;
+
+    // A. Airport / Station Inbound Transfer Marker on Day 1
+    if (isArrivalDay) {
+      const arrTransfer = currentDay?.destinationArrivalTransfer;
+      const hubLat = hotelLat - 0.04;
+      const hubLng = hotelLng - 0.035;
+      const hubPos = [hubLat, hubLng];
+      allBoundPoints.push(hubPos);
+
+      const hubIcon = L.divIcon({
+        className: 'hub-icon',
+        html: `
+          <div style="background:#0284c7;color:white;width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(2,132,199,0.5);border:2.5px solid #ffffff;font-size:18px;">
+            ✈️
+          </div>
+        `,
+        iconSize: [38, 38],
+        iconAnchor: [19, 19]
+      });
+
+      L.marker(hubPos, { icon: hubIcon })
+        .addTo(layer)
+        .bindPopup(`
+          <div style="padding:6px;min-width:200px">
+            <strong style="color:#0284c7;font-size:11px;text-transform:uppercase">✈️ Inbound Destination Transfer</strong>
+            <p style="margin:3px 0;font-size:13px;font-weight:bold">${arrTransfer?.from || `${destination} Airport`}</p>
+            <span style="font-size:11px;color:#475569">Touchdown → Cab to Hotel Basecamp</span>
+            <div style="font-size:11px;color:#0369a1;font-weight:bold;margin-top:4px">
+              🚗 ${arrTransfer?.roadDistanceKm || 28} km · ~${arrTransfer?.estimatedDriveMinutes || 42} min drive
+            </div>
+          </div>
+        `);
+
+      // Inbound Highway Transfer Path (Airport -> Hotel)
+      L.polyline([hubPos, hotelPos], {
+        color: '#0284c7',
+        weight: 4.5,
+        opacity: 0.9,
+        dashArray: '10, 8',
+        lineCap: 'round',
+        lineJoin: 'round'
+      }).addTo(layer);
+    }
+
+    // B. Activities stops for the active day
+    acts.forEach((act, idx) => {
       const offsetLat = (idx === 0 ? 0.012 : idx === 1 ? -0.015 : idx === 2 ? 0.022 : -0.018);
       const offsetLng = (idx === 0 ? 0.014 : idx === 1 ? -0.012 : idx === 2 ? -0.018 : 0.021);
-
       const lat = act.placeDetails?.gpsCoordinates?.latitude || (hotelLat + offsetLat);
       const lng = act.placeDetails?.gpsCoordinates?.longitude || (hotelLng + offsetLng);
       const pos = [lat, lng];
-      latLngs.push(pos);
+      dayLatLngs.push(pos);
+      allBoundPoints.push(pos);
 
       const pinColor = PIN_COLORS[idx % PIN_COLORS.length];
       const stopIcon = L.divIcon({
         className: 'stop-icon',
         html: `
-          <div style="background:linear-gradient(135deg, ${pinColor}, #3b82f6);color:white;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;box-shadow:0 8px 20px rgba(0,0,0,0.45);border:2.5px solid #ffffff;">
+          <div style="background:linear-gradient(135deg, ${pinColor}, #3b82f6);color:white;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;box-shadow:0 8px 20px rgba(0,0,0,0.45);border:2.5px solid #ffffff;cursor:pointer;">
             ${act.order || idx + 1}
           </div>
         `,
@@ -161,23 +285,42 @@ export default function InteractiveRouteMap({ dayData, hotel, destination, trans
 
       const marker = L.marker(pos, { icon: stopIcon }).addTo(layer);
       marker.bindPopup(`
-        <div style="padding:8px;min-width:210px">
+        <div style="padding:8px;min-width:220px">
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
             <span style="background:${pinColor};color:white;padding:2px 8px;border-radius:9999px;font-size:10px;font-weight:bold">Stop #${act.order || idx + 1}</span>
             <span style="font-size:10px;color:#64748b">${act.time}</span>
           </div>
           <strong style="color:#0f172a;font-size:13px;display:block;margin-bottom:2px">${act.title}</strong>
           <p style="font-size:11px;color:#475569;margin:0 0 4px">${act.placeDetails?.category || act.category}</p>
-          <div style="font-size:10px;color:#0284c7;font-weight:bold">🚗 ${act.travelTimeFromPrev || '12 mins'}</div>
+          <div style="padding:4px 6px;background:#f8fafc;border-radius:6px;font-size:10px;color:#0284c7;font-weight:bold;margin-top:4px">
+            From Stay: ${act.distanceFromHotelKm || 8.2} km • ~${act.travelTimeFromHotelMin || 22} min
+          </div>
         </div>
       `);
     });
 
-    // Always render the local city day route connecting Hotel -> Spot 1 -> Spot 2 -> ... -> Hotel
-    const closedRoute = [...latLngs, hotelPos];
+    // Close loop back to Hotel Basecamp
+    dayLatLngs.push(hotelPos);
 
-    // Outer glow track
-    L.polyline(closedRoute, {
+    // C. Departure Outbound Transfer Path on Final Day
+    if (isDepartureDay && allItineraryDays.length > 1) {
+      const depTransfer = currentDay?.returnDepartureTransfer;
+      const depHubPos = [hotelLat - 0.04, hotelLng - 0.035];
+      allBoundPoints.push(depHubPos);
+
+      // Return Transfer Path (Hotel -> Airport)
+      L.polyline([hotelPos, depHubPos], {
+        color: '#f59e0b',
+        weight: 4,
+        opacity: 0.85,
+        dashArray: '8, 8',
+        lineCap: 'round',
+        lineJoin: 'round'
+      }).addTo(layer);
+    }
+
+    // Outer glow track for local loop
+    L.polyline(dayLatLngs, {
       color: '#06b6d4',
       weight: 8,
       opacity: 0.35,
@@ -186,7 +329,7 @@ export default function InteractiveRouteMap({ dayData, hotel, destination, trans
     }).addTo(layer);
 
     // Inner crisp directional path
-    L.polyline(closedRoute, {
+    L.polyline(dayLatLngs, {
       color: '#4f46e5',
       weight: 3.5,
       opacity: 0.95,
@@ -195,23 +338,22 @@ export default function InteractiveRouteMap({ dayData, hotel, destination, trans
       lineJoin: 'round'
     }).addTo(layer);
 
-    // Fit map bounds to encompass the day's local itinerary
-    if (latLngs.length > 0) {
-      const bounds = L.latLngBounds(closedRoute);
+    // Fit map bounds to encompass all points
+    if (allBoundPoints.length > 0) {
+      const bounds = L.latLngBounds(allBoundPoints);
       map.fitBounds(bounds, { padding: [45, 45], maxZoom: 14 });
     }
   }
 
-  const stopsCount = dayData?.activities?.length || 3;
-  const distance = dayData?.totalDistanceKm || 14;
-  const transitTime = dayData?.totalTravelTimeMinutes || 35;
-
   // Jump to specific stop on map
   function focusWaypoint(idx) {
     if (!lMapRef.current) return;
-    const activities = dayData?.activities || [];
+    const activities = currentDay?.activities || [];
     if (idx === -1) {
       lMapRef.current.flyTo([hotelLat, hotelLng], 15, { animate: true, duration: 0.8 });
+    } else if (idx === -2) {
+      // Airport transfer
+      lMapRef.current.flyTo([hotelLat - 0.04, hotelLng - 0.035], 14, { animate: true, duration: 0.8 });
     } else if (activities[idx]) {
       const act = activities[idx];
       const offsetLat = (idx === 0 ? 0.012 : idx === 1 ? -0.015 : idx === 2 ? 0.022 : -0.018);
@@ -224,7 +366,7 @@ export default function InteractiveRouteMap({ dayData, hotel, destination, trans
 
   function resetBounds() {
     if (!lMapRef.current) return;
-    const activities = dayData?.activities || [];
+    const activities = currentDay?.activities || [];
     const pts = [[hotelLat, hotelLng]];
     activities.forEach((act, idx) => {
       const offsetLat = (idx === 0 ? 0.012 : idx === 1 ? -0.015 : idx === 2 ? 0.022 : -0.018);
@@ -237,9 +379,59 @@ export default function InteractiveRouteMap({ dayData, hotel, destination, trans
     lMapRef.current.fitBounds(L.latLngBounds(pts), { padding: [45, 45], maxZoom: 14 });
   }
 
+  const distance = currentDay?.routeSummary?.totalRoadDistanceKm || currentDay?.totalDistanceKm || 14;
+  const transitTime = currentDay?.routeSummary?.totalTravelTimeMinutes || currentDay?.totalTravelTimeMinutes || 35;
+
   return (
-    <div className="space-y-3">
-      <div className={`relative w-full h-[460px] rounded-3xl overflow-hidden border shadow-2xl transition-colors duration-400 ${
+    <div className="space-y-3 font-sans">
+
+      {/* ── DAY-TO-DAY ROUTE VIEW SELECTOR ── */}
+      <div className={`p-1.5 rounded-2xl border flex items-center gap-1.5 overflow-x-auto shadow-sm ${
+        isDark ? 'bg-[#111726] border-slate-800' : 'bg-slate-100 border-slate-200'
+      }`}>
+        <span className="text-[10px] font-black uppercase tracking-wider text-indigo-400 px-2 whitespace-nowrap">
+          ROUTE VIEW:
+        </span>
+
+        {allItineraryDays.map(d => {
+          const isSelected = viewMode === 'day' && d.day === (currentDay?.day || 1);
+          return (
+            <button
+              key={d.day}
+              onClick={() => {
+                setViewMode('day');
+                setSelectedDay(d.day);
+              }}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                isSelected
+                  ? 'bg-gradient-to-r from-cyan-500 to-indigo-600 text-white shadow-md'
+                  : isDark
+                  ? 'text-slate-300 hover:text-white hover:bg-slate-800'
+                  : 'text-slate-700 hover:text-slate-900 hover:bg-white'
+              }`}
+            >
+              <span>Day {d.day}</span>
+            </button>
+          );
+        })}
+
+        <button
+          onClick={() => setViewMode('full')}
+          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+            viewMode === 'full'
+              ? 'bg-gradient-to-r from-purple-500 to-pink-600 text-white shadow-md'
+              : isDark
+              ? 'text-slate-300 hover:text-white hover:bg-slate-800'
+              : 'text-slate-700 hover:text-slate-900 hover:bg-white'
+          }`}
+        >
+          <Layers className="w-3.5 h-3.5" />
+          <span>Full Trip</span>
+        </button>
+      </div>
+
+      {/* ── MAP CONTAINER ── */}
+      <div className={`relative w-full h-[470px] rounded-3xl overflow-hidden border shadow-2xl transition-colors duration-400 ${
         isDark ? 'border-slate-800 bg-[#0B0F19]' : 'border-slate-200 bg-slate-100'
       }`}>
         <div ref={mapDivRef} className="w-full h-full z-0" />
@@ -250,10 +442,10 @@ export default function InteractiveRouteMap({ dayData, hotel, destination, trans
         }`}>
           <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse" />
           <span className="text-xs font-black tracking-wide">
-            {dayData?.title || 'Interactive Route Map'}
+            {viewMode === 'full' ? `Full Journey Map (${destination})` : currentDay?.title || 'Interactive Route Map'}
           </span>
           <span className="text-[10px] font-bold text-cyan-400 px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/20">
-            {engine === 'google' ? 'Google Maps' : 'Live Route Map'}
+            {engine === 'google' ? 'Google Maps' : 'Live Road Route Map'}
           </span>
         </div>
 
@@ -264,19 +456,44 @@ export default function InteractiveRouteMap({ dayData, hotel, destination, trans
             className={`px-3 py-1.5 rounded-xl border text-[11px] font-bold shadow-lg transition-all flex items-center gap-1.5 ${
               isDark ? 'bg-[#111726]/90 border-slate-800 text-cyan-400 hover:text-white hover:bg-slate-800' : 'bg-white/90 border-slate-200 text-indigo-600 hover:bg-slate-50'
             }`}
-            title="Recenter whole day route"
+            title="Recenter route loop"
           >
             <Compass className="w-3.5 h-3.5" />
-            <span>Recenter Loop</span>
+            <span>Recenter</span>
           </button>
 
           <div className={`px-3 py-1.5 rounded-xl border text-[11px] font-bold shadow-lg flex items-center gap-2 ${
             isDark ? 'bg-[#111726]/90 border-slate-800 text-slate-200' : 'bg-white/90 border-slate-200 text-slate-800'
           }`}>
-            <span className="text-cyan-400 font-extrabold">{distance} km</span>
+            <span className="text-cyan-400 font-extrabold">{distance} km road</span>
             <span className="text-slate-500">•</span>
-            <span className="text-emerald-400 font-extrabold">{transitTime}m commute</span>
+            <span className="text-emerald-400 font-extrabold">{transitTime}m drive</span>
           </div>
+        </div>
+
+        {/* ── MAP LEGEND OVERLAY (Requirement 17) ── */}
+        <div className={`absolute bottom-4 left-4 z-10 p-2.5 rounded-2xl border shadow-xl flex items-center gap-3 text-[10px] font-bold backdrop-blur-md ${
+          isDark ? 'bg-[#0B0F19]/90 border-slate-800 text-slate-300' : 'bg-white/90 border-slate-200 text-slate-700'
+        }`}>
+          <span className="flex items-center gap-1">
+            <span>🏨</span>
+            <span>Hotel Basecamp</span>
+          </span>
+          <span className="opacity-40">•</span>
+          <span className="flex items-center gap-1">
+            <span>✈️</span>
+            <span>Airport / Station</span>
+          </span>
+          <span className="opacity-40">•</span>
+          <span className="flex items-center gap-1">
+            <span className="w-2.5 h-2.5 rounded-full bg-cyan-400" />
+            <span>Activities</span>
+          </span>
+          <span className="opacity-40">•</span>
+          <span className="flex items-center gap-1 text-indigo-400">
+            <span>━ ━</span>
+            <span>Road Route</span>
+          </span>
         </div>
       </div>
 
@@ -288,6 +505,22 @@ export default function InteractiveRouteMap({ dayData, hotel, destination, trans
           Route Flow:
         </span>
 
+        {/* Airport Transfer button (if Day 1) */}
+        {currentDay?.day === 1 && (
+          <>
+            <button
+              onClick={() => focusWaypoint(-2)}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border font-bold text-[11px] whitespace-nowrap transition-all ${
+                isDark ? 'bg-sky-950/60 border-sky-800/80 text-sky-300 hover:bg-sky-900' : 'bg-sky-50 border-sky-200 text-sky-700 hover:bg-sky-100'
+              }`}
+            >
+              <span>✈️</span>
+              <span>Airport Transfer</span>
+            </button>
+            <span className="text-slate-500 font-medium text-[10px]">→</span>
+          </>
+        )}
+
         {/* Basecamp button */}
         <button
           onClick={() => focusWaypoint(-1)}
@@ -296,12 +529,12 @@ export default function InteractiveRouteMap({ dayData, hotel, destination, trans
           }`}
         >
           <span>🏨</span>
-          <span>Basecamp</span>
+          <span>Stay Basecamp</span>
         </button>
 
         {/* Waypoints with transit connect */}
-        {dayData?.activities?.map((act, i) => {
-          const tMin = act.transitToHere?.durationMinutes || 12;
+        {currentDay?.activities?.map((act, i) => {
+          const tMin = act.transitToHere?.durationMinutes || act.travelTimeFromHotelMin || 15;
           const tMode = act.transitToHere?.mode === 'walking' ? '🚶' : act.transitToHere?.mode === 'auto' ? '🛺' : '🚗';
           return (
             <React.Fragment key={act.id || i}>
@@ -329,45 +562,22 @@ export default function InteractiveRouteMap({ dayData, hotel, destination, trans
         })}
 
         {/* Return to Basecamp */}
-        {dayData?.returnTransitToHotel && (
-          <>
-            <span className="text-slate-500 font-medium flex items-center gap-0.5 text-[10px] whitespace-nowrap">
-              <span>🚗</span>
-              <span>{dayData.returnTransitToHotel.durationMinutes || 15}m</span>
-              <span>→</span>
-            </span>
+        <span className="text-slate-500 font-medium flex items-center gap-0.5 text-[10px] whitespace-nowrap">
+          <span>🚗</span>
+          <span>Return</span>
+          <span>→</span>
+        </span>
 
-            <button
-              onClick={() => focusWaypoint(-1)}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border font-bold text-[11px] whitespace-nowrap transition-all ${
-                isDark ? 'bg-indigo-950/60 border-indigo-800/80 text-indigo-300 hover:bg-indigo-900' : 'bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100'
-              }`}
-            >
-              <span>🏨</span>
-              <span>Return Base</span>
-            </button>
-          </>
-        )}
+        <button
+          onClick={() => focusWaypoint(-1)}
+          className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border font-bold text-[11px] whitespace-nowrap transition-all ${
+            isDark ? 'bg-indigo-950/60 border-indigo-800/80 text-indigo-300 hover:bg-indigo-900' : 'bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100'
+          }`}
+        >
+          <span>🏨</span>
+          <span>Hotel Base</span>
+        </button>
       </div>
     </div>
   );
-}
-
-function decodePolyline(encoded) {
-  const points = [];
-  let index = 0;
-  let lat = 0;
-  let lng = 0;
-  while (index < encoded.length) {
-    let result = 0;
-    let shift = 0;
-    let byte;
-    do { byte = encoded.charCodeAt(index++) - 63; result |= (byte & 0x1f) << shift; shift += 5; } while (byte >= 0x20);
-    lat += result & 1 ? ~(result >> 1) : result >> 1;
-    result = 0; shift = 0;
-    do { byte = encoded.charCodeAt(index++) - 63; result |= (byte & 0x1f) << shift; shift += 5; } while (byte >= 0x20);
-    lng += result & 1 ? ~(result >> 1) : result >> 1;
-    points.push([lat / 1e5, lng / 1e5]);
-  }
-  return points;
 }

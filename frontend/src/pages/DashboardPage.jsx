@@ -341,6 +341,82 @@ export default function DashboardPage() {
               />
             </div>
 
+            {/* ── TRIP SUMMARY & PHYSICAL MOVEMENT PIPELINE (Requirement 28) ── */}
+            <div className={`p-6 sm:p-7 rounded-3xl border shadow-xl space-y-4 ${
+              isDark ? 'bg-gradient-to-r from-slate-900 via-[#111726] to-slate-900 border-indigo-500/30' : 'bg-gradient-to-r from-white via-indigo-50/30 to-white border-indigo-200'
+            }`}>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/10">
+                <div className="flex items-center gap-2.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse" />
+                  <span className="text-xs font-black uppercase tracking-wider text-cyan-400">
+                    Physical Journey Pipeline: {origin} → {destination}
+                  </span>
+                </div>
+                <div className="text-[11px] font-bold text-slate-400 flex items-center gap-3">
+                  <span>Stay: <strong className={isDark ? 'text-white' : 'text-slate-900'}>{selectedOptions.hotel?.name || 'Hotel Basecamp'}</strong></span>
+                  <span>•</span>
+                  <span>Budget: <strong className="text-emerald-400">₹{totalCost.toLocaleString('en-IN')} / ₹{budget.toLocaleString('en-IN')}</strong></span>
+                </div>
+              </div>
+
+              {/* Physical Movements Chain */}
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs font-medium">
+                <div className="p-3 rounded-2xl bg-black/20 border border-white/5 space-y-1">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-indigo-400 block">
+                    1. Origin Transfer
+                  </span>
+                  <p className={`font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>{origin} Residence → Airport</p>
+                  <span className="text-[10px] text-slate-400 block">~28m drive · 120m safety buffer</span>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-black/20 border border-white/5 space-y-1">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-cyan-400 block">
+                    2. Inbound Flight / Transit
+                  </span>
+                  <p className={`font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>{selectedOptions.flight?.airline || 'Direct Transit'}</p>
+                  <span className="text-[10px] text-slate-400 block">{selectedOptions.flight?.departureTime || '09:20 AM'} → {selectedOptions.flight?.arrivalTime || '11:05 AM'}</span>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-black/20 border border-white/5 space-y-1">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 block">
+                    3. Destination Transfer
+                  </span>
+                  <p className={`font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>{destination} Airport → Stay</p>
+                  <span className="text-[10px] text-slate-400 block">~42m cab commute · Check-in 12:00</span>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-black/20 border border-white/5 space-y-1">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-purple-400 block">
+                    4. Daily Corridors
+                  </span>
+                  <p className={`font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Hotel ↺ Daily Loops</p>
+                  <span className="text-[10px] text-slate-400 block">Nearest-neighbor road loops</span>
+                </div>
+              </div>
+
+              {/* Today's Route Flow Preview */}
+              <div className="pt-2 flex flex-wrap items-center gap-2 text-xs border-t border-white/10">
+                <span className="text-[10px] font-black text-cyan-400 uppercase tracking-wider">
+                  TODAY'S ROUTE FLOW:
+                </span>
+                <span className="px-2 py-0.5 rounded-lg bg-indigo-500/20 text-indigo-300 font-bold text-[11px]">
+                  🏨 Basecamp
+                </span>
+                <span className="text-slate-500">↓</span>
+                <span className="px-2 py-0.5 rounded-lg bg-cyan-500/20 text-cyan-300 font-bold text-[11px]">
+                  📍 {itinerary?.[0]?.activities?.[0]?.title || 'Morning Landmark'}
+                </span>
+                <span className="text-slate-500">↓</span>
+                <span className="px-2 py-0.5 rounded-lg bg-amber-500/20 text-amber-300 font-bold text-[11px]">
+                  📍 {itinerary?.[0]?.activities?.[1]?.title || 'Afternoon Cultural Point'}
+                </span>
+                <span className="text-slate-500">↓</span>
+                <span className="px-2 py-0.5 rounded-lg bg-indigo-500/20 text-indigo-300 font-bold text-[11px]">
+                  🏨 Return Basecamp
+                </span>
+              </div>
+            </div>
+
             {/* Day-by-Day Journey Preview Cards */}
             <div className={`p-6 sm:p-8 rounded-3xl border shadow-xl space-y-4 ${
               isDark ? 'bg-[#111726] border-slate-800 shadow-xl' : 'bg-white border-slate-200/80 shadow-luxury-light'
@@ -616,6 +692,26 @@ export default function DashboardPage() {
                           {am}
                         </span>
                       ))}
+                    </div>
+
+                    {/* Location Context (Requirement 11) */}
+                    <div className="pt-2 border-t border-slate-200/40 dark:border-slate-800/80 space-y-1.5 text-[11px]">
+                      <div className="flex items-center justify-between text-slate-400">
+                        <span>✈️ Airport: {currentTrip?.hotelAnchor?.airportContext ? `~${currentTrip.hotelAnchor.airportContext.driveMinutes} min (${currentTrip.hotelAnchor.airportContext.roadDistanceKm} km)` : '~40 min drive'}</span>
+                        <span>🚆 Station: {currentTrip?.hotelAnchor?.railwayContext ? `~${currentTrip.hotelAnchor.railwayContext.driveMinutes} min` : '~25 min'}</span>
+                      </div>
+                      <div className="flex items-center justify-between pt-1">
+                        <span className="text-indigo-400 font-bold">
+                          Day 1 Cluster: ~{currentTrip?.hotelAnchor?.clusterDistances?.[0]?.distanceKm || 4.2} km
+                        </span>
+                        <button
+                          onClick={() => setActiveTab('map')}
+                          className="px-2.5 py-1 rounded-lg bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/40 text-[10px] font-bold flex items-center gap-1 transition-all"
+                        >
+                          <MapPin className="w-3 h-3" />
+                          <span>View Route</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>

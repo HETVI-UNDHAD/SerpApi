@@ -414,17 +414,36 @@ export default function LandingPage() {
         {/* Editorial Headline */}
         <div className="relative z-10 max-w-5xl mx-auto text-center px-4 py-12 flex flex-col items-center justify-center">
           <span className="text-[11px] font-extrabold uppercase tracking-[0.25em] text-white/90 bg-white/10 backdrop-blur-md px-4 py-1.5 rounded-full border border-white/20 mb-5">
-            Official Autonomous Travel Portal • Zero Hallucination
+            TRAVELOS AI • PLAN. OPTIMIZE. REPLAN.
           </span>
 
           <h1 className="font-serif text-5xl sm:text-7xl lg:text-8xl font-bold tracking-tight text-white leading-[1.05] drop-shadow-md">
-            United Stories.<br />
-            <span className="italic font-serif font-normal text-amber-200">Endless Journeys.</span>
+            Physical Journeys.<br />
+            <span className="italic font-serif font-normal text-amber-200">Autonomous Decisions.</span>
           </h1>
 
           <p className="mt-5 text-base sm:text-xl text-white/90 max-w-2xl mx-auto font-normal leading-relaxed drop-shadow">
-            From scenic coastal highways and national parks to timeless royal palaces — craft live, SerpApi-grounded journeys with authentic real-time pricing.
+            AI travel decisions grounded in live Flights, Hotels, Maps &amp; Events.
+            Live data • Budget constraints • Route optimization • Dynamic replanning.
           </p>
+
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            <button
+              onClick={() => setActiveScreen('builder')}
+              className="px-6 py-3 rounded-full bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-cyan-500/25 transition-all hover:scale-105"
+            >
+              BUILD MY JOURNEY
+            </button>
+            <button
+              onClick={() => {
+                const howItWorks = document.querySelector('section:nth-of-type(2)');
+                howItWorks?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className="px-6 py-3 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 text-white font-extrabold text-xs uppercase tracking-wider transition-all"
+            >
+              SEE HOW IT WORKS
+            </button>
+          </div>
         </div>
 
         {/* ── FLOATING SEARCH & PLANNER CONSOLE (VisitTheUSA signature bar) ── */}

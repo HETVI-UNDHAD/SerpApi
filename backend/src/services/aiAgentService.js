@@ -15,6 +15,16 @@ import {
 import {
   explainDecisionWithAI
 } from './llmService.js';
+import {
+  resolveTransitHub,
+  buildOriginTransfer,
+  buildDestinationArrivalTransfer,
+  buildReturnDepartureTransfer,
+  enrichHotelAnchorMetrics,
+  calculateDayRouteSummary,
+  calculateEstimatedRoadKm,
+  estimateDriveMinutes
+} from './routeIntelligenceService.js';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -176,16 +186,23 @@ export async function planTripWorkflow(tripRequest) {
     address: `${targetDestination} Central`
   };
 
-  // Step 5: Route Optimization & Geographic Clustering
+  // Step 5: Route Optimization & Geographic Clustering with Physical Journey Legs
   const itinerary = buildRouteAwareItinerary({
+    origin,
     destination: targetDestination,
     duration: parseInt(duration, 10) || 3,
     places,
     hotel: selectedHotel,
     interests,
     travelStyle,
-    transportation
+    transportation,
+    selectedFlight,
+    transportMode
   });
+
+  // Step 5b: Enrich Hotel with Geographic Anchor Metrics
+  const enrichedHotel = enrichHotelAnchorMetrics(selectedHotel, targetDestination, itinerary) || selectedHotel;
+  itinerary.forEach(d => { d.hotelBase = enrichedHotel; });
 
   // Step 6: Geospatial metrics (Haversine distances & distance saved)
   const geospatialMetrics = calculateGeospatialMetrics(itinerary);
@@ -328,8 +345,9 @@ export async function planTripWorkflow(tripRequest) {
     selectedOptions: {
       flight: selectedFlight,
       transportation,
-      hotel: selectedHotel
+      hotel: enrichedHotel
     },
+    hotelAnchor: enrichedHotel,
     itinerary,
     geospatialMetrics,
     constraintReport,
@@ -457,13 +475,16 @@ function buildTransitLeg({
  * Geographically orders stops via Nearest-Neighbor routing so the traveler does not criss-cross the city
  */
 export function buildRouteAwareItinerary({
+  origin = 'Ahmedabad',
   destination,
   duration,
   places = [],
   hotel,
   interests = [],
   travelStyle = 'Balanced',
-  transportation = null
+  transportation = null,
+  selectedFlight = null,
+  transportMode = 'flight'
 }) {
   const days = [];
   const hotelLat = hotel?.gpsCoordinates?.latitude || 15.4989;
@@ -473,6 +494,28 @@ export function buildRouteAwareItinerary({
   const hotelCoords = { latitude: hotelLat, longitude: hotelLng };
 
   const pool = [...places];
+
+  // Pre-calculate physical transfers
+  const originTransfer = buildOriginTransfer({
+    origin,
+    transportMode,
+    scheduledDeparture: selectedFlight?.departureTime || transportation?.departure || '09:20 AM'
+  });
+
+  const destinationArrivalTransfer = buildDestinationArrivalTransfer({
+    destination,
+    hotel,
+    transportMode,
+    scheduledArrival: selectedFlight?.arrivalTime || transportation?.arrival || '11:05 AM'
+  });
+
+  const returnDepartureTransfer = buildReturnDepartureTransfer({
+    origin,
+    destination,
+    hotel,
+    transportMode,
+    scheduledReturnDeparture: '07:30 PM'
+  });
 
   for (let dayNum = 1; dayNum <= duration; dayNum++) {
     const spotsCount = travelStyle === 'Relaxed' ? 3 : travelStyle === 'Adventure' ? 5 : 4;
@@ -574,6 +617,10 @@ export function buildRouteAwareItinerary({
       const orderNum = idx + 1;
       const timeSlot = slotTimes[idx] || `${String(9 + idx * 3).padStart(2, '0')}:00 - ${String(11 + idx * 3).padStart(2, '0')}:30`;
 
+      // Calculate distance and driving time from Hotel Anchor
+      const distFromHotel = calculateEstimatedRoadKm(hotelLat, hotelLng, spotCoords.latitude, spotCoords.longitude);
+      const driveFromHotel = estimateDriveMinutes(distFromHotel);
+
       activities.push({
         id: `act-${dayNum}-${orderNum}`,
         order: orderNum,
@@ -585,10 +632,18 @@ export function buildRouteAwareItinerary({
           gpsCoordinates: spotCoords,
           googleMapsUrl: spot.googleMapsUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(spot.title + ' ' + (spot.address || destination))}`
         },
-        durationMinutes: 150,
+        durationMinutes: 120,
+        estimatedVisitDurationMinutes: 120,
         transitToHere: transitLeg,
         travelTimeFromPrev: `${transitLeg.durationMinutes} mins (${transitLeg.distanceKm} km) via ${transitLeg.modeLabel}`,
         distanceFromPrevKm: transitLeg.distanceKm,
+        travelTimeFromPrevMin: transitLeg.durationMinutes,
+        distanceFromHotelKm: distFromHotel,
+        travelTimeFromHotelMin: driveFromHotel,
+        distanceType: 'road_estimate',
+        distanceTypeLabel: 'Estimated Road Distance (~1.3× network factor)',
+        isRoadEstimated: true,
+        viewOnMapWaypointIndex: idx,
         approxCost: spot.priceLevel?.includes('Free') ? 0 : (idx === 1 ? 450 : 250),
         selectionReason: idx === 0
           ? `Top-rated morning highlight aligned with your interests (${interests.slice(0, 2).join(', ') || 'sightseeing'}), rated ${spot.rating || 4.5}★ with peak morning illumination.`
@@ -632,7 +687,14 @@ export function buildRouteAwareItinerary({
       ? `Day ${dayNum}: ${sequencedSpots[0].title.slice(0, 28)} & Corridors`
       : `Day ${dayNum}: ${destination} Exploration`;
 
-    days.push({
+    const dayRouteSummary = calculateDayRouteSummary({
+      dayNum,
+      hotel,
+      activities,
+      destination
+    });
+
+    const dayObj = {
       day: dayNum,
       title: highlightTitle,
       dateOffset: dayNum - 1,
@@ -640,11 +702,22 @@ export function buildRouteAwareItinerary({
       totalDistanceKm: Math.round(totalDailyDistanceKm * 10) / 10,
       activities,
       returnTransitToHotel,
+      routeSummary: dayRouteSummary,
       hotelBase: hotel
-    });
-  }
+    };
 
-  if (days[0] && transportation) days[0].transportationSegment = transportation;
+    if (dayNum === 1) {
+      dayObj.originTransfer = originTransfer;
+      dayObj.destinationArrivalTransfer = destinationArrivalTransfer;
+      if (transportation) dayObj.transportationSegment = transportation;
+    }
+
+    if (dayNum === duration) {
+      dayObj.returnDepartureTransfer = returnDepartureTransfer;
+    }
+
+    days.push(dayObj);
+  }
 
   return days;
 }
@@ -967,6 +1040,18 @@ export async function applyWhatIfSimulation(currentTrip, simulationType, customP
     const afternoonActStartStr = formatHourMin(baseArrivalHour + 2, 45);
     const afternoonActEndStr = formatHourMin(baseArrivalHour + 4, 30);
 
+    // Recalculate arrival transfer with shifted arrival time
+    const updatedArrivalTransfer = buildDestinationArrivalTransfer({
+      destination: updated.destination,
+      hotel: updated.selectedOptions?.hotel || updated.itinerary?.[0]?.hotelBase,
+      transportMode: updated.transportMode || 'flight',
+      scheduledArrival: newArrivalStr
+    });
+
+    const hotelObj = updated.selectedOptions?.hotel || updated.itinerary?.[0]?.hotelBase;
+    const hotelLat = hotelObj?.gpsCoordinates?.latitude || 15.4989;
+    const hotelLng = hotelObj?.gpsCoordinates?.longitude || 73.8278;
+
     const newDay1Activities = [];
 
     // Act 1: Rescheduled Hotel Check-In
@@ -974,15 +1059,24 @@ export async function applyWhatIfSimulation(currentTrip, simulationType, customP
       id: `act-delay-checkin`,
       order: 1,
       time: `${checkInStartStr} - ${checkInEndStr}`,
-      title: `Hotel Check-In & Refreshment (${updated.selectedOptions.hotel?.name || 'Hotel'})`,
+      title: `Hotel Check-In & Refreshment (${hotelObj?.name || 'Hotel'})`,
       category: 'Check-in & Rest',
       durationMinutes: 75,
-      travelTimeFromPrev: `Airport transfer after ${newArrivalStr} touchdown (~40 mins)`,
+      estimatedVisitDurationMinutes: 75,
+      travelTimeFromPrev: `Airport transfer after ${newArrivalStr} touchdown (~${updatedArrivalTransfer.estimatedDriveMinutes} mins)`,
+      distanceFromPrevKm: updatedArrivalTransfer.roadDistanceKm,
+      travelTimeFromPrevMin: updatedArrivalTransfer.estimatedDriveMinutes,
+      distanceFromHotelKm: 0,
+      travelTimeFromHotelMin: 0,
+      distanceType: 'road_estimate',
+      distanceTypeLabel: 'Estimated Road Distance (~1.3× network factor)',
+      isRoadEstimated: true,
       approxCost: 0,
       selectionReason: `Adjusted for ${delayHours}-hour flight delay (touchdown at ${newArrivalStr}). Safe check-in window preserved.`,
       placeDetails: {
-        title: updated.selectedOptions.hotel?.name || `${updated.destination} Hotel Base`,
-        address: updated.selectedOptions.hotel?.address || `${updated.destination} Central`
+        title: hotelObj?.name || `${updated.destination} Hotel Base`,
+        address: hotelObj?.address || `${updated.destination} Central`,
+        gpsCoordinates: { latitude: hotelLat, longitude: hotelLng }
       }
     });
 
@@ -993,17 +1087,39 @@ export async function applyWhatIfSimulation(currentTrip, simulationType, customP
       approxCost: 200
     };
 
+    const sCoords = shiftedHighlight.placeDetails?.gpsCoordinates || {
+      latitude: hotelLat + 0.015,
+      longitude: hotelLng + 0.015
+    };
+    const sDistFromHotel = calculateEstimatedRoadKm(hotelLat, hotelLng, sCoords.latitude, sCoords.longitude);
+    const sDriveFromHotel = estimateDriveMinutes(sDistFromHotel);
+
     newDay1Activities.push({
       ...shiftedHighlight,
       id: `act-delay-highlight`,
       order: 2,
       time: `${afternoonActStartStr} - ${afternoonActEndStr}`,
       title: shiftedHighlight.title,
+      distanceFromHotelKm: sDistFromHotel,
+      travelTimeFromHotelMin: sDriveFromHotel,
+      distanceFromPrevKm: sDistFromHotel,
+      travelTimeFromPrevMin: sDriveFromHotel,
+      distanceType: 'road_estimate',
+      distanceTypeLabel: 'Estimated Road Distance (~1.3× network factor)',
+      isRoadEstimated: true,
       selectionReason: `${shiftedHighlight.selectionReason || 'Major destination highlight'} (Rescheduled to afternoon to accommodate the ${delayHours}h flight delay without skipping it).`
     });
 
     // Act 3: Evening Sunset Promenade & Dinner (Preserved authentic evening highlight)
     const originalEvening = originalActs[originalActs.length - 1];
+    const eCoords = originalEvening?.placeDetails?.gpsCoordinates || {
+      latitude: hotelLat - 0.012,
+      longitude: hotelLng - 0.014
+    };
+    const eDistFromPrev = calculateEstimatedRoadKm(sCoords.latitude, sCoords.longitude, eCoords.latitude, eCoords.longitude);
+    const eDriveFromPrev = estimateDriveMinutes(eDistFromPrev);
+    const eDistFromHotel = calculateEstimatedRoadKm(hotelLat, hotelLng, eCoords.latitude, eCoords.longitude);
+
     newDay1Activities.push({
       id: `act-delay-dinner`,
       order: 3,
@@ -1011,16 +1127,33 @@ export async function applyWhatIfSimulation(currentTrip, simulationType, customP
       title: originalEvening?.title || `${updated.destination} Coastal Promenade & Sunset Dinner`,
       category: 'Dining & Leisure',
       durationMinutes: 150,
+      estimatedVisitDurationMinutes: 150,
       approxCost: originalEvening?.approxCost || 500,
-      travelTimeFromPrev: '15 mins leisurely stroll',
+      distanceFromPrevKm: eDistFromPrev,
+      travelTimeFromPrevMin: eDriveFromPrev,
+      distanceFromHotelKm: eDistFromHotel,
+      travelTimeFromHotelMin: estimateDriveMinutes(eDistFromHotel),
+      distanceType: 'road_estimate',
+      distanceTypeLabel: 'Estimated Road Distance (~1.3× network factor)',
+      isRoadEstimated: true,
+      travelTimeFromPrev: `${eDriveFromPrev} mins (${eDistFromPrev} km) commute`,
       selectionReason: 'Preserved first-evening dinner and sunset atmosphere without fatigue.',
-      placeDetails: originalEvening?.placeDetails || { title: `${updated.destination} Promenade Dining` }
+      placeDetails: originalEvening?.placeDetails || { title: `${updated.destination} Promenade Dining`, gpsCoordinates: eCoords }
     });
 
     if (updated.itinerary[0]) {
       updated.itinerary[0].title = `Day 1: Arrival & Evening Exploration (Adjusted for ${delayHours}h Flight Delay)`;
+      updated.itinerary[0].destinationArrivalTransfer = updatedArrivalTransfer;
       updated.itinerary[0].activities = newDay1Activities;
       updated.itinerary[0].totalTravelTimeMinutes = Math.min((originalDay1.totalTravelTimeMinutes || 50) + 15, 80);
+
+      // Recalculate Day 1 Route Summary
+      updated.itinerary[0].routeSummary = calculateDayRouteSummary({
+        dayNum: 1,
+        hotel: hotelObj,
+        activities: newDay1Activities,
+        destination: updated.destination
+      });
     }
 
     explanation = `Parsed a ${delayHours}-hour flight delay. Shifted flight arrival to ${newArrivalStr}, rescheduled check-in to ${checkInStartStr}, and shifted morning sightseeing to ${afternoonActStartStr}. Hotel reservation, evening dinner, and budget ceiling remain 100% intact.`;
@@ -1029,8 +1162,18 @@ export async function applyWhatIfSimulation(currentTrip, simulationType, customP
       action: 'FLIGHT_DELAY_ADAPTATION',
       delayHours,
       summary: explanation,
+      impactAnalysis: {
+        flightDelay: `+${delayHours} hours`,
+        affectedActivities: originalActs.length,
+        rescheduledCount: 2,
+        removedCount: 0,
+        hotelStatus: 'UNCHANGED ✓ (Basecamp confirmed)',
+        budgetStatus: 'UNCHANGED ✓ (Ceiling preserved)',
+        routeStatus: 'RECALCULATED ✓ (Arrival transfer & afternoon loop)',
+        safetyBufferStatus: 'PRESERVED ✓ (Safety buffer maintained)'
+      },
       preserved: [
-        `Hotel Reservation at "${updated.selectedOptions.hotel?.name || 'Selected Stay'}" (100% Intact)`,
+        `Hotel Reservation at "${hotelObj?.name || 'Selected Stay'}" (100% Intact)`,
         `Hard Budget Ceiling (₹${updated.budget.toLocaleString('en-IN')} Preserved)`,
         'Evening Sunset Dinner & Culinary Experience (Preserved)',
         'Day 2 & Day 3 Exploration Schedule (Fully Intact)'
@@ -1038,7 +1181,8 @@ export async function applyWhatIfSimulation(currentTrip, simulationType, customP
       changed: [
         `Flight arrival window pushed +${delayHours}h to ${newArrivalStr}`,
         `Check-in window recalibrated to ${checkInStartStr} - ${checkInEndStr}`,
-        `Day 1 morning tour shifted to afternoon slot (${afternoonActStartStr} - ${afternoonActEndStr})`
+        `Day 1 morning tour shifted to afternoon slot (${afternoonActStartStr} - ${afternoonActEndStr})`,
+        `Arrival transfer road timing recalculated to ${updatedArrivalTransfer.estimatedDriveMinutes} mins drive`
       ],
       timelineComparison: {
         before: originalActs.map(a => ({ title: a.title, time: a.time, category: a.category })),

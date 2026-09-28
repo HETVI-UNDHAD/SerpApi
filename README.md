@@ -101,24 +101,26 @@ SerpApi is the sole data backbone of TravelOS AI. Every live entity in the syste
   3. Calibrates dining and local transit to authentic regional culinary thalis and auto-rickshaws.
   4. Preserves free scenic viewpoints and cultural walks.
 
-### 3. Haversine Geospatial Optimization
-- Calculates genuine pairwise geographic distances between points of interest using the Haversine formula.
-- Sequentially orders daily stops using **Nearest-Neighbor** algorithms starting from the hotel basecamp.
-- Surfaces actual distance saved: e.g. **~90.6 km saved (28% transit reduction)** compared to an un-sequenced itinerary.
+### 3. Haversine Geospatial Optimization & Physical Journey Modeling
+- **Physical Journey Architecture**: Models the complete real-world transit chain: `Origin Residence → Departure Airport/Station → Flight/Train → Destination Airport/Station → Hotel Basecamp → Daily Activity Loops → Hotel Return → Departure Airport/Station → Home`.
+- **Hotel as Geographic Anchor**: Every day starts and returns to the selected hotel basecamp. Every activity displays exact distance and travel time from the hotel, distance from the previous stop, and estimated visit duration.
+- **Context-Aware Day-by-Day Route Map**: Includes day-by-day route selector `[ Day 1 ] [ Day 2 ] [ Day 3 ] [ Full Trip ]`, visual map legend, and click-to-focus waypoint interaction.
+- **Honest Distance Labeling**: Transparently distinguishes between Live Road Routes, Estimated Road Distance (~1.3× network circuity factor), and Straight-line Geographic Distance (Haversine formula). Never mislabels straight-line distance as road distance.
 
-### 4. Dynamic Replanning Engine (Hero Feature)
+### 4. Dynamic Replanning Engine & Impact Analysis (Hero Feature)
 When an unexpected real-world disruption occurs (e.g. user types *"My flight is delayed by 3 hours"*):
 - Parses the delay duration accurately (3 hours vs 4 hours).
-- Pushes arrival and check-in windows forward.
+- Pushes flight arrival, airport-to-hotel transfer, and check-in windows forward.
 - Shifts affected morning sightseeing tours into open afternoon slots without canceling them.
 - **Preserves** confirmed hotel bookings, budget ceilings, and evening dinner reservations.
-- Produces a structured **Before vs. After** diff in the UI showing preserved vs changed items.
+- Recalculates affected road routes, driving durations, and day route summaries.
+- Produces a structured **Impact Analysis Panel** & **Before vs. After Diff** in the UI.
 
 ### 5. "Why This Plan?" Explainability Inspector
 Every flight, hotel, and route decision can be inspected with real data:
 - **Why this flight?**: Price, departure window, arrival timing.
-- **Why this hotel?**: Nightly rate, verified rating, proximity to planned daily activity clusters.
-- **Why this route?**: Haversine clustering, km saved, commute reduction.
+- **Why this hotel?**: Nightly rate, verified rating, proximity to planned daily activity clusters and airport.
+- **Why this route?**: Haversine clustering, km saved vs unoptimized sequence, commute reduction.
 - **Why these events?**: Live cultural pop-ups retrieved from SerpApi matching visit dates.
 
 ---
