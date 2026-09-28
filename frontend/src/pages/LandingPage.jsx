@@ -720,7 +720,7 @@ export default function LandingPage() {
       </section>
 
       {/* ══════════════════════════════════════════════════════════════════
-          ZERO-HALLUCINATION OFFICIAL GROUNDING (VisitTheUSA Authority)
+          LIVE-GROUNDED OFFICIAL PROVENANCE (VisitTheUSA Authority)
          ══════════════════════════════════════════════════════════════════ */}
       <section className="py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="rounded-3xl bg-gradient-to-br from-[#0C2340] to-[#123157] text-white p-8 sm:p-14 relative overflow-hidden shadow-2xl">
@@ -829,7 +829,7 @@ export default function LandingPage() {
               </h4>
               <ul className="space-y-2.5 text-xs text-slate-300">
                 <li><button onClick={() => setActiveScreen('builder')} className="hover:text-white transition-colors">Custom Journey Builder</button></li>
-                <li><button onClick={() => setGroundingOpen(true)} className="hover:text-white transition-colors">Zero-Hallucination Audit</button></li>
+                <li><button onClick={() => setGroundingOpen(true)} className="hover:text-white transition-colors">Live Provenance & Grounding Audit</button></li>
                 <li><button onClick={() => setActiveScreen('design-showcase')} className="hover:text-white transition-colors">Design Showcase</button></li>
                 <li><button onClick={() => setActiveScreen('landing')} className="hover:text-white transition-colors">Popular Road Trips</button></li>
               </ul>
@@ -841,7 +841,7 @@ export default function LandingPage() {
                 Travel Inspiration
               </h4>
               <p className="text-xs text-slate-300 leading-relaxed">
-                Receive curated scenic routes, flight fare alerts, and zero-hallucination travel intelligence.
+                Receive curated scenic routes, flight fare alerts, and live-grounded travel intelligence with transparent data provenance.
               </p>
               <div className="flex gap-2">
                 <input

@@ -18,10 +18,35 @@ A real trip is governed by **hard physical constraints**:
 - Inevitable disruptions (flight delays, bad weather, price spikes).
 
 **TravelOS AI** separates concerns cleanly:
-1. **Live Grounded Data**: 100% of flights, room rates, attractions, images, and cultural events are fetched live via **SerpApi**.
+1. **Live-Grounded Travel Planning with Transparent Data Provenance**: Flights, room rates, attractions, images, and cultural events are retrieved live via **SerpApi**. Every data field group carries a transparent provenance contract (`LIVE`, `ESTIMATED`, `INFERRED`, `FALLBACK`, or `UNAVAILABLE`).
 2. **Deterministic Computation**: All arithmetic, budget ledgers, Haversine distances, nearest-neighbor sequencing, and time buffers are calculated by deterministic code (never left to LLM guesswork).
-3. **AI Orchestration**: Google Gemini interprets natural language requests, extracts traveler intent, and generates structured decision rationales.
+3. **AI Orchestration**: Google Gemini interprets natural language requests, extracts traveler intent, and generates structured decision rationales without hallucinating rates or availability.
 4. **Dynamic Replanning Engine**: When conditions change (e.g. a 3-hour flight delay), the system adapts schedules, shifts affected morning visits to the afternoon, and preserves confirmed hotel bookings and dinner reservations with a full **Before vs. After** diff.
+
+---
+
+## 🛡️ Data Honesty & Provenance System
+
+TravelOS AI rejects synthetic placeholders and "Zero-Hallucination" marketing myths. Instead, we implement a **transparent data provenance model** where every price, rating, coordinate, distance, and duration is tagged per field group:
+
+```typescript
+interface Provenance {
+  source: "serpapi_google_flights" | "serpapi_google_hotels" | "serpapi_google_maps"
+        | "serpapi_google_search" | "serpapi_maps_directions" | "haversine_estimate"
+        | "llm_inferred" | "curated_static" | "unavailable";
+  status: "LIVE" | "ESTIMATED" | "INFERRED" | "FALLBACK" | "UNAVAILABLE";
+  retrievedAt: string;    // ISO-8601 Timestamp
+  method?: string;        // e.g. "Haversine x 1.32 empirical road factor"
+  confidence: number;     // 0.0 to 1.0 scale
+}
+```
+
+### The 5 Provenance Statuses Explained:
+- 🟢 **`LIVE`**: Directly extracted from live SerpApi API engine responses (`google_flights`, `google_hotels`, `google_maps`, `google_maps_directions`, `google_images`).
+- 🔵 **`ESTIMATED`**: Deterministically calculated using established mathematical formulas (e.g., Haversine geodesic distance with 1.32× empirical urban road tortuosity factor, traffic time modeling, configurable fuel consumption formulas).
+- 🟣 **`INFERRED`**: Derived strictly from verified live search snippet text (e.g., sentiment classification, interest tag matching, review theme extraction).
+- 🟡 **`FALLBACK`**: Parsed strictly from organic Google search snippets when dedicated vertical engines are rate-limited or return empty. Missing fields are never fabricated.
+- ⚪ **`UNAVAILABLE`**: When real-world data cannot be verified, fields return `null` with status `UNAVAILABLE` and are displayed in the UI as *"Live data unavailable"* rather than inventing placeholder numbers.
 
 ---
 
@@ -39,22 +64,28 @@ A real trip is governed by **hard physical constraints**:
   │                                                        │
   │  ├── AI SERVICE (Gemini API + Deterministic Fallback)  │
   │                                                        │
-  │  ├── 100% LIVE SERPAPI SEARCH BACKBONE                │
+  │  ├── LIVE SERPAPI SEARCH BACKBONE (Direct Axios HTTP) │
   │  │   ├── Flights (engine: "google_flights")            │
   │  │   ├── Hotels (engine: "google_hotels")              │
   │  │   ├── Places & GPS (engine: "google_maps")          │
   │  │   ├── Inter-city Corridors (google_maps_directions) │
   │  │   ├── Visual Grounding (google_images)              │
-  │  │   └── Local Events & Reviews (google organic)       │
+  │  │   └── Local Events & Reviews (google organic search)│
+  │                                                        │
+  │  ├── DATA PROVENANCE SYSTEM                            │
+  │  │   ├── Field-Level Provenance (Price/Rating/Coords)  │
+  │  │   ├── Trust Summary & Grounding Score (0-100)       │
+  │  │   └── Anti-Fabrication Safeguards (Null over fake)  │
   │                                                        │
   │  ├── CONSTRAINT ENGINE (Hard Bounds & Soft Trade-offs) │
   │  │   ├── Budget Ceiling Enforcement                    │
   │  │   ├── Transfer & Airport Time Buffers               │
   │  │   └── Smallest Required Relaxation Advice           │
   │                                                        │
-  │  ├── GEOSPATIAL ENGINE                                 │
-  │  │   ├── Haversine Distance Calculation                │
-  │  │   └── Nearest-Neighbor Attraction Sequencing        │
+  │  ├── GEOSPATIAL & ROUTING ENGINE                       │
+  │  │   ├── Parallel Live Road Routing (Concurrency = 4)  │
+  │  │   ├── Multi-Tier Cache (In-Memory + Supabase)       │
+  │  │   └── Haversine x 1.32 Empirical Road Fallback      │
   │                                                        │
   │  ├── BUDGET OPTIMIZATION ENGINE                        │
   │  │   └── Multi-Tier Rebalancing (Transit/Stay/Dining)  │
@@ -73,16 +104,16 @@ A real trip is governed by **hard physical constraints**:
 
 ## ⚡ SerpApi Heavy Lifting: Multi-Engine Integration
 
-SerpApi is the sole data backbone of TravelOS AI. Every live entity in the system is retrieved through SerpApi endpoints:
+SerpApi is the sole live data backbone of TravelOS AI. Requests are executed via direct HTTP requests using **Axios** directly against `https://serpapi.com/search` with strict timeouts and error boundaries:
 
 | Engine | Key Parameters | Exact Role in TravelOS AI |
 | :--- | :--- | :--- |
 | **`google_flights`** | `departure_id`, `arrival_id`, `outbound_date`, `currency: "INR"` | Live ticket prices, carrier schedules (IndiGo, Air India), layovers, flight durations, carbon footprint, and direct booking links. |
 | **`google_hotels`** | `q`, `check_in_date`, `check_out_date`, `adults`, `currency: "INR"` | Live room rates per night, verified guest ratings, review counts, and amenities matched against user budget constraints. |
 | **`google_maps`** | `q`, `gl: "in"`, `hl: "en"` | Live destination points of interest with exact **GPS latitude & longitude coordinates**, ratings, and opening hours. |
-| **`google_maps_directions`** | `start_addr`, `end_addr`, `travel_mode` | Inter-city transit routes, driving distances (meters), and duration (seconds). |
+| **`google_maps_directions`** | `start_addr`, `end_addr`, `travel_mode` | Inter-city transit routes, driving distances (meters), duration (seconds), and daily activity leg navigation. |
 | **`google_images`** | `q`, `safe: "active"` | Authentic high-resolution destination photography without synthetic stock placeholders. |
-| **`google` (Organic)** | `q: "events festivals in [city]"`, `gl: "in"` | Real-time cultural pop-ups, music gigs, weekend markets, and traveler sentiment intelligence. |
+| **`google` (Organic)** | `q: "events festivals in [city]"`, `gl: "in"` | **SerpApi Google Search is used for live local event discovery** (festivals, live music, exhibitions, and weekend pop-ups) and review snippet intelligence. |
 
 ---
 
