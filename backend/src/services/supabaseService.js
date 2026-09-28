@@ -75,3 +75,55 @@ export async function listSavedTrips() {
   const localList = Array.from(tripStore.values());
   return localList;
 }
+
+// In-memory + Supabase Route Cache (P1-1)
+const routeStore = new Map();
+
+export async function getCachedRoute(origin, destination, mode = 'driving') {
+  const cacheKey = `${String(origin).toLowerCase().trim()}|${String(destination).toLowerCase().trim()}|${mode}`;
+  if (routeStore.has(cacheKey)) {
+    return routeStore.get(cacheKey);
+  }
+
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('route_cache')
+        .select('route_data')
+        .eq('cache_key', cacheKey)
+        .single();
+      if (!error && data?.route_data) {
+        routeStore.set(cacheKey, data.route_data);
+        return data.route_data;
+      }
+    } catch (err) {
+      // Non-blocking in case table doesn't exist
+    }
+  }
+
+  return null;
+}
+
+export async function setCachedRoute(origin, destination, mode = 'driving', routeData) {
+  const cacheKey = `${String(origin).toLowerCase().trim()}|${String(destination).toLowerCase().trim()}|${mode}`;
+  routeStore.set(cacheKey, routeData);
+
+  if (supabase) {
+    try {
+      await supabase
+        .from('route_cache')
+        .upsert({
+          cache_key: cacheKey,
+          origin,
+          destination,
+          mode,
+          route_data: routeData,
+          created_at: new Date().toISOString()
+        });
+    } catch (err) {
+      // Non-blocking fallback
+    }
+  }
+
+  return routeData;
+}

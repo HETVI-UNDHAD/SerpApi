@@ -25,6 +25,7 @@ import {
   calculateEstimatedRoadKm,
   estimateDriveMinutes
 } from './routeIntelligenceService.js';
+import { routeDailyLegs } from './liveRoutingService.js';
 import { createProvenance, withProvenance, attachFieldProvenance, calculateGroundingScore } from '../models/provenance.js';
 import dotenv from 'dotenv';
 
@@ -209,7 +210,7 @@ export async function planTripWorkflow(tripRequest) {
   };
 
   // Step 5: Route Optimization & Geographic Clustering with Physical Journey Legs
-  const itinerary = buildRouteAwareItinerary({
+  const itinerary = await buildRouteAwareItinerary({
     origin,
     destination: targetDestination,
     duration: parseInt(duration, 10) || 3,
@@ -340,6 +341,15 @@ export async function planTripWorkflow(tripRequest) {
     sentimentSummary: reviewInsights.agentRecommendation
   };
 
+  const totalLegs = itinerary.reduce((sum, d) => sum + (d.totalLegsCount || 0), 0);
+  const liveLegs = itinerary.reduce((sum, d) => sum + (d.liveRoutedCount || 0), 0);
+  const liveRoutingSummary = {
+    liveLegs,
+    totalLegs,
+    ratioText: `${liveLegs} of ${totalLegs} legs live-routed`,
+    allLive: liveLegs === totalLegs && totalLegs > 0
+  };
+
   return {
     id: `trip-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
     createdAt: new Date().toISOString(),
@@ -356,6 +366,7 @@ export async function planTripWorkflow(tripRequest) {
     transportMode,
     transportation,
     destinationDiscovery: destinationDiscoveryResults,
+    liveRoutingSummary,
     liveData: {
       flights: flightOptions,
       transportation,
@@ -537,7 +548,7 @@ function buildTransitLeg({
  * Route-Aware Itinerary Generator
  * Geographically orders stops via Nearest-Neighbor routing so the traveler does not criss-cross the city
  */
-export function buildRouteAwareItinerary({
+export async function buildRouteAwareItinerary({
   origin = 'Ahmedabad',
   destination,
   duration,
@@ -547,14 +558,15 @@ export function buildRouteAwareItinerary({
   travelStyle = 'Balanced',
   transportation = null,
   selectedFlight = null,
-  transportMode = 'flight'
+  transportMode = 'flight',
+  enableLiveRouting = true
 }) {
   const days = [];
-  const hotelLat = hotel?.gpsCoordinates?.latitude || 15.4989;
-  const hotelLng = hotel?.gpsCoordinates?.longitude || 73.8278;
+  const hotelLat = hotel?.gpsCoordinates?.latitude ?? places.find(p => p.gpsCoordinates?.latitude)?.gpsCoordinates?.latitude ?? null;
+  const hotelLng = hotel?.gpsCoordinates?.longitude ?? places.find(p => p.gpsCoordinates?.longitude)?.gpsCoordinates?.longitude ?? null;
   const hotelName = hotel?.name || `Selected Stay (${destination})`;
   const hotelAddress = hotel?.address || `${destination} Central Hub`;
-  const hotelCoords = { latitude: hotelLat, longitude: hotelLng };
+  const hotelCoords = hotelLat != null && hotelLng != null ? { latitude: hotelLat, longitude: hotelLng } : null;
 
   const pool = [...places];
 
@@ -589,24 +601,31 @@ export function buildRouteAwareItinerary({
       if (pool.length > 0) {
         candidateSpots.push(pool.shift());
       } else {
-        // Dynamic fallback referencing real destination coordinates
-        const spotLat = hotelLat + (dayNum * 0.025) + (s * 0.015);
-        const spotLng = hotelLng + (dayNum * 0.018) + (s * 0.012);
+        // Dynamic fallback referencing real destination coordinates if available
+        const spotCoords = (hotelLat != null && hotelLng != null) ? {
+          latitude: Math.round((hotelLat + (dayNum * 0.025) + (s * 0.015)) * 10000) / 10000,
+          longitude: Math.round((hotelLng + (dayNum * 0.018) + (s * 0.012)) * 10000) / 10000
+        } : null;
         const dynamicTitle = s === 0 ? `${destination} Historic Heritage & Old Quarter` : s === 1 ? `${destination} Scenic Waterfront & Sunset Point` : s === 2 ? `${destination} Vibrant Cultural Bazaar & Crafts` : `${destination} Culinary Hub & Night Atmosphere`;
         candidateSpots.push({
           id: `spot-${dayNum}-${s}`,
           title: dynamicTitle,
           category: s === 0 ? 'Heritage & History' : s === 1 ? 'Scenic & Nature' : s === 2 ? 'Art & Shopping' : 'Food & Nightlife',
-          rating: 4.6,
-          reviewsCount: 820 + (s * 150),
+          rating: null,
+          reviewsCount: null,
           address: `${destination} Landmark Zone`,
-          gpsCoordinates: { latitude: spotLat, longitude: spotLng },
+          gpsCoordinates: spotCoords,
           description: `Prominent point of interest in ${destination} offering rich cultural immersion, photography, and local character.`,
           thumbnail: 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?w=500&auto=format&fit=crop&q=80',
-          operatingHours: 'Open Daily · 09:00 AM - 07:00 PM',
-          priceLevel: '₹100 - ₹350',
+          operatingHours: null,
+          priceLevel: null,
           estimatedDurationMinutes: 90,
-          googleMapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(dynamicTitle + ' ' + destination)}`
+          googleMapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(dynamicTitle + ' ' + destination)}`,
+          provenance: {
+            rating: createProvenance({ source: 'unavailable', status: 'UNAVAILABLE' }),
+            price: createProvenance({ source: 'unavailable', status: 'UNAVAILABLE' }),
+            coordinates: spotCoords ? createProvenance({ source: 'haversine_estimate', status: 'ESTIMATED', confidence: 0.6 }) : createProvenance({ source: 'unavailable', status: 'UNAVAILABLE' })
+          }
         });
       }
     }
@@ -732,7 +751,7 @@ export function buildRouteAwareItinerary({
     });
 
     // Transit leg back to hotel at the end of the day
-    const returnTransitToHotel = buildTransitLeg({
+    let returnTransitToHotel = buildTransitLeg({
       fromName: lastPoint.name,
       fromAddress: lastPoint.address,
       fromCoords: lastPoint.coords,
@@ -743,8 +762,56 @@ export function buildRouteAwareItinerary({
       legIndex: sequencedSpots.length + 1
     });
 
-    totalDailyTravelMin += returnTransitToHotel.durationMinutes;
-    totalDailyDistanceKm += returnTransitToHotel.distanceKm;
+    let liveRoutingInfo = {
+      liveRoutedCount: 0,
+      totalLegsCount: activities.length + 1,
+      ratioText: `0 of ${activities.length + 1} legs live-routed`
+    };
+
+    if (enableLiveRouting) {
+      const legsToRoute = [
+        ...activities.map(act => ({ ...act.transitToHere, destination })),
+        { ...returnTransitToHotel, destination }
+      ];
+
+      try {
+        const routeResult = await routeDailyLegs(legsToRoute, { concurrency: 4, timeoutMs: 4000 });
+        liveRoutingInfo = {
+          liveRoutedCount: routeResult.liveRoutedCount,
+          totalLegsCount: routeResult.totalLegsCount,
+          ratioText: routeResult.ratioText
+        };
+
+        // Update each activity's transitToHere with live road routing
+        activities.forEach((act, actIdx) => {
+          const routed = routeResult.routedLegs[actIdx];
+          if (routed) {
+            act.transitToHere = routed;
+            if (routed.distanceKm != null) {
+              act.distanceFromPrevKm = routed.distanceKm;
+              act.travelTimeFromPrevMin = routed.durationMinutes;
+              act.travelTimeFromPrev = `${routed.durationMinutes} mins (${routed.distanceKm} km) via ${routed.modeLabel || act.transitToHere.modeLabel}`;
+              act.distanceType = routed.isLiveRouted ? 'live_road_directions' : 'road_estimate';
+              act.distanceTypeLabel = routed.isLiveRouted ? 'Live Road Routing (Google Maps Directions)' : 'Estimated Road Distance (~1.3× network factor)';
+              act.isLiveRouted = routed.isLiveRouted;
+              act.isTransitLiveRouted = routed.isLiveRouted;
+            }
+          }
+        });
+
+        // Update return transit to hotel
+        const routedReturn = routeResult.routedLegs[routeResult.routedLegs.length - 1];
+        if (routedReturn) {
+          returnTransitToHotel = routedReturn;
+        }
+
+        // Recalculate daily totals accurately
+        totalDailyTravelMin = activities.reduce((sum, act) => sum + (act.transitToHere?.durationMinutes || 0), 0) + (returnTransitToHotel?.durationMinutes || 0);
+        totalDailyDistanceKm = activities.reduce((sum, act) => sum + (act.transitToHere?.distanceKm || 0), 0) + (returnTransitToHotel?.distanceKm || 0);
+      } catch (err) {
+        // Fallback to Haversine estimate already in activities and returnTransitToHotel
+      }
+    }
 
     const highlightTitle = sequencedSpots[0]?.title
       ? `Day ${dayNum}: ${sequencedSpots[0].title.slice(0, 28)} & Corridors`
@@ -756,6 +823,7 @@ export function buildRouteAwareItinerary({
       activities,
       destination
     });
+    dayRouteSummary.liveRoutingRatioText = liveRoutingInfo.ratioText;
 
     const dayObj = {
       day: dayNum,
@@ -766,7 +834,10 @@ export function buildRouteAwareItinerary({
       activities,
       returnTransitToHotel,
       routeSummary: dayRouteSummary,
-      hotelBase: hotel
+      hotelBase: hotel,
+      liveRoutingRatioText: liveRoutingInfo.ratioText,
+      liveRoutedCount: liveRoutingInfo.liveRoutedCount,
+      totalLegsCount: liveRoutingInfo.totalLegsCount
     };
 
     if (dayNum === 1) {
