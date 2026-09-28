@@ -15,7 +15,10 @@ import {
   Clock,
   TrendingDown,
   Layers,
-  ArrowRight
+  ArrowRight,
+  Route,
+  Camera,
+  Search
 } from 'lucide-react';
 
 export default function SerpApiGroundingModal({ isOpen, onClose }) {
@@ -33,7 +36,7 @@ export default function SerpApiGroundingModal({ isOpen, onClose }) {
       color: 'text-cyan-400',
       bg: 'bg-cyan-500/10 border-cyan-500/25',
       params: ['engine: "google_flights"', 'departure_id: "AMD"', 'arrival_id: "GOI"', 'outbound_date: "2026-10-10"', 'currency: "INR"'],
-      desc: 'Retrieves real-time ticket prices, airline codes (IndiGo, Air India), departure/arrival times, stops, and direct booking links.'
+      desc: 'Retrieves real-time ticket prices, carrier schedules (IndiGo, Air India), departure/arrival times, stops, carbon emissions, and direct booking links.'
     },
     {
       engine: 'google_hotels',
@@ -41,26 +44,44 @@ export default function SerpApiGroundingModal({ isOpen, onClose }) {
       icon: Building,
       color: 'text-violet-400',
       bg: 'bg-violet-500/10 border-violet-500/25',
-      params: ['engine: "google_hotels"', 'q: "hotels in Goa India"', 'check_in_date: "2026-10-10"', 'check_out_date: "2026-10-13"', 'rating: "4.5+"'],
-      desc: 'Live room rates, verified guest reviews, aggregate star ratings, and amenities without cached pricing.'
+      params: ['engine: "google_hotels"', 'q: "hotels in Goa India"', 'check_in_date: "2026-10-10"', 'check_out_date: "2026-10-13"', 'currency: "INR"'],
+      desc: 'Retrieves live room rates per night, verified guest reviews, star ratings, and amenities to balance against the user’s hard budget ceiling.'
     },
     {
       engine: 'google_maps',
-      label: 'Google Maps Engine',
+      label: 'Google Maps Places Engine',
       icon: MapPin,
       color: 'text-emerald-400',
       bg: 'bg-emerald-500/10 border-emerald-500/25',
-      params: ['engine: "google_maps"', 'll: "@15.4989,73.8278,14z"', 'type: "search"', 'q: "authentic local dining"'],
-      desc: 'Exact GPS latitude/longitude pinned coordinates via `ll` parameter, driving durations, and Haversine geographic clustering.'
+      params: ['engine: "google_maps"', 'q: "top attractions in Goa"', 'gl: "in"', 'hl: "en"'],
+      desc: 'Returns exact GPS latitude & longitude coordinates for attractions, feeding the Haversine clustering engine to eliminate criss-crossing.'
     },
     {
-      engine: 'google_events',
-      label: 'Google Events & Culture',
+      engine: 'google_maps_directions',
+      label: 'Google Maps Directions Engine',
+      icon: Route,
+      color: 'text-blue-400',
+      bg: 'bg-blue-500/10 border-blue-500/25',
+      params: ['engine: "google_maps_directions"', 'start_addr: "Ahmedabad"', 'end_addr: "Goa"', 'travel_mode: 3'],
+      desc: 'Calculates real transit and driving route distances, duration seconds, and corridors between origins, hubs, and destinations.'
+    },
+    {
+      engine: 'google_images',
+      label: 'Google Images Engine',
+      icon: Camera,
+      color: 'text-pink-400',
+      bg: 'bg-pink-500/10 border-pink-500/25',
+      params: ['engine: "google_images"', 'q: "Goa landscape scenic 4k"', 'safe: "active"'],
+      desc: 'Surfaces authentic photographic imagery for destinations, hotels, and attractions without synthetic stock placeholders.'
+    },
+    {
+      engine: 'google (Organic Search)',
+      label: 'Google Organic Events & Sentiment',
       icon: Calendar,
       color: 'text-amber-400',
       bg: 'bg-amber-500/10 border-amber-500/25',
-      params: ['engine: "google_events"', 'q: "events festivals in Goa"', 'tbs: "qdr:w"', 'hl: "en"', 'gl: "in"'],
-      desc: 'Hyper-localized real-time cultural pop-ups, weekly flea markets, and music gigs happening strictly during visit dates.'
+      params: ['engine: "google"', 'q: "upcoming events festivals in Goa this month"', 'gl: "in"', 'hl: "en"'],
+      desc: 'Surfaces live local cultural festivals, pop-up markets, music gigs, and forum traveler sentiment grounded directly in SerpApi web search.'
     }
   ];
 
@@ -83,13 +104,13 @@ export default function SerpApiGroundingModal({ isOpen, onClose }) {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-xl font-black tracking-tight">SerpApi Grounding & Differentiation</h3>
+                <h3 className="text-xl font-black tracking-tight">SerpApi Grounding & Technical Differentiation</h3>
                 <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                   Judges' Showcase
                 </span>
               </div>
               <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                Zero-hallucination verification matrix and live search engine architecture
+                100% Live SerpApi Search Architecture with Deterministic Constraints & Dynamic Replanning
               </p>
             </div>
           </div>
@@ -110,113 +131,104 @@ export default function SerpApiGroundingModal({ isOpen, onClose }) {
         }`}>
           <button
             onClick={() => setActiveTab('differentiation')}
-            className={`pb-3 text-xs font-bold border-b-2 flex items-center gap-2 transition-colors ${
+            className={`pb-3 text-xs font-bold uppercase tracking-wider transition-all border-b-2 ${
               activeTab === 'differentiation'
-                ? 'border-cyan-400 text-cyan-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'border-cyan-400 text-cyan-400 font-black'
+                : 'border-transparent text-slate-400 hover:text-white'
             }`}
           >
-            <Layers className="w-4 h-4" />
-            <span>Radical Differentiation Matrix</span>
+            Differentiation Matrix
           </button>
           <button
             onClick={() => setActiveTab('engines')}
-            className={`pb-3 text-xs font-bold border-b-2 flex items-center gap-2 transition-colors ${
+            className={`pb-3 text-xs font-bold uppercase tracking-wider transition-all border-b-2 ${
               activeTab === 'engines'
-                ? 'border-indigo-400 text-indigo-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'border-cyan-400 text-cyan-400 font-black'
+                : 'border-transparent text-slate-400 hover:text-white'
             }`}
           >
-            <Code2 className="w-4 h-4" />
-            <span>SerpApi Heavy Lifting Engine (4 APIs)</span>
+            SerpApi Engines & Heavy Lifting
           </button>
         </div>
 
+        {/* Modal Content */}
         <div className="p-6 space-y-6">
-          {/* TAB 1: DIFFERENTIATION MATRIX */}
+
+          {/* TAB 1: RADICAL DIFFERENTIATION MATRIX */}
           {activeTab === 'differentiation' && (
             <div className="space-y-6">
-              {/* Zero Hallucination Callout */}
-              <div className={`p-4 sm:p-5 rounded-2xl border flex items-start gap-3.5 ${
-                isDark ? 'bg-indigo-950/30 border-indigo-500/30 text-indigo-200' : 'bg-indigo-50 border-indigo-200 text-indigo-900'
-              }`}>
-                <ShieldCheck className="w-6 h-6 text-indigo-400 flex-shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="font-bold text-sm text-white">The Zero-Hallucination Guarantee</h4>
-                  <p className="text-xs leading-relaxed mt-1 text-slate-300">
-                    Unlike standard travel chatbots that fabricate hotel rates and nonexistent flight times, TravelOS AI uses LLMs strictly as an <strong>orchestrator and filter</strong>. Every hotel, flight fare, and restaurant shown is verified via live SerpApi queries.
-                  </p>
-                </div>
+              <div className="p-4 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-xs leading-relaxed">
+                <strong>Core Architecture:</strong> TravelOS AI combines live SerpApi travel search with deterministic constraint validation, Haversine geospatial optimization, and dynamic replanning. Unlike generic LLM chat planners, all hotel prices, flight windows, and geographic coordinates originate from live search queries.
               </div>
 
-              {/* Differentiation Table */}
+              {/* Table */}
               <div className="overflow-x-auto rounded-2xl border border-slate-800">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className={isDark ? 'bg-[#0B0F19] text-slate-300' : 'bg-slate-100 text-slate-700'}>
-                      <th className="p-3.5 font-bold uppercase tracking-wider">Feature Focus</th>
-                      <th className="p-3.5 font-bold uppercase tracking-wider text-rose-400">Standard Hackathon Projects</th>
-                      <th className="p-3.5 font-bold uppercase tracking-wider text-emerald-400">TravelOS AI (Our Solution)</th>
+                <table className="w-full text-xs text-left">
+                  <thead className={isDark ? 'bg-[#0B0F19] text-slate-300 border-b border-slate-800' : 'bg-slate-100 text-slate-700'}>
+                    <tr>
+                      <th className="p-3.5 font-bold uppercase tracking-wider">Dimension</th>
+                      <th className="p-3.5 font-bold uppercase tracking-wider">Standard AI Travel Apps</th>
+                      <th className="p-3.5 font-black uppercase tracking-wider text-cyan-400">TravelOS AI (Our System)</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800 font-medium">
-                    <tr className={isDark ? 'bg-[#111726]/60' : 'bg-white'}>
+                  <tbody className="divide-y divide-slate-800/60 font-medium">
+                    <tr className={isDark ? 'bg-[#111726]/30' : 'bg-white'}>
                       <td className="p-3.5 font-bold text-white">Data Recency</td>
-                      <td className="p-3.5 text-slate-400">Static, outdated datasets or cached locations from training cutoffs.</td>
+                      <td className="p-3.5 text-slate-400">Static training cutoffs, fictitious room rates, cached itineraries.</td>
                       <td className="p-3.5 text-emerald-400 font-bold flex items-center gap-1.5">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                        100% Live data via SerpApi (real-world availability, prices, event dates).
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                        <span>Live SerpApi queries for real Google Flights fares and Google Hotels rates.</span>
                       </td>
                     </tr>
-                    <tr className={isDark ? 'bg-[#111726]/30' : 'bg-slate-50'}>
-                      <td className="p-3.5 font-bold text-white">Output Type</td>
-                      <td className="p-3.5 text-slate-400">A static list of top 5 recommended tourist spots.</td>
+                    <tr className={isDark ? 'bg-[#111726]/10' : 'bg-slate-50'}>
+                      <td className="p-3.5 font-bold text-white">Geospatial Routing</td>
+                      <td className="p-3.5 text-slate-400">Generic attraction lists that cause criss-crossing across town.</td>
                       <td className="p-3.5 text-emerald-400 font-bold flex items-center gap-1.5">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                        Logistically sound timeline with Haversine clustering & travel buffers.
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                        <span>Haversine nearest-neighbor clustering with turn-by-turn corridors & commute buffers.</span>
                       </td>
                     </tr>
-                    <tr className={isDark ? 'bg-[#111726]/60' : 'bg-white'}>
-                      <td className="p-3.5 font-bold text-white">AI Integration</td>
-                      <td className="p-3.5 text-slate-400">LLM blindly guesses what is nearby (severe hallucinations).</td>
+                    <tr className={isDark ? 'bg-[#111726]/30' : 'bg-white'}>
+                      <td className="p-3.5 font-bold text-white">Budget Discipline</td>
+                      <td className="p-3.5 text-slate-400">Unverified estimates that silently blow past user budget.</td>
                       <td className="p-3.5 text-emerald-400 font-bold flex items-center gap-1.5">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                        AI acts strictly as an Orchestrator & Filter for verified search data.
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                        <span>Mathematical ledger: Flight + Hotel + Food + Activities + Buffer with Auto-Optimizer.</span>
                       </td>
                     </tr>
-                    <tr className={isDark ? 'bg-[#111726]/30' : 'bg-slate-50'}>
-                      <td className="p-3.5 font-bold text-white">User Flow</td>
-                      <td className="p-3.5 text-slate-400">Requires extensive typing and multi-step complex forms.</td>
+                    <tr className={isDark ? 'bg-[#111726]/10' : 'bg-slate-50'}>
+                      <td className="p-3.5 font-bold text-white">Dynamic Replanning</td>
+                      <td className="p-3.5 text-slate-400">Regenerates entire plan from scratch, discarding existing bookings.</td>
                       <td className="p-3.5 text-emerald-400 font-bold flex items-center gap-1.5">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                        1-Click instant presets, dynamic what-if replanning, & auto-optimizer.
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                        <span>Preserves hotels & reservations while shifting only affected morning/afternoon stops.</span>
                       </td>
                     </tr>
                   </tbody>
                 </table>
               </div>
 
-              {/* 3 Winning Modes Highlight */}
+              {/* 3 Strategic Pillars */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
                 <div className="p-4 rounded-2xl border border-slate-800 bg-[#0B0F19] space-y-1.5">
-                  <span className="text-[10px] font-black uppercase text-cyan-400 tracking-wider">Mode 01</span>
-                  <h5 className="font-bold text-white text-xs">Real Budget Matcher</h5>
+                  <span className="text-[10px] font-black uppercase text-cyan-400 tracking-wider">Engine 01</span>
+                  <h5 className="font-bold text-white text-xs">Deterministic Budget Engine</h5>
                   <p className="text-[11px] text-slate-400 leading-relaxed">
-                    Maintains a strict mathematical ledger across flights + stays + dining to prevent budget blowouts.
+                    Strict mathematical ledger with multi-tier rebalancing across transport and stays to satisfy hard budget ceilings.
                   </p>
                 </div>
                 <div className="p-4 rounded-2xl border border-slate-800 bg-[#0B0F19] space-y-1.5">
-                  <span className="text-[10px] font-black uppercase text-indigo-400 tracking-wider">Mode 02</span>
-                  <h5 className="font-bold text-white text-xs">Transit Layover Concierge</h5>
+                  <span className="text-[10px] font-black uppercase text-indigo-400 tracking-wider">Engine 02</span>
+                  <h5 className="font-bold text-white text-xs">Dynamic Replanning Engine</h5>
                   <p className="text-[11px] text-slate-400 leading-relaxed">
-                    Calculates safe radius exploration windows with drop-dead gate return times for layover travelers.
+                    Adapts to real-world flight delays and schedule shocks with structured Before vs After comparisons and preserved constraints.
                   </p>
                 </div>
                 <div className="p-4 rounded-2xl border border-slate-800 bg-[#0B0F19] space-y-1.5">
-                  <span className="text-[10px] font-black uppercase text-emerald-400 tracking-wider">Mode 03</span>
-                  <h5 className="font-bold text-white text-xs">Anti-Tourist Local Oracle</h5>
+                  <span className="text-[10px] font-black uppercase text-emerald-400 tracking-wider">Engine 03</span>
+                  <h5 className="font-bold text-white text-xs">Geospatial Optimizer</h5>
                   <p className="text-[11px] text-slate-400 leading-relaxed">
-                    Filters out commercial tourist traps to highlight authentic street food & live community events.
+                    Pins exact GPS coordinates via Google Maps and sequences attractions to minimize daily transit distances and fatigue.
                   </p>
                 </div>
               </div>
@@ -227,7 +239,7 @@ export default function SerpApiGroundingModal({ isOpen, onClose }) {
           {activeTab === 'engines' && (
             <div className="space-y-4">
               <p className={`text-xs leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-                Our platform relies directly on SerpApi's multi-engine infrastructure. Below are the 4 engines powering live decision-making in TravelOS AI:
+                Our platform relies directly on SerpApi's multi-engine infrastructure. Below are the verified engines powering live decision-making in TravelOS AI:
               </p>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -259,11 +271,20 @@ export default function SerpApiGroundingModal({ isOpen, onClose }) {
                         {eng.desc}
                       </p>
 
-                      <div className="p-2.5 rounded-xl bg-black/60 border border-slate-800 font-mono text-[10px] text-cyan-300 space-y-0.5">
-                        <span className="text-slate-500 block">// Verified SerpApi Parameters:</span>
-                        {eng.params.map((p, i) => (
-                          <div key={i} className="truncate">{p}</div>
-                        ))}
+                      <div className="pt-2 border-t border-slate-800/80">
+                        <span className="text-[10px] uppercase font-mono tracking-widest text-slate-400 block mb-1">
+                          Key API Parameters Used:
+                        </span>
+                        <div className="flex flex-wrap gap-1">
+                          {eng.params.map((param, pIdx) => (
+                            <code
+                              key={pIdx}
+                              className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800/80 text-cyan-300 border border-slate-700/50"
+                            >
+                              {param}
+                            </code>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   );
@@ -271,19 +292,17 @@ export default function SerpApiGroundingModal({ isOpen, onClose }) {
               </div>
             </div>
           )}
+
         </div>
 
         {/* Footer */}
-        <div className={`p-4 px-6 border-t flex items-center justify-between ${
-          isDark ? 'border-slate-800 bg-[#0B0F19]' : 'border-slate-200 bg-slate-50'
+        <div className={`p-4 border-t flex items-center justify-between text-xs ${
+          isDark ? 'bg-[#0B0F19] border-slate-800 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-500'
         }`}>
-          <span className="text-xs text-slate-400 flex items-center gap-1.5 font-medium">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            Live Grounding Status: <strong>100% Operational</strong>
-          </span>
+          <span>Built for SerpApi Track 03: Travel & Local Discovery</span>
           <button
             onClick={onClose}
-            className="px-5 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 text-white font-bold text-xs shadow-md hover:scale-105 transition-all"
+            className="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold transition-colors"
           >
             Close Inspector
           </button>

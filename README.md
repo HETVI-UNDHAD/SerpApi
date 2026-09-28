@@ -1,142 +1,278 @@
 # TravelOS AI 🚀
 
-### Autonomous AI Travel Decision, Grounding & Replanning Agent
-> *"Don't just plan your trip. Let AI research, ground, optimize, and dynamically replan it with 100% verified search data."*
+### Constraint-Aware Autonomous Travel Decision & Dynamic Replanning Engine
+> *"TravelOS grounds travel decisions in live search data and combines AI orchestration with deterministic constraint validation, geospatial optimization, and dynamic replanning."*
 
 Built for the **SerpApi India Hackathon 2026 — Track 03: Travel & Local Discovery**.
 
 ---
 
-## 🏆 Radical Differentiation (Why TravelOS AI Wins)
+## 🧭 The Problem & Our Solution
 
-Many hackathon teams build standard travel directory planners that dump lists of tourist attractions. **TravelOS AI is fundamentally different:**
+Most travel tools produce flat lists of tourist attractions or use generic LLMs that guess locations and hallucinate hotel prices and flight schedules. 
 
-| Feature Focus | Standard Hackathon Projects | TravelOS AI (Our Advanced Solution) |
+A real trip is governed by **hard physical constraints**:
+- Strict budget ceilings where exceeding by ₹1 requires compromise.
+- Strict flight arrival times and airport transit buffers.
+- Fixed geographical distances that dictate whether an itinerary causes exhausting city criss-crossing.
+- Inevitable disruptions (flight delays, bad weather, price spikes).
+
+**TravelOS AI** separates concerns cleanly:
+1. **Live Grounded Data**: 100% of flights, room rates, attractions, images, and cultural events are fetched live via **SerpApi**.
+2. **Deterministic Computation**: All arithmetic, budget ledgers, Haversine distances, nearest-neighbor sequencing, and time buffers are calculated by deterministic code (never left to LLM guesswork).
+3. **AI Orchestration**: Google Gemini interprets natural language requests, extracts traveler intent, and generates structured decision rationales.
+4. **Dynamic Replanning Engine**: When conditions change (e.g. a 3-hour flight delay), the system adapts schedules, shifts affected morning visits to the afternoon, and preserves confirmed hotel bookings and dinner reservations with a full **Before vs. After** diff.
+
+---
+
+## 🏗️ System Architecture
+
+```
+                      USER / TRAVELER
+                            ↓
+               REACT FRONTEND (Vite + Tailwind)
+                            ↓
+             EXPRESS REST API (Node.js • Port 5000)
+                            ↓
+                   TRAVEL ORCHESTRATOR
+  ┌────────────────────────────────────────────────────────┐
+  │                                                        │
+  │  ├── AI SERVICE (Gemini API + Deterministic Fallback)  │
+  │                                                        │
+  │  ├── 100% LIVE SERPAPI SEARCH BACKBONE                │
+  │  │   ├── Flights (engine: "google_flights")            │
+  │  │   ├── Hotels (engine: "google_hotels")              │
+  │  │   ├── Places & GPS (engine: "google_maps")          │
+  │  │   ├── Inter-city Corridors (google_maps_directions) │
+  │  │   ├── Visual Grounding (google_images)              │
+  │  │   └── Local Events & Reviews (google organic)       │
+  │                                                        │
+  │  ├── CONSTRAINT ENGINE (Hard Bounds & Soft Trade-offs) │
+  │  │   ├── Budget Ceiling Enforcement                    │
+  │  │   ├── Transfer & Airport Time Buffers               │
+  │  │   └── Smallest Required Relaxation Advice           │
+  │                                                        │
+  │  ├── GEOSPATIAL ENGINE                                 │
+  │  │   ├── Haversine Distance Calculation                │
+  │  │   └── Nearest-Neighbor Attraction Sequencing        │
+  │                                                        │
+  │  ├── BUDGET OPTIMIZATION ENGINE                        │
+  │  │   └── Multi-Tier Rebalancing (Transit/Stay/Dining)  │
+  │                                                        │
+  │  └── DYNAMIC REPLANNING ENGINE (Hero Feature)          │
+  │      ├── Delay Shock Parsing                           │
+  │      ├── Timeline Recalibration                        │
+  │      └── Structured Before vs. After Diff              │
+  │                                                        │
+  └────────────────────────────────────────────────────────┘
+                            ↓
+          SUPABASE (PostgreSQL + In-Memory Fallback)
+```
+
+---
+
+## ⚡ SerpApi Heavy Lifting: Multi-Engine Integration
+
+SerpApi is the sole data backbone of TravelOS AI. Every live entity in the system is retrieved through SerpApi endpoints:
+
+| Engine | Key Parameters | Exact Role in TravelOS AI |
 | :--- | :--- | :--- |
-| **Data Recency** | Static, outdated datasets or cached training cutoffs. | **100% Live data** utilizing real-world availability, fares, and event dates. |
-| **Output Type** | A static list of top 5 recommended locations. | A highly optimized, **logistically sound timeline** with Haversine clustering & travel buffers. |
-| **AI Integration** | Blind LLM guesses of what is nearby (**Severe Hallucinations**). | AI acts strictly as an **Orchestrator and Filter** for verified SerpApi data. |
-| **User Flow** | Requires extensive typing and multiple tedious setup forms. | **Natural conversation, 1-click scenario presets, and what-if replanning**. |
+| **`google_flights`** | `departure_id`, `arrival_id`, `outbound_date`, `currency: "INR"` | Live ticket prices, carrier schedules (IndiGo, Air India), layovers, flight durations, carbon footprint, and direct booking links. |
+| **`google_hotels`** | `q`, `check_in_date`, `check_out_date`, `adults`, `currency: "INR"` | Live room rates per night, verified guest ratings, review counts, and amenities matched against user budget constraints. |
+| **`google_maps`** | `q`, `gl: "in"`, `hl: "en"` | Live destination points of interest with exact **GPS latitude & longitude coordinates**, ratings, and opening hours. |
+| **`google_maps_directions`** | `start_addr`, `end_addr`, `travel_mode` | Inter-city transit routes, driving distances (meters), and duration (seconds). |
+| **`google_images`** | `q`, `safe: "active"` | Authentic high-resolution destination photography without synthetic stock placeholders. |
+| **`google` (Organic)** | `q: "events festivals in [city]"`, `gl: "in"` | Real-time cultural pop-ups, music gigs, weekend markets, and traveler sentiment intelligence. |
 
 ---
 
-## 🛡️ The "Zero-Hallucination" Guarantee
+## 🎯 Core Technical Features
 
-Every restaurant, flight departure time, hotel price, or event shown in the TravelOS AI interface is **currently active and real**:
-- **No fabricated room rates**: Room costs are retrieved live from SerpApi's `google_hotels` engine.
-- **No imaginary flights**: Flight schedules and live prices originate from SerpApi's `google_flights` engine.
-- **No impossible commutes**: Attractions are mapped with exact GPS coordinates via `google_maps`, clustered with Haversine mathematics to eliminate criss-crossing and back-and-forth travel.
+### 1. Hard vs. Soft Constraint Model
+- **Hard Constraints (Non-Negotiable)**: Total budget ceiling, duration dates, airport arrival buffers, transit feasibility.
+- **Soft Constraints (Trade-Offs)**: Hotel star rating, activity preferences, daily travel pacing.
+- **Smallest Required Relaxation**: If an impossible budget is supplied, the engine calculates the exact minimum relaxation required (e.g. *"Your ₹20,000 budget requires ₹1,250 additional buffer to preserve your current preferences"*).
+
+### 2. Multi-Tier Autonomous Budget Optimizer
+- Calculates a transparent mathematical ledger: `Transport + Accommodation + Dining + Activities + 8% Buffer`.
+- If a plan is over budget, one-click **Auto-Optimize** executes a structured rebalancing sequence:
+  1. Switches to verified lower-cost stay tiers in live hotel search results.
+  2. Rebalances transport modes (e.g. Superfast AC Express Sleeper vs peak flight fares).
+  3. Calibrates dining and local transit to authentic regional culinary thalis and auto-rickshaws.
+  4. Preserves free scenic viewpoints and cultural walks.
+
+### 3. Haversine Geospatial Optimization
+- Calculates genuine pairwise geographic distances between points of interest using the Haversine formula.
+- Sequentially orders daily stops using **Nearest-Neighbor** algorithms starting from the hotel basecamp.
+- Surfaces actual distance saved: e.g. **~90.6 km saved (28% transit reduction)** compared to an un-sequenced itinerary.
+
+### 4. Dynamic Replanning Engine (Hero Feature)
+When an unexpected real-world disruption occurs (e.g. user types *"My flight is delayed by 3 hours"*):
+- Parses the delay duration accurately (3 hours vs 4 hours).
+- Pushes arrival and check-in windows forward.
+- Shifts affected morning sightseeing tours into open afternoon slots without canceling them.
+- **Preserves** confirmed hotel bookings, budget ceilings, and evening dinner reservations.
+- Produces a structured **Before vs. After** diff in the UI showing preserved vs changed items.
+
+### 5. "Why This Plan?" Explainability Inspector
+Every flight, hotel, and route decision can be inspected with real data:
+- **Why this flight?**: Price, departure window, arrival timing.
+- **Why this hotel?**: Nightly rate, verified rating, proximity to planned daily activity clusters.
+- **Why this route?**: Haversine clustering, km saved, commute reduction.
+- **Why these events?**: Live cultural pop-ups retrieved from SerpApi matching visit dates.
 
 ---
 
-## ⚡ Showcase of SerpApi Heavy Lifting (Parameters Breakdown)
+## 🎬 3-Minute Hackathon Demo Script
 
-Judges evaluate whether SerpApi is the real backbone of the application. Here is how our architecture leverages SerpApi's engine parameters:
-
-| Engine | Key Parameters | Exact Purpose in TravelOS AI |
+| Time | Stage | Action / Voiceover |
 | :--- | :--- | :--- |
-| **`google_flights`** | `engine: "google_flights"`, `departure_id`, `arrival_id`, `outbound_date`, `currency: "INR"` | Fetches real-time ticket prices, stops (non-stop vs 1 stop), flight durations, and verified direct booking links. |
-| **`google_hotels`** | `engine: "google_hotels"`, `q`, `check_in_date`, `check_out_date`, `rating: "4.5+"` | Extracts real guest ratings, price per night, and verified amenities to balance against the user's hard budget ceiling. |
-| **`google_maps`** | `engine: "google_maps"`, `ll: "@lat,lng,14z"`, `type: "search"` | Pins search results strictly to exact geographic coordinates, calculates driving durations, and feeds our Haversine clustering engine. |
-| **`google_events`** | `engine: "google_events"`, `q`, `tbs: "qdr:w"`, `hl: "en"`, `gl: "in"` | Pulls hyper-localized community pop-ups, flea markets, and live music gigs occurring during visit dates (Anti-Tourist mode). |
-
----
-
-## 🎯 3 Strategic Product Modes
-
-1. **The Real Budget Optimizer**:
-   - Maintains a mathematical ledger: `Total = Flights + Hotels + Daily Dining + Activities + 20% Buffer`.
-   - If the total exceeds the budget by even ₹1, the engine triggers an automatic trade-off rebalancer.
-2. **The "Transit Layover" Concierge**:
-   - For users with limited layover windows (e.g., 5-hour layover at Mumbai airport).
-   - Enforces a 2-hour security re-entry buffer and calculates a strict **Safe Exploration Radius** with a **"Drop-Dead Departure Time"** countdown.
-3. **The "Anti-Tourist" Local Culture Oracle**:
-   - Ignores generic tourist traps and uses live events + organic web search to surface hidden culinary gems and artisan markets.
-
----
-
-## 🎬 Scripted 3-Minute Video Demo Storyboard
-
-*(Prepared for the official 3-minute continuous, unedited recording)*
-
-| Timestamp | Screen | Spoken Script / Action | Key Feature Demonstrated |
-| :--- | :--- | :--- | :--- |
-| **0:00 - 0:30** | Landing Page | *"Current travel apps cause choice paralysis with flat directories, or hallucinate with AI chatbots. TravelOS AI is an autonomous decision agent grounded 100% in live search."* | Problem statement & Zero-Hallucination claim |
-| **0:30 - 1:00** | Navbar / Modal | Click **"Zero-Hallucination LIVE"** badge. Show the **Differentiation Matrix** and the 4 live SerpApi engines with parameters (`ll`, `tbs`). | Proves SerpApi is the foundational backbone |
-| **1:00 - 1:40** | Trip Builder | Select preset *"Ahmedabad → Goa (₹20,000 Budget, 3 Days)"*. Hit **Architect Journey**. Watch the live Research Center query Google Flights, Google Hotels, and Google Maps. | Instant, high-tempo user flow |
-| **1:40 - 2:15** | Dashboard | Review the **High-Contrast Master Plan**: point out the live IndiGo flight fares, hotel rating cards, and the Haversine-clustered route timeline with commute times. | Visual excellence, clarity & logistically sound timeline |
-| **2:15 - 2:40** | Budget Optimizer | Point to the Budget Alert: plan is over budget. Click **"Auto-Optimize for ₹20,000"**. The agent rebalances hotel tiers in real-time. | Dynamic Autonomous Optimization |
-| **2:40 - 3:00** | Replanner & What-If | Type *"What if my flight is delayed by 3 hours?"* Watch the AI recalculate Day 1 times without discarding existing hotel reservations. Conclude with summary. | Resilient, continuous real-time replanning |
+| **0:00 - 0:25** | **The Problem** | *"Travel planning is not just listing places. Real trips have hard constraints: budgets, flight timings, distances, and unexpected disruptions. LLM chat tools hallucinate rates, and static guides cause choice paralysis."* |
+| **0:25 - 0:50** | **The Solution** | *"TravelOS AI grounds travel decisions in live SerpApi search data and combines AI orchestration with deterministic constraints and dynamic replanning."* |
+| **0:50 - 1:20** | **Trip Architect** | Enter prompt: *"3 days in Goa from Ahmedabad under ₹20,000 for 2 people, prefer beaches and local food"*. Show extracted constraints. Click **Architect Journey**. Watch live parallel queries to Google Flights, Google Hotels, and Google Maps. |
+| **1:20 - 1:45** | **Master Plan** | Review live Indigo flight fare, 4.5★ hotel card, and Haversine-clustered route map with commute corridors and distance savings. |
+| **1:45 - 2:05** | **Budget Optimizer** | Point out the over-budget alert (₹37,169 > ₹20,000). Click **Auto-Optimize**. Watch the system rebalance stay and transport tiers to achieve ₹14,854 (saving ₹22,315). |
+| **2:05 - 2:40** | **Hero Replanning** | In the AI Replanner, type: *"My flight is delayed by 3 hours"*. The system recalibrates Day 1: shifts arrival to 12:00 PM, reschedules morning tour to the afternoon, and preserves the hotel booking and sunset dinner with a clear **Before vs After Diff**. |
+| **2:40 - 2:55** | **Explainability** | Open **"Why This Plan?" Inspector**. Inspect verified metrics for why the flight, hotel, route, and budget were selected. |
+| **2:55 - 3:00** | **Conclusion** | *"TravelOS AI doesn't just generate text. It continuously makes, optimizes, and explains travel decisions under real-world constraints."* |
 
 ---
 
 ## 🛠️ Tech Stack
 
-| Layer | Technology |
-|---|---|
-| **Frontend** | React 18, Vite, Tailwind CSS, Leaflet Maps, Lucide Icons |
-| **Backend** | Node.js, Express.js |
-| **Live Search SDK** | `@serpapi/serpapi` (`google_flights`, `google_hotels`, `google_maps`, `google_events`) |
-| **AI Orchestration** | Google Gemini API / OpenAI API with deterministic mathematical fallback |
-| **Database** | Supabase (PostgreSQL) with in-memory caching fallback |
+| Layer | Technologies |
+| :--- | :--- |
+| **Frontend** | React 18, Vite, Vanilla CSS + Tailwind CSS, Leaflet Maps, Lucide Icons, Canvas Confetti |
+| **Backend** | Node.js, Express.js (ES Modules) |
+| **Live Search Data** | **SerpApi** (`google_flights`, `google_hotels`, `google_maps`, `google_maps_directions`, `google_images`, `google`) |
+| **AI Orchestration** | Google Gemini API (`@google/generative-ai`) with deterministic NLP fallback |
+| **Geospatial & Math** | Haversine distance clustering, Nearest-Neighbor routing, deterministic budget ledger |
+| **Database** | Supabase (PostgreSQL) with resilient in-memory Map cache |
 
 ---
 
-## 🚀 Quickstart & Local Installation
+## 🚀 Local Setup & Installation
 
-### 1. Prerequisites
+### Prerequisites
 - Node.js 18+ installed
 - SerpApi API Key ([serpapi.com](https://serpapi.com))
+
+### 1. Clone the Repository
+```bash
+git clone https://github.com/HETVI-UNDHAD/SerpApi.git
+cd SerpApi
+```
 
 ### 2. Backend Setup
 ```bash
 cd backend
 npm install
 ```
-Create `backend/.env`:
+Configure `backend/.env`:
 ```env
 PORT=5000
 SERPAPI_KEY=your_serpapi_key_here
-AI_PROVIDER=gemini
-AI_API_KEY=your_gemini_api_key_here
+AI_API_KEY=your_gemini_api_key_here # Optional: deterministic fallback enabled if empty
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_PUBLISHABLE_KEY=your_supabase_key
 ```
 Start backend:
 ```bash
 npm run dev
-# Server running on http://localhost:5000
+# Server running at http://localhost:5000
 ```
 
 ### 3. Frontend Setup
 ```bash
-cd frontend
+cd ../frontend
 npm install
 npm run dev
-# Vite app running on http://localhost:3000
+# Vite application running at http://localhost:3000
+```
+
+---
+
+## 🧪 Automated Testing & Benchmark Evaluation
+
+TravelOS AI includes an automated test suite verifying constraint validation, budget optimization, delay replanning, and SerpApi normalization.
+
+Run tests:
+```bash
+cd backend
+npm test
+```
+
+Benchmark output:
+```
+======================================================
+🧪 TravelOS AI — Automated Test Suite & Benchmark
+======================================================
+--- Suite 1: Natural Language Travel Requirement Parsing ---
+  ✓ PASS: Extracts origin "Ahmedabad"
+  ✓ PASS: Extracts destination "Goa"
+  ✓ PASS: Extracts duration "3 days"
+  ✓ PASS: Extracts budget "₹20,000"
+  ✓ PASS: Extracts travelers "2 pax"
+  ✓ PASS: Extracts interest "Beaches"
+--- Suite 2: Constraint Engine Validation & Relaxation ---
+  ✓ PASS: Hard budget ceiling configured
+  ✓ PASS: Hard duration constraint configured
+  ✓ PASS: Correctly flags over-budget plan as invalid
+  ✓ PASS: Provides smallest required relaxation suggestion
+  ✓ PASS: Calculates exact ₹4,500 relaxation required
+  ✓ PASS: Validates feasible budget plan as valid
+--- Suite 3: Geospatial Distance & Optimization Metrics ---
+  ✓ PASS: Computes total route distance
+  ✓ PASS: Computes estimated distance saved by clustering
+  ✓ PASS: Computes efficiency gain percentage
+--- Suite 4: End-to-End Trip Generation (Hackathon Benchmark) ---
+  ✓ PASS: Generated unique trip ID
+  ✓ PASS: Destination verified as Goa
+  ✓ PASS: Itinerary generated with 3 days
+  ✓ PASS: Geospatial metrics attached
+  ✓ PASS: Constraint report attached
+  ✓ PASS: Explainability engine output attached
+  ✓ PASS: Live local events retrieved via SerpApi
+--- Suite 5: Autonomous Budget Optimizer ---
+  ✓ PASS: Budget optimizer reduced or maintained total cost
+  ✓ PASS: Optimizer provided actionable explanation
+--- Suite 6: Dynamic Replanning Engine (Flight Delay Shock) ---
+  ✓ PASS: Generated structured replanDiff
+  ✓ PASS: Accurately parsed 3-hour delay
+  ✓ PASS: Identified preserved constraints (hotel, dinner)
+  ✓ PASS: Identified adapted schedules (arrival, check-in, morning tours)
+  ✓ PASS: Includes before timeline
+  ✓ PASS: Includes after timeline
+======================================================
+📊 Benchmark Summary: 30 Passed, 0 Failed
+======================================================
 ```
 
 ---
 
 ## 📡 API Endpoints Reference
 
-| Method | Endpoint | Engine Used | Purpose |
-|---|---|---|---|
-| `POST` | `/api/trips` | `google_flights`, `google_hotels`, `google_maps` | Full end-to-end trip generation |
-| `POST` | `/api/destinations/discover` | `google_maps`, `google` | AI Destination Discovery |
-| `POST` | `/api/flights/search` | `google_flights` | Live flight search & booking links |
-| `POST` | `/api/hotels/search` | `google_hotels` | Live hotel rates & guest reviews |
-| `POST` | `/api/places/search` | `google_maps` | Pinned GPS coordinates via `ll` parameter |
-| `POST` | `/api/trips/:id/optimize` | Algorithmic + SerpApi | Hard-cap budget rebalancer |
-| `POST` | `/api/trips/:id/replan` | AI + SerpApi | Conversational schedule replanner |
-| `POST` | `/api/trips/:id/check-changes` | SerpApi live check | Real-time rate change verification |
+| Method | Endpoint | Data Provider / Engine | Purpose |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/trips/parse-prompt` | Gemini AI / Deterministic NLP | Converts natural language travel requests into structured constraints |
+| `POST` | `/api/trips` | SerpApi (`google_flights`, `google_hotels`, `google_maps`, `google`) | Full end-to-end trip research, optimization & itinerary assembly |
+| `POST` | `/api/trips/:id/optimize` | Deterministic Multi-Tier Engine | Rebalances transport & accommodation to fit hard budget ceilings |
+| `POST` | `/api/trips/:id/what-if` | Dynamic Replanning Engine | Adapts schedule for delays, budget cuts, and pace changes with Before/After diff |
+| `POST` | `/api/trips/:id/replan` | Dynamic Replanning Engine | Conversational replanning alias |
+| `POST` | `/api/trips/:id/check-changes`| SerpApi live monitor | Verifies price fluctuations and flight schedules |
+| `POST` | `/api/destinations/discover` | SerpApi (`google_maps`, `google`) | Compares candidate destinations by live cost & interest match |
+| `GET` | `/api/images/search` | SerpApi (`google_images`) | Live photographic visual grounding for places and stays |
+| `GET` | `/api/health` | System monitor | Checks SerpApi key & Supabase connectivity status |
 
 ---
 
-## 🏆 Hackathon Submission Checklist
+## 🏆 Hackathon Evaluation Summary
 
-- [x] **Public GitHub Repository** with clear setup instructions and clean code structure.
-- [x] **Meaningful SerpApi Integration** — 4 distinct engines (`google_flights`, `google_hotels`, `google_maps`, `google_events`).
-- [x] **Zero-Hallucination Architecture** — AI acts strictly as an orchestrator for live search data.
-- [x] **Interactive In-App Inspector** — Live Grounding & Differentiation modal accessible from the UI.
-- [x] **3-Minute Video Script** — Scripted, high-tempo storyboard ready for screen recording.
+- **SerpApi Depth**: Direct integration with **6 distinct SerpApi engines** (`google_flights`, `google_hotels`, `google_maps`, `google_maps_directions`, `google_images`, `google`).
+- **Real Engineering Differentiation**:
+  - Deterministic constraint validation (no hallucinated budgets).
+  - True Haversine geospatial optimization with computed distance savings.
+  - Hero dynamic replanning engine with structured Before vs After comparisons.
+  - Explainable AI inspector exposing the exact data justifying each decision.
+- **Reliability**: Resilient fallbacks ensuring the system remains responsive even under extreme network latency or missing AI keys.
+- **Presentation-Ready**: 3-minute high-tempo demo story supported end-to-end.

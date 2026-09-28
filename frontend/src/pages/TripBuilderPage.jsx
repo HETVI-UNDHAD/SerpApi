@@ -33,10 +33,43 @@ export default function TripBuilderPage() {
   const isDark = theme === 'dark';
   const [mapsReady, setMapsReady] = useState(false);
   const [discoveryOpen, setDiscoveryOpen] = useState(false);
+  const [promptInput, setPromptInput] = useState('3 days in Goa from Ahmedabad under ₹20,000 for 2 people, prefer beaches and local food');
+  const [isParsing, setIsParsing] = useState(false);
 
   useEffect(() => {
     loadGoogleMaps().then(() => setMapsReady(true)).catch(() => {});
   }, []);
+
+  async function handleParsePrompt() {
+    if (!promptInput.trim()) return;
+    setIsParsing(true);
+    try {
+      const res = await fetch('http://localhost:5000/api/trips/parse-prompt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: promptInput })
+      });
+      const data = await res.json();
+      if (data.success && data.parsed) {
+        const p = data.parsed;
+        setFormData(prev => ({
+          ...prev,
+          origin: p.origin || prev.origin,
+          destination: p.destination || prev.destination,
+          duration: p.duration || prev.duration,
+          budget: p.budget || prev.budget,
+          travelers: p.travelers || prev.travelers,
+          interests: p.interests?.length ? p.interests : prev.interests,
+          transportPreference: p.transportPreference || prev.transportPreference,
+          travelStyle: p.travelStyle || prev.travelStyle
+        }));
+      }
+    } catch (err) {
+      console.warn('[Parse error]:', err);
+    } finally {
+      setIsParsing(false);
+    }
+  }
 
   function handleOriginChange(v, place) {
     setFormData(p => ({ ...p, origin: v, originCoords: place ? { lat: place.lat, lng: place.lng } : p.originCoords }));
@@ -91,7 +124,7 @@ export default function TripBuilderPage() {
             Design Your Journey
           </h1>
           <p className={`text-sm mt-1 max-w-xl ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
-            Enter your destination and constraints. TravelOS AI searches live flights, hotels, and attractions via SerpApi.
+            Enter natural language travel requirements or adjust constraints directly. TravelOS AI searches live flights, hotels, and attractions via SerpApi.
           </p>
         </div>
 
@@ -100,6 +133,63 @@ export default function TripBuilderPage() {
 
             {/* ── LEFT: Main Configuration Cards ── */}
             <div className="lg:col-span-8 space-y-6">
+
+              {/* Natural Language Constraint Parser */}
+              <div className={`p-5 rounded-3xl border shadow-md space-y-3 ${
+                isDark ? 'bg-[#111726] border-slate-800' : 'bg-blue-50/70 border-blue-200'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-cyan-500" />
+                    <span className="text-xs font-black uppercase tracking-wider text-cyan-400">
+                      Natural Language Constraint Parser
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-mono font-bold text-slate-400">AI + Deterministic Model</span>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="text"
+                    value={promptInput}
+                    onChange={e => setPromptInput(e.target.value)}
+                    placeholder="e.g. 3 days in Goa from Ahmedabad under ₹20,000 for 2 people, prefer beaches and local food"
+                    className={`flex-1 px-4 py-2.5 rounded-xl text-xs font-medium focus:outline-none ${
+                      isDark ? 'bg-slate-900 border border-slate-700 text-white' : 'bg-white border border-slate-300 text-slate-900 shadow-sm'
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleParsePrompt}
+                    disabled={isParsing}
+                    className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 text-white font-bold text-xs whitespace-nowrap shadow-md hover:scale-105 transition-all"
+                  >
+                    {isParsing ? 'Parsing...' : 'Extract Constraints'}
+                  </button>
+                </div>
+                {/* Verified Constraint Model Pill Box */}
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-1 text-[11px] font-medium">
+                  <div className={`p-2 rounded-xl border text-center ${isDark ? 'bg-slate-900/60 border-white/5 text-slate-300' : 'bg-white border-slate-200'}`}>
+                    <span className="text-[9px] uppercase font-bold text-slate-400 block">Destination</span>
+                    <strong className="text-cyan-400 truncate block">{formData.destination || 'Goa'}</strong>
+                  </div>
+                  <div className={`p-2 rounded-xl border text-center ${isDark ? 'bg-slate-900/60 border-white/5 text-slate-300' : 'bg-white border-slate-200'}`}>
+                    <span className="text-[9px] uppercase font-bold text-slate-400 block">Duration</span>
+                    <strong className="text-emerald-400">{formData.duration} Days</strong>
+                  </div>
+                  <div className={`p-2 rounded-xl border text-center ${isDark ? 'bg-slate-900/60 border-white/5 text-slate-300' : 'bg-white border-slate-200'}`}>
+                    <span className="text-[9px] uppercase font-bold text-slate-400 block">Budget</span>
+                    <strong className="text-emerald-400">₹{Number(formData.budget).toLocaleString('en-IN')}</strong>
+                  </div>
+                  <div className={`p-2 rounded-xl border text-center ${isDark ? 'bg-slate-900/60 border-white/5 text-slate-300' : 'bg-white border-slate-200'}`}>
+                    <span className="text-[9px] uppercase font-bold text-slate-400 block">Travelers</span>
+                    <strong className="text-white">{formData.travelers} Pax</strong>
+                  </div>
+                  <div className={`p-2 rounded-xl border text-center ${isDark ? 'bg-slate-900/60 border-white/5 text-slate-300' : 'bg-white border-slate-200'}`}>
+                    <span className="text-[9px] uppercase font-bold text-slate-400 block">Interests</span>
+                    <strong className="text-cyan-300 truncate block">{formData.interests?.slice(0, 2).join(', ') || 'Beaches'}</strong>
+                  </div>
+                </div>
+              </div>
 
               {/* Destination & Origin Card */}
               <Card isDark={isDark} title="Where are you traveling?">

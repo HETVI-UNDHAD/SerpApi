@@ -123,14 +123,14 @@ export default function Navbar() {
 
           {/* ── RIGHT CONTROLS: GROUNDING PROOF, THEME & CTA ── */}
           <div className="flex items-center gap-3">
-            {/* Zero-Hallucination LIVE Badge */}
+            {/* Live SerpApi Grounded Badge */}
             <button
               onClick={() => setGroundingOpen(true)}
               className="px-3.5 py-1.5 rounded-full bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 text-blue-800 font-extrabold text-xs flex items-center gap-1.5 shadow-sm transition-all hover:scale-105 hover:border-blue-300"
-              title="Inspect live SerpApi search queries & Zero-Hallucination proof"
+              title="Inspect live SerpApi search engines & technical architecture"
             >
               <Zap className="w-3.5 h-3.5 text-blue-600 animate-pulse" />
-              <span className="hidden sm:inline">Zero-Hallucination</span>
+              <span className="hidden sm:inline">SerpApi Grounded</span>
               <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-blue-600 text-white font-bold">
                 LIVE
               </span>

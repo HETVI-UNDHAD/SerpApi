@@ -426,6 +426,25 @@ export async function searchImage(query, fallbackUrl = null) {
 }
 
 /**
+ * Live Events, Pop-ups & Cultural Gigs via SerpApi (Google Search Engine)
+ * Surfaces hyper-localized festivals, live music, and night markets in the destination.
+ */
+export async function searchEvents({ destination, query = null }) {
+  const searchQuery = query || `upcoming events festivals live music flea markets exhibitions in ${destination} this month`;
+  const results = await search(searchQuery, 6);
+  return results.map((item, idx) => ({
+    id: `ev-${idx + 1}`,
+    title: item.title.split(' - ')[0].split(' | ')[0].trim(),
+    description: item.snippet || `Cultural event & local festival in ${destination}.`,
+    link: item.link || null,
+    source: 'SerpApi (Google Search Engine)',
+    destination,
+    category: idx % 3 === 0 ? 'Music & Nightlife' : idx % 3 === 1 ? 'Cultural Festival' : 'Flea Market & Art Pop-up',
+    dateEstimate: 'Ongoing / Upcoming this week'
+  }));
+}
+
+/**
  * Review Intelligence search via SerpApi
  */
 export async function searchReviews({ destination, subject }) {

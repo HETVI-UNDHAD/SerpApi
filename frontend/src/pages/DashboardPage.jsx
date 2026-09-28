@@ -7,6 +7,7 @@ import CheckForChangesModal from '../components/CheckForChangesModal';
 import InteractiveRouteMap from '../components/InteractiveRouteMap';
 import PlaceImage from '../components/PlaceImage';
 import SerpApiGroundingModal from '../components/SerpApiGroundingModal';
+import WhyThisPlanModal from '../components/WhyThisPlanModal';
 import {
   Compass,
   Calendar,
@@ -28,11 +29,14 @@ import {
   MessageSquare,
   Clock,
   Car,
-  Zap
+  Zap,
+  HelpCircle,
+  Route
 } from 'lucide-react';
 
 export default function DashboardPage() {
   const [groundingOpen, setGroundingOpen] = useState(false);
+  const [whyPlanOpen, setWhyPlanOpen] = useState(false);
   const {
     currentTrip,
     activeTab,
@@ -200,12 +204,21 @@ export default function DashboardPage() {
             )}
 
             <button
+              onClick={() => setWhyPlanOpen(true)}
+              className="px-3.5 py-2.5 rounded-xl border border-indigo-500/40 bg-gradient-to-r from-indigo-500/15 to-violet-500/15 text-indigo-300 font-bold text-xs flex items-center gap-1.5 hover:from-indigo-500/25 hover:to-violet-500/25 transition-all hover:scale-105 shadow-sm"
+              title="Inspect why this flight, hotel, and route were chosen"
+            >
+              <HelpCircle className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Why This Plan?</span>
+            </button>
+
+            <button
               onClick={() => setGroundingOpen(true)}
               className="px-3.5 py-2.5 rounded-xl border border-cyan-500/40 bg-gradient-to-r from-cyan-500/15 to-indigo-500/15 text-cyan-300 font-bold text-xs flex items-center gap-1.5 hover:from-cyan-500/25 hover:to-indigo-500/25 transition-all hover:scale-105 shadow-sm"
-              title="Inspect live SerpApi search queries & Zero-Hallucination proof"
+              title="Inspect live SerpApi search queries & architecture"
             >
               <Zap className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
-              <span>Zero-Hallucination Proof</span>
+              <span>SerpApi Proof</span>
             </button>
 
             <button
@@ -713,6 +726,9 @@ export default function DashboardPage() {
 
         {/* Live SerpApi Grounding & Differentiation Modal */}
         <SerpApiGroundingModal isOpen={groundingOpen} onClose={() => setGroundingOpen(false)} />
+
+        {/* Explainability & Constraint Health Inspector */}
+        <WhyThisPlanModal isOpen={whyPlanOpen} onClose={() => setWhyPlanOpen(false)} trip={currentTrip} isDark={isDark} />
 
       </div>
     </div>

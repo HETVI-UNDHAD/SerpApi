@@ -4,6 +4,7 @@ import {
   searchHotels,
   searchPlaces,
   searchReviews,
+  searchEvents,
   discoverDestinations,
   searchImage
 } from '../services/serpapiService.js';
@@ -13,9 +14,22 @@ import {
   applyWhatIfSimulation,
   checkForLiveChanges
 } from '../services/aiAgentService.js';
+import { parseTravelPrompt } from '../services/llmService.js';
 import { saveTrip, getTripById, listSavedTrips } from '../services/supabaseService.js';
 
 const router = express.Router();
+
+// 0. Natural Language Prompt Parser (AI + Deterministic Fallback)
+router.post('/trips/parse-prompt', async (req, res) => {
+  try {
+    const { prompt } = req.body;
+    if (!prompt) return res.status(400).json({ success: false, error: 'Prompt is required' });
+    const parsed = await parseTravelPrompt(prompt);
+    res.json({ success: true, parsed });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 // 1. Initialize or Generate a Trip
 router.post('/trips', async (req, res) => {
