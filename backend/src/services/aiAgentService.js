@@ -25,22 +25,31 @@ import {
   calculateEstimatedRoadKm,
   estimateDriveMinutes
 } from './routeIntelligenceService.js';
+import { createProvenance, withProvenance, attachFieldProvenance, calculateGroundingScore } from '../models/provenance.js';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
 /**
  * Calculate distance between two GPS coordinates in kilometers (Haversine formula)
+ * Returns null if any coordinate is missing.
  */
 function haversineDistanceKm(lat1, lon1, lat2, lon2) {
-  if (!lat1 || !lon1 || !lat2 || !lon2) return 5.0; // fallback standard city distance
+  if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) return null;
+  const nLat1 = Number(lat1);
+  const nLon1 = Number(lon1);
+  const nLat2 = Number(lat2);
+  const nLon2 = Number(lon2);
+  if (!Number.isFinite(nLat1) || !Number.isFinite(nLon1) || !Number.isFinite(nLat2) || !Number.isFinite(nLon2)) {
+    return null;
+  }
   const R = 6371; // Earth radius in km
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const dLat = ((nLat2 - nLat1) * Math.PI) / 180;
+  const dLon = ((nLon2 - nLon1) * Math.PI) / 180;
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
+    Math.cos((nLat1 * Math.PI) / 180) *
+      Math.cos((nLat2 * Math.PI) / 180) *
       Math.sin(dLon / 2) *
       Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
@@ -49,8 +58,10 @@ function haversineDistanceKm(lat1, lon1, lat2, lon2) {
 
 /**
  * Estimate driving/taxi travel time from distance in km
+ * Returns null if distance is not available.
  */
 function estimateTravelTimeMinutes(distanceKm) {
+  if (distanceKm == null || !Number.isFinite(distanceKm)) return null;
   if (distanceKm <= 1.0) return 5;
   if (distanceKm <= 4.0) return 12;
   if (distanceKm <= 8.0) return 20;
@@ -180,10 +191,21 @@ export async function planTripWorkflow(tripRequest) {
 
   // Step 4: Select Best Hotel based on criteria
   const selectedHotel = hotels[0] || {
-    name: `Central Boutique Hotel ${targetDestination}`,
-    pricePerNight: 2800,
-    rating: 4.6,
-    address: `${targetDestination} Central`
+    id: `ht-unav-${Math.random().toString(36).substring(2, 8)}`,
+    name: `Central Accommodation (${targetDestination})`,
+    pricePerNight: null,
+    rating: null,
+    reviewsCount: null,
+    amenities: null,
+    address: `${targetDestination}`,
+    gpsCoordinates: null,
+    hotelClass: null,
+    provenance: {
+      price: createProvenance({ source: 'unavailable', status: 'UNAVAILABLE' }),
+      rating: createProvenance({ source: 'unavailable', status: 'UNAVAILABLE' }),
+      coordinates: createProvenance({ source: 'unavailable', status: 'UNAVAILABLE' }),
+      reviews: createProvenance({ source: 'unavailable', status: 'UNAVAILABLE' })
+    }
   };
 
   // Step 5: Route Optimization & Geographic Clustering with Physical Journey Legs
@@ -385,6 +407,41 @@ function buildTransitLeg({
   const lon2 = toCoords?.longitude;
   const distanceKm = haversineDistanceKm(lat1, lon1, lat2, lon2);
 
+  if (distanceKm == null) {
+    const originQuery = `${fromName}, ${destination}`;
+    const destQuery = `${toName}, ${destination}`;
+    return {
+      mode: 'transit',
+      modeLabel: 'Transit (Route Pending)',
+      distanceKm: null,
+      durationMinutes: null,
+      estimatedFare: null,
+      corridor: 'Corridor data unavailable',
+      warning: 'Live coordinates unavailable for this transit leg; excluded from route totals.',
+      excludedFromTotals: true,
+      instructions: [
+        `Depart from ${fromName}.`,
+        `Navigate toward ${toName} (${toAddress || destination}).`
+      ],
+      googleMapsDirectionsUrl: `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(originQuery)}&destination=${encodeURIComponent(destQuery)}&travelmode=driving`,
+      provenance: createProvenance({
+        source: 'unavailable',
+        status: 'UNAVAILABLE',
+        confidence: 0
+      }),
+      from: {
+        name: fromName,
+        address: fromAddress || `${destination} Area`,
+        coords: fromCoords || null
+      },
+      to: {
+        name: toName,
+        address: toAddress || `${destination} Area`,
+        coords: toCoords || null
+      }
+    };
+  }
+
   // Dynamic Transit Mode selection based on distance
   let mode = 'cab';
   let modeLabel = 'AC Cab / Taxi (Uber / Ola)';
@@ -457,6 +514,12 @@ function buildTransitLeg({
     corridor,
     instructions,
     googleMapsDirectionsUrl,
+    provenance: createProvenance({
+      source: 'haversine_estimate',
+      status: 'ESTIMATED',
+      method: 'Haversine x 1.32',
+      confidence: 0.75
+    }),
     from: {
       name: fromName,
       address: fromAddress || `${destination} Area`,

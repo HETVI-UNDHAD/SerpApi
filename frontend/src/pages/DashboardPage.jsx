@@ -327,7 +327,7 @@ export default function DashboardPage() {
                 isDark={isDark}
                 title="Selected Stay"
                 value={selectedOptions.hotel?.name || 'Curated Stay'}
-                sub={`₹${selectedOptions.hotel?.pricePerNight?.toLocaleString('en-IN')}/night • ★ ${selectedOptions.hotel?.rating || 4.6}`}
+                sub={`${selectedOptions.hotel?.pricePerNight != null ? `₹${selectedOptions.hotel.pricePerNight.toLocaleString('en-IN')}/night` : 'Price unavailable'} • ${selectedOptions.hotel?.rating != null ? `★ ${selectedOptions.hotel.rating}` : '★ Live data unavailable'}`}
                 icon={Building}
                 color="text-violet-500"
               />
@@ -657,7 +657,7 @@ export default function DashboardPage() {
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
                     <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-black/75 backdrop-blur-md text-amber-400 text-xs font-black border border-white/10 flex items-center gap-1">
-                      <span>★ {h.rating || 4.6}</span>
+                      <span>{h.rating != null ? `★ ${h.rating}` : '★ Live data unavailable'}</span>
                     </div>
                     {h.name === selectedOptions.hotel?.name && (
                       <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-indigo-600 text-white text-[10px] font-black shadow-md">
@@ -670,7 +670,11 @@ export default function DashboardPage() {
                     <div className="flex items-center justify-between">
                       <span className={`text-xs font-bold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Rate</span>
                       <span className={`text-lg font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                        ₹{h.pricePerNight?.toLocaleString('en-IN')}<span className="text-xs font-normal opacity-60">/night</span>
+                        {h.pricePerNight != null ? (
+                          <>₹{h.pricePerNight.toLocaleString('en-IN')}<span className="text-xs font-normal opacity-60">/night</span></>
+                        ) : (
+                          <span className="text-xs text-slate-400 font-normal">Live data unavailable</span>
+                        )}
                       </span>
                     </div>
 

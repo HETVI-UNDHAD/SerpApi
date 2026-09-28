@@ -336,9 +336,13 @@ export default function TripDetailModal({ destination, preferences, onClose }) {
                       <div className="p-5 flex flex-col flex-1 justify-between">
                         <div className="flex items-start justify-between gap-2">
                           <h4 className="font-bold text-slate-900 text-base leading-tight">{hotel.name}</h4>
-                          {hotel.rating && (
+                          {hotel.rating != null ? (
                             <span className="shrink-0 text-xs font-bold bg-amber-50 text-amber-700 px-2 py-0.5 rounded border border-amber-200">
                               ⭐ {hotel.rating}
+                            </span>
+                          ) : (
+                            <span className="shrink-0 text-[10px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                              Live rating unavailable
                             </span>
                           )}
                         </div>

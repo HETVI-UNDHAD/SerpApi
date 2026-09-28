@@ -495,36 +495,54 @@ export default function SmartItineraryView() {
 
                         {/* Ratings & Operating Hours */}
                         <div className="flex flex-wrap items-center gap-2 pt-0.5 text-xs">
-                          {act.placeDetails?.rating && (
+                          {act.placeDetails?.rating != null ? (
                             <span className="flex items-center gap-1 text-amber-400 font-bold">
                               <Star className="w-3.5 h-3.5 fill-amber-400" />
                               <span>{act.placeDetails.rating}</span>
-                              <span className="text-slate-500 font-normal">
-                                ({act.placeDetails.reviewsCount || '750'}+ Google reviews)
-                              </span>
+                              {act.placeDetails.reviewsCount != null ? (
+                                <span className="text-slate-500 font-normal">
+                                  ({act.placeDetails.reviewsCount.toLocaleString('en-IN')}+ Google reviews)
+                                </span>
+                              ) : null}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 text-[11px] font-mono">
+                              ★ Live rating unavailable
                             </span>
                           )}
 
-                          <span className="text-emerald-400 font-semibold px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-[10px]">
-                            {act.placeDetails?.operatingHours || '🟢 Open Daily'}
+                          <span className={`font-semibold px-2 py-0.5 rounded-md text-[10px] ${
+                            act.placeDetails?.operatingHours
+                              ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20'
+                              : 'text-slate-400 bg-slate-500/10 border border-slate-500/20'
+                          }`}>
+                            {act.placeDetails?.operatingHours || 'Live hours unavailable'}
                           </span>
                         </div>
                       </div>
                     </div>
 
-                    {/* PHYSICAL MOVEMENT INFORMATION BADGES (Requirement 10) */}
+                    {/* PHYSICAL MOVEMENT INFORMATION BADGES */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-3 rounded-2xl bg-black/20 border border-white/5 text-xs">
                       <div>
                         <span className="text-[10px] text-slate-500 block uppercase">From Your Stay</span>
-                        <strong className="text-cyan-400">{act.distanceFromHotelKm || 8.2} km</strong> · ~{act.travelTimeFromHotelMin || 22} min
+                        {act.distanceFromHotelKm != null ? (
+                          <><strong className="text-cyan-400">{act.distanceFromHotelKm} km</strong> · ~{act.travelTimeFromHotelMin} min</>
+                        ) : (
+                          <span className="text-slate-400">Live data unavailable</span>
+                        )}
                       </div>
                       <div>
                         <span className="text-[10px] text-slate-500 block uppercase">Previous Stop</span>
-                        <strong className={isDark ? 'text-white' : 'text-slate-900'}>{act.distanceFromPrevKm || 4.1} km</strong> · ~{act.travelTimeFromPrevMin || 14} min
+                        {act.distanceFromPrevKm != null ? (
+                          <><strong className={isDark ? 'text-white' : 'text-slate-900'}>{act.distanceFromPrevKm} km</strong> · ~{act.travelTimeFromPrevMin} min</>
+                        ) : (
+                          <span className="text-slate-400">Live data unavailable</span>
+                        )}
                       </div>
                       <div>
                         <span className="text-[10px] text-slate-500 block uppercase">Estimated Visit</span>
-                        <strong className="text-amber-400">{act.estimatedVisitDurationMinutes ? `${act.estimatedVisitDurationMinutes / 60} hrs` : '2.0 hrs'}</strong>
+                        <strong className="text-amber-400">{act.estimatedVisitDurationMinutes ? `${act.estimatedVisitDurationMinutes / 60} hrs` : 'Visit duration estimated'}</strong>
                       </div>
                     </div>
 

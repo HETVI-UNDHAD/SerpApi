@@ -11,9 +11,13 @@
  * - Live Road Routes (from Google Maps Directions via SerpApi)
  * - Estimated Road Routes (~1.32x empirical road circuity factor on Haversine distance)
  * - Straight-line / Geographic Distance (Haversine formula)
+ * - Unavailable coordinates (excluded from distance/time totals with visible warning)
  */
 
-// Known transit hubs for major Indian travel cities
+import axios from 'axios';
+import { createProvenance, withProvenance } from '../models/provenance.js';
+
+// Verified transit hubs for major Indian & international travel destinations
 export const TRANSIT_HUBS = {
   ahmedabad: {
     airport: {
@@ -134,21 +138,172 @@ export const TRANSIT_HUBS = {
       cityCenterDistanceKm: 4.0,
       typicalDriveMinutes: 15
     }
+  },
+  hyderabad: {
+    airport: {
+      name: 'Rajiv Gandhi International Airport',
+      code: 'HYD',
+      type: 'International Airport',
+      city: 'Hyderabad',
+      gpsCoordinates: { latitude: 17.2403, longitude: 78.4294 },
+      cityCenterDistanceKm: 22.0,
+      typicalDriveMinutes: 45
+    },
+    railway: {
+      name: 'Secunderabad Junction Railway Station',
+      code: 'SC',
+      type: 'Central Junction',
+      city: 'Hyderabad',
+      gpsCoordinates: { latitude: 17.4338, longitude: 78.5015 },
+      cityCenterDistanceKm: 6.2,
+      typicalDriveMinutes: 20
+    }
+  },
+  chennai: {
+    airport: {
+      name: 'Chennai International Airport',
+      code: 'MAA',
+      type: 'International Airport',
+      city: 'Chennai',
+      gpsCoordinates: { latitude: 12.9941, longitude: 80.1709 },
+      cityCenterDistanceKm: 15.0,
+      typicalDriveMinutes: 35
+    },
+    railway: {
+      name: 'Chennai Central Railway Station (Puratchi Thalaivar Dr. MGR)',
+      code: 'MAS',
+      type: 'Terminus',
+      city: 'Chennai',
+      gpsCoordinates: { latitude: 13.0827, longitude: 80.2707 },
+      cityCenterDistanceKm: 3.5,
+      typicalDriveMinutes: 14
+    }
+  },
+  kolkata: {
+    airport: {
+      name: 'Netaji Subhash Chandra Bose International Airport',
+      code: 'CCU',
+      type: 'International Airport',
+      city: 'Kolkata',
+      gpsCoordinates: { latitude: 22.6547, longitude: 88.4467 },
+      cityCenterDistanceKm: 16.0,
+      typicalDriveMinutes: 40
+    },
+    railway: {
+      name: 'Howrah Junction Railway Station',
+      code: 'HWH',
+      type: 'Major Terminus',
+      city: 'Kolkata',
+      gpsCoordinates: { latitude: 22.5840, longitude: 88.3426 },
+      cityCenterDistanceKm: 4.8,
+      typicalDriveMinutes: 18
+    }
+  },
+  udaipur: {
+    airport: {
+      name: 'Maharana Pratap Airport',
+      code: 'UDR',
+      type: 'Domestic Airport',
+      city: 'Udaipur',
+      gpsCoordinates: { latitude: 24.6177, longitude: 73.8961 },
+      cityCenterDistanceKm: 21.0,
+      typicalDriveMinutes: 38
+    },
+    railway: {
+      name: 'Udaipur City Railway Station',
+      code: 'UDZ',
+      type: 'Terminus',
+      city: 'Udaipur',
+      gpsCoordinates: { latitude: 24.5802, longitude: 73.6983 },
+      cityCenterDistanceKm: 2.5,
+      typicalDriveMinutes: 10
+    }
+  },
+  kochi: {
+    airport: {
+      name: 'Cochin International Airport',
+      code: 'COK',
+      type: 'International Airport',
+      city: 'Kochi',
+      gpsCoordinates: { latitude: 10.1518, longitude: 76.3930 },
+      cityCenterDistanceKm: 28.0,
+      typicalDriveMinutes: 50
+    },
+    railway: {
+      name: 'Ernakulam Junction (South)',
+      code: 'ERS',
+      type: 'Central Junction',
+      city: 'Kochi',
+      gpsCoordinates: { latitude: 9.9678, longitude: 76.2917 },
+      cityCenterDistanceKm: 3.0,
+      typicalDriveMinutes: 12
+    }
+  },
+  varanasi: {
+    airport: {
+      name: 'Lal Bahadur Shastri International Airport',
+      code: 'VNS',
+      type: 'International Airport',
+      city: 'Varanasi',
+      gpsCoordinates: { latitude: 25.4524, longitude: 82.8593 },
+      cityCenterDistanceKm: 22.0,
+      typicalDriveMinutes: 45
+    },
+    railway: {
+      name: 'Varanasi Junction (Cantt)',
+      code: 'BSB',
+      type: 'Major Junction',
+      city: 'Varanasi',
+      gpsCoordinates: { latitude: 25.3283, longitude: 82.9866 },
+      cityCenterDistanceKm: 3.5,
+      typicalDriveMinutes: 15
+    }
+  },
+  pune: {
+    airport: {
+      name: 'Pune Airport (Lohegaon)',
+      code: 'PNQ',
+      type: 'Domestic Airport',
+      city: 'Pune',
+      gpsCoordinates: { latitude: 18.5822, longitude: 73.9197 },
+      cityCenterDistanceKm: 10.5,
+      typicalDriveMinutes: 28
+    },
+    railway: {
+      name: 'Pune Junction Railway Station',
+      code: 'PUNE',
+      type: 'Junction',
+      city: 'Pune',
+      gpsCoordinates: { latitude: 18.5284, longitude: 73.8744 },
+      cityCenterDistanceKm: 2.8,
+      typicalDriveMinutes: 12
+    }
   }
 };
 
+// In-memory cache for dynamically resolved transit hubs
+const RESOLVED_HUBS_CACHE = new Map();
+
 /**
- * Standard Haversine formula to compute geodesic (straight-line) distance in km
+ * Standard Haversine formula to compute geodesic (straight-line) distance in km.
+ * Returns null if any coordinate is missing. Never fabricates a default distance.
  */
 export function calculateHaversineKm(lat1, lon1, lat2, lon2) {
-  if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) return 5.0;
+  if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) return null;
+  const nLat1 = Number(lat1);
+  const nLon1 = Number(lon1);
+  const nLat2 = Number(lat2);
+  const nLon2 = Number(lon2);
+  if (!Number.isFinite(nLat1) || !Number.isFinite(nLon1) || !Number.isFinite(nLat2) || !Number.isFinite(nLon2)) {
+    return null;
+  }
   const R = 6371; // Earth radius in km
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const dLat = ((nLat2 - nLat1) * Math.PI) / 180;
+  const dLon = ((nLon2 - nLon1) * Math.PI) / 180;
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
+    Math.cos((nLat1 * Math.PI) / 180) *
+      Math.cos((nLat2 * Math.PI) / 180) *
       Math.sin(dLon / 2) *
       Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
@@ -157,18 +312,21 @@ export function calculateHaversineKm(lat1, lon1, lat2, lon2) {
 
 /**
  * Compute realistic road network distance using standard empirical circuity factor (1.32x)
- * Never mislabel straight-line as road distance.
+ * Never mislabel straight-line as road distance. Returns null if coordinates are unavailable.
  */
 export function calculateEstimatedRoadKm(lat1, lon1, lat2, lon2) {
   const straightLine = calculateHaversineKm(lat1, lon1, lat2, lon2);
+  if (straightLine == null) return null;
   const roadFactor = 1.32; // Standard urban/regional road tortuosity
   return Math.round(straightLine * roadFactor * 10) / 10;
 }
 
 /**
  * Estimate road driving time based on road distance and typical traffic conditions
+ * Returns null if distance is not available.
  */
 export function estimateDriveMinutes(roadDistanceKm) {
+  if (roadDistanceKm == null || !Number.isFinite(roadDistanceKm)) return null;
   if (roadDistanceKm <= 1.0) return 5;
   if (roadDistanceKm <= 4.0) return 12;
   if (roadDistanceKm <= 8.0) return 20;
@@ -178,7 +336,8 @@ export function estimateDriveMinutes(roadDistanceKm) {
 }
 
 /**
- * Resolve Departure or Arrival Transit Hub (Airport / Railway Station)
+ * Synchronous resolver for Departure or Arrival Transit Hub
+ * When unknown, returns null coordinates with status UNAVAILABLE (never fake coordinates).
  */
 export function resolveTransitHub(cityName, mode = 'flight') {
   const clean = (cityName || '').toLowerCase().replace(/[^a-z]/g, '');
@@ -186,30 +345,114 @@ export function resolveTransitHub(cityName, mode = 'flight') {
 
   for (const [key, hubData] of Object.entries(TRANSIT_HUBS)) {
     if (clean.includes(key) || key.includes(clean)) {
-      return isTrain ? hubData.railway : hubData.airport;
+      const hub = isTrain ? hubData.railway : hubData.airport;
+      return {
+        ...hub,
+        provenance: createProvenance({
+          source: 'curated_static',
+          status: 'LIVE',
+          confidence: 1.0
+        })
+      };
     }
   }
 
-  // Dynamic deterministic fallback for uncataloged cities
+  // Check dynamic resolved cache
+  const cacheKey = `${clean}:${mode}`;
+  if (RESOLVED_HUBS_CACHE.has(cacheKey)) {
+    return RESOLVED_HUBS_CACHE.get(cacheKey);
+  }
+
+  // Unknown city: NO fake coordinates! Coordinates are null + UNAVAILABLE
   return isTrain
     ? {
         name: `${cityName} Central Railway Station`,
         code: `${cityName.slice(0, 3).toUpperCase()}`,
         type: 'Railway Station',
         city: cityName,
-        gpsCoordinates: { latitude: 20.0, longitude: 75.0 },
-        cityCenterDistanceKm: 5.5,
-        typicalDriveMinutes: 18
+        gpsCoordinates: null,
+        cityCenterDistanceKm: null,
+        typicalDriveMinutes: null,
+        provenance: createProvenance({
+          source: 'unavailable',
+          status: 'UNAVAILABLE',
+          confidence: 0
+        })
       }
     : {
         name: `${cityName} Domestic & International Airport`,
         code: `${cityName.slice(0, 3).toUpperCase()}`,
         type: 'Airport',
         city: cityName,
-        gpsCoordinates: { latitude: 20.1, longitude: 75.1 },
-        cityCenterDistanceKm: 14.5,
-        typicalDriveMinutes: 35
+        gpsCoordinates: null,
+        cityCenterDistanceKm: null,
+        typicalDriveMinutes: null,
+        provenance: createProvenance({
+          source: 'unavailable',
+          status: 'UNAVAILABLE',
+          confidence: 0
+        })
       };
+}
+
+/**
+ * Async resolver for transit hubs that queries SerpApi Google Maps if not found in catalog.
+ */
+export async function resolveTransitHubAsync(cityName, mode = 'flight') {
+  const sync = resolveTransitHub(cityName, mode);
+  if (sync.gpsCoordinates) return sync;
+
+  const clean = (cityName || '').toLowerCase().replace(/[^a-z]/g, '');
+  const cacheKey = `${clean}:${mode}`;
+  if (RESOLVED_HUBS_CACHE.has(cacheKey)) {
+    return RESOLVED_HUBS_CACHE.get(cacheKey);
+  }
+
+  const apiKey = process.env.SERPAPI_KEY;
+  if (!apiKey || apiKey === 'your_serpapi_key_here') {
+    return sync;
+  }
+
+  const isTrain = mode === 'train';
+  try {
+    const query = isTrain ? `${cityName} railway station junction` : `${cityName} airport terminal`;
+    const res = await axios.get('https://serpapi.com/search', {
+      params: {
+        engine: 'google_maps',
+        q: query,
+        api_key: apiKey,
+        gl: 'in',
+        hl: 'en'
+      },
+      timeout: 10000
+    });
+
+    const localResult = res.data.local_results?.[0];
+    const gps = localResult?.gps_coordinates;
+    if (gps && Number.isFinite(gps.latitude) && Number.isFinite(gps.longitude)) {
+      const resolved = {
+        name: localResult.title || sync.name,
+        code: `${cityName.slice(0, 3).toUpperCase()}`,
+        type: isTrain ? 'Railway Station' : 'Airport',
+        city: cityName,
+        gpsCoordinates: { latitude: gps.latitude, longitude: gps.longitude },
+        cityCenterDistanceKm: null,
+        typicalDriveMinutes: null,
+        provenance: createProvenance({
+          source: 'serpapi_google_maps',
+          status: 'LIVE',
+          confidence: 0.95
+        })
+      };
+      RESOLVED_HUBS_CACHE.set(cacheKey, resolved);
+      return resolved;
+    }
+  } catch (err) {
+    console.warn(`[Transit Hub SerpApi lookup failed for ${cityName}]:`, err.message);
+  }
+
+  RESOLVED_HUBS_CACHE.set(cacheKey, sync);
+  return sync;
 }
 
 /**
@@ -223,11 +466,12 @@ export function buildOriginTransfer({
 }) {
   const isTrain = transportMode === 'train';
   const hub = resolveTransitHub(origin, transportMode);
+  const hasCoords = hub.gpsCoordinates?.latitude != null && hub.gpsCoordinates?.longitude != null;
 
   // Recommended arrival buffer: 120 min for domestic flight, 45 min for train
   const bufferMinutes = isTrain ? 45 : 120;
-  const driveMinutes = hub.typicalDriveMinutes || 30;
-  const roadDistanceKm = hub.cityCenterDistanceKm || 12.0;
+  const driveMinutes = hasCoords ? (hub.typicalDriveMinutes || 30) : null;
+  const roadDistanceKm = hasCoords ? (hub.cityCenterDistanceKm || 12.0) : null;
 
   // Calculate recommended departure time backwards from scheduled flight/train
   const [depTimePart, period] = (scheduledDeparture || '09:20 AM').split(' ');
@@ -235,7 +479,7 @@ export function buildOriginTransfer({
   let totalMin = (period === 'PM' && depH !== 12 ? depH + 12 : (period === 'AM' && depH === 12 ? 0 : depH)) * 60 + (depM || 0);
 
   const recommendedHubArrivalMin = totalMin - bufferMinutes;
-  const recommendedHomeLeaveMin = recommendedHubArrivalMin - driveMinutes;
+  const recommendedHomeLeaveMin = driveMinutes != null ? recommendedHubArrivalMin - driveMinutes : recommendedHubArrivalMin - 30;
 
   const formatMinToTime = (min) => {
     let normalized = (min + 1440) % 1440;
@@ -246,25 +490,32 @@ export function buildOriginTransfer({
     return `${String(dispH).padStart(2, '0')}:${String(m).padStart(2, '0')} ${p}`;
   };
 
-  const recommendedLeaveTime = formatMinToTime(recommendedHomeLeaveMin);
-  const recommendedHubArrivalTime = formatMinToTime(recommendedHubArrivalMin);
+  const warning = !hasCoords ? 'Transit hub coordinates unavailable; leg excluded from route totals.' : null;
 
   return {
     segmentType: 'origin_transfer',
-    title: isTrain ? `Origin Transfer: ${origin} → ${hub.name}` : `Origin Transfer: ${origin} → ${hub.name}`,
+    title: `Origin Transfer: ${origin} → ${hub.name}`,
     from: `${origin} (City Center / Residence)`,
     to: hub.name,
     hubCode: hub.code,
     hubType: hub.type,
     roadDistanceKm,
     estimatedDriveMinutes: driveMinutes,
-    distanceType: 'road_estimate',
-    distanceTypeLabel: 'Estimated Road Distance (~1.3× network factor)',
+    distanceType: hasCoords ? 'road_estimate' : 'unavailable',
+    distanceTypeLabel: hasCoords ? 'Estimated Road Distance (~1.32× network factor)' : 'Coordinates unavailable',
     scheduledTransitDeparture: scheduledDeparture,
-    recommendedLeaveHomeTime: recommendedLeaveTime,
-    recommendedHubArrivalTime: recommendedHubArrivalTime,
+    recommendedLeaveHomeTime: formatMinToTime(recommendedHomeLeaveMin),
+    recommendedHubArrivalTime: formatMinToTime(recommendedHubArrivalMin),
     safetyBufferMinutes: bufferMinutes,
     corridor: `Via ${origin} Airport Expressway / Major Arterial Road`,
+    warning,
+    excludedFromTotals: !hasCoords,
+    provenance: createProvenance({
+      source: hasCoords ? 'haversine_estimate' : 'unavailable',
+      status: hasCoords ? 'ESTIMATED' : 'UNAVAILABLE',
+      method: hasCoords ? 'Haversine x 1.32' : undefined,
+      confidence: hasCoords ? 0.75 : 0
+    }),
     note: isTrain
       ? `Arrive at ${hub.name} at least 45 mins prior to train departure for platform navigation.`
       : `Arrive at ${hub.name} at least 2 hours prior to scheduled departure for check-in and security.`
@@ -289,11 +540,14 @@ export function buildDestinationArrivalTransfer({
   const hubLat = hub.gpsCoordinates?.latitude;
   const hubLng = hub.gpsCoordinates?.longitude;
 
-  const roadDistanceKm = (hotelLat && hotelLng && hubLat && hubLng)
-    ? calculateEstimatedRoadKm(hubLat, hubLng, hotelLat, hotelLng)
-    : (hub.cityCenterDistanceKm || 28.0);
+  const hasAllCoords = hotelLat != null && hotelLng != null && hubLat != null && hubLng != null;
 
-  const driveMinutes = estimateDriveMinutes(roadDistanceKm);
+  const roadDistanceKm = hasAllCoords
+    ? calculateEstimatedRoadKm(hubLat, hubLng, hotelLat, hotelLng)
+    : (hub.cityCenterDistanceKm || null);
+
+  const driveMinutes = roadDistanceKm != null ? estimateDriveMinutes(roadDistanceKm) : null;
+  const warning = !hasAllCoords && !roadDistanceKm ? 'Transit hub or hotel coordinates unavailable; leg excluded from route totals.' : null;
 
   // Calculate check-in time: Arrival + Baggage/Exit (20m) + Drive (Xm) + Settle (15m)
   const [arrTimePart, period] = (scheduledArrival || '11:05 AM').split(' ');
@@ -301,7 +555,7 @@ export function buildDestinationArrivalTransfer({
   let totalMin = (period === 'PM' && arrH !== 12 ? arrH + 12 : (period === 'AM' && arrH === 12 ? 0 : arrH)) * 60 + (arrM || 0);
 
   const taxiPickupMin = totalMin + (isTrain ? 15 : 20);
-  const hotelArrivalMin = taxiPickupMin + driveMinutes;
+  const hotelArrivalMin = taxiPickupMin + (driveMinutes || 30);
   const checkInMin = hotelArrivalMin + 15;
 
   const formatMinToTime = (min) => {
@@ -321,18 +575,26 @@ export function buildDestinationArrivalTransfer({
     from: hub.name,
     fromHubCode: hub.code,
     to: hotel?.name || `${destination} Stay Basecamp`,
-    hotelAddress: hotel?.address || `${destination} Central`,
+    hotelAddress: hotel?.address || `${destination}`,
     hotelCoords: hotel?.gpsCoordinates || null,
     roadDistanceKm,
     estimatedDriveMinutes: driveMinutes,
-    distanceType: 'road_estimate',
-    distanceTypeLabel: 'Estimated Road Distance (~1.3× network factor)',
+    distanceType: roadDistanceKm != null ? 'road_estimate' : 'unavailable',
+    distanceTypeLabel: roadDistanceKm != null ? 'Estimated Road Distance (~1.32× network factor)' : 'Coordinates unavailable',
     scheduledArrival,
     cabPickupTime: formatMinToTime(taxiPickupMin),
     hotelArrivalTime: formatMinToTime(hotelArrivalMin),
     recommendedCheckInTime: formatMinToTime(checkInMin),
-    corridor: `Via NH-66 / ${destination} Coastal Highway Corridor`,
-    googleMapsDirectionsUrl: `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(hub.name)}&destination=${encodeURIComponent(hotel?.name + ' ' + (hotel?.address || destination))}&travelmode=driving`
+    corridor: `Via ${destination} Primary Corridor`,
+    warning,
+    excludedFromTotals: roadDistanceKm == null,
+    provenance: createProvenance({
+      source: roadDistanceKm != null ? 'haversine_estimate' : 'unavailable',
+      status: roadDistanceKm != null ? 'ESTIMATED' : 'UNAVAILABLE',
+      method: roadDistanceKm != null ? 'Haversine x 1.32' : undefined,
+      confidence: roadDistanceKm != null ? 0.75 : 0
+    }),
+    googleMapsDirectionsUrl: `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(hub.name)}&destination=${encodeURIComponent((hotel?.name || '') + ' ' + (hotel?.address || destination))}&travelmode=driving`
   };
 }
 
@@ -356,12 +618,15 @@ export function buildReturnDepartureTransfer({
   const hubLat = destHub.gpsCoordinates?.latitude;
   const hubLng = destHub.gpsCoordinates?.longitude;
 
-  const roadDistanceKm = (hotelLat && hotelLng && hubLat && hubLng)
-    ? calculateEstimatedRoadKm(hotelLat, hotelLng, hubLat, hubLng)
-    : (destHub.cityCenterDistanceKm || 28.0);
+  const hasAllCoords = hotelLat != null && hotelLng != null && hubLat != null && hubLng != null;
 
-  const driveMinutes = estimateDriveMinutes(roadDistanceKm);
+  const roadDistanceKm = hasAllCoords
+    ? calculateEstimatedRoadKm(hotelLat, hotelLng, hubLat, hubLng)
+    : (destHub.cityCenterDistanceKm || null);
+
+  const driveMinutes = roadDistanceKm != null ? estimateDriveMinutes(roadDistanceKm) : null;
   const bufferMinutes = isTrain ? 45 : 120;
+  const warning = !hasAllCoords && !roadDistanceKm ? 'Transit hub or hotel coordinates unavailable; leg excluded from route totals.' : null;
 
   // Calculate when traveler must leave hotel
   const [retTimePart, period] = (scheduledReturnDeparture || '07:30 PM').split(' ');
@@ -369,7 +634,7 @@ export function buildReturnDepartureTransfer({
   let totalMin = (period === 'PM' && retH !== 12 ? retH + 12 : (period === 'AM' && retH === 12 ? 0 : retH)) * 60 + (retM || 0);
 
   const airportArrivalMin = totalMin - bufferMinutes;
-  const leaveHotelMin = airportArrivalMin - driveMinutes;
+  const leaveHotelMin = driveMinutes != null ? airportArrivalMin - driveMinutes : airportArrivalMin - 30;
 
   const formatMinToTime = (min) => {
     let normalized = (min + 1440) % 1440;
@@ -397,52 +662,72 @@ export function buildReturnDepartureTransfer({
     leaveHotelTime: formatMinToTime(leaveHotelMin),
     hubArrivalTime: formatMinToTime(airportArrivalMin),
     safetyBufferMinutes: bufferMinutes,
-    distanceType: 'road_estimate',
-    distanceTypeLabel: 'Estimated Road Distance (~1.3× network factor)'
+    distanceType: roadDistanceKm != null ? 'road_estimate' : 'unavailable',
+    distanceTypeLabel: roadDistanceKm != null ? 'Estimated Road Distance (~1.32× network factor)' : 'Coordinates unavailable',
+    warning,
+    excludedFromTotals: roadDistanceKm == null,
+    provenance: createProvenance({
+      source: roadDistanceKm != null ? 'haversine_estimate' : 'unavailable',
+      status: roadDistanceKm != null ? 'ESTIMATED' : 'UNAVAILABLE',
+      method: roadDistanceKm != null ? 'Haversine x 1.32' : undefined,
+      confidence: roadDistanceKm != null ? 0.75 : 0
+    })
   };
 }
 
 /**
- * Enrich Hotel with Geographic Anchor Metrics:
- * - Distances to Day 1, Day 2, Day 3 activity clusters
- * - Distances & drive times to nearest Airport and Railway Station
+ * Enrich Hotel with Geographic Anchor Metrics
  */
 export function enrichHotelAnchorMetrics(hotel, destination, dailyActivities = []) {
   if (!hotel) return null;
 
-  const hotelLat = hotel.gpsCoordinates?.latitude || 15.4989;
-  const hotelLng = hotel.gpsCoordinates?.longitude || 73.8278;
+  const hotelLat = hotel.gpsCoordinates?.latitude ?? null;
+  const hotelLng = hotel.gpsCoordinates?.longitude ?? null;
 
   const airportHub = resolveTransitHub(destination, 'flight');
   const railwayHub = resolveTransitHub(destination, 'train');
 
-  const airportRoadKm = calculateEstimatedRoadKm(
-    hotelLat,
-    hotelLng,
-    airportHub.gpsCoordinates?.latitude,
-    airportHub.gpsCoordinates?.longitude
-  );
+  const airportRoadKm = (hotelLat != null && hotelLng != null && airportHub.gpsCoordinates)
+    ? calculateEstimatedRoadKm(
+        hotelLat,
+        hotelLng,
+        airportHub.gpsCoordinates.latitude,
+        airportHub.gpsCoordinates.longitude
+      )
+    : (airportHub.cityCenterDistanceKm || null);
 
-  const railwayRoadKm = calculateEstimatedRoadKm(
-    hotelLat,
-    hotelLng,
-    railwayHub.gpsCoordinates?.latitude,
-    railwayHub.gpsCoordinates?.longitude
-  );
+  const railwayRoadKm = (hotelLat != null && hotelLng != null && railwayHub.gpsCoordinates)
+    ? calculateEstimatedRoadKm(
+        hotelLat,
+        hotelLng,
+        railwayHub.gpsCoordinates.latitude,
+        railwayHub.gpsCoordinates.longitude
+      )
+    : (railwayHub.cityCenterDistanceKm || null);
 
   // Calculate average distance from hotel to each day's activity cluster
   const dayClusterDistances = dailyActivities.map((day, idx) => {
     const acts = day.activities || [];
-    if (acts.length === 0) return { day: idx + 1, distanceKm: 4.5, label: `Day ${idx + 1} Cluster` };
+    if (acts.length === 0 || hotelLat == null || hotelLng == null) {
+      return { day: idx + 1, distanceKm: null, label: `Day ${idx + 1} Cluster (coords unavailable)` };
+    }
 
     let sumDist = 0;
+    let validActsCount = 0;
     acts.forEach(act => {
-      const aLat = act.placeDetails?.gpsCoordinates?.latitude || hotelLat;
-      const aLng = act.placeDetails?.gpsCoordinates?.longitude || hotelLng;
-      sumDist += calculateEstimatedRoadKm(hotelLat, hotelLng, aLat, aLng);
+      const aLat = act.placeDetails?.gpsCoordinates?.latitude;
+      const aLng = act.placeDetails?.gpsCoordinates?.longitude;
+      if (aLat != null && aLng != null) {
+        sumDist += calculateEstimatedRoadKm(hotelLat, hotelLng, aLat, aLng) || 0;
+        validActsCount++;
+      }
     });
 
-    const avgDist = Math.round((sumDist / acts.length) * 10) / 10;
+    if (validActsCount === 0) {
+      return { day: idx + 1, distanceKm: null, label: `Day ${idx + 1} Cluster (coords unavailable)` };
+    }
+
+    const avgDist = Math.round((sumDist / validActsCount) * 10) / 10;
     return {
       day: idx + 1,
       distanceKm: avgDist,
@@ -460,13 +745,25 @@ export function enrichHotelAnchorMetrics(hotel, destination, dailyActivities = [
       hubName: airportHub.name,
       hubCode: airportHub.code,
       roadDistanceKm: airportRoadKm,
-      driveMinutes: estimateDriveMinutes(airportRoadKm)
+      driveMinutes: estimateDriveMinutes(airportRoadKm),
+      provenance: createProvenance({
+        source: airportRoadKm != null ? 'haversine_estimate' : 'unavailable',
+        status: airportRoadKm != null ? 'ESTIMATED' : 'UNAVAILABLE',
+        method: airportRoadKm != null ? 'Haversine x 1.32' : undefined,
+        confidence: airportRoadKm != null ? 0.75 : 0
+      })
     },
     railwayContext: {
       hubName: railwayHub.name,
       hubCode: railwayHub.code,
       roadDistanceKm: railwayRoadKm,
-      driveMinutes: estimateDriveMinutes(railwayRoadKm)
+      driveMinutes: estimateDriveMinutes(railwayRoadKm),
+      provenance: createProvenance({
+        source: railwayRoadKm != null ? 'haversine_estimate' : 'unavailable',
+        status: railwayRoadKm != null ? 'ESTIMATED' : 'UNAVAILABLE',
+        method: railwayRoadKm != null ? 'Haversine x 1.32' : undefined,
+        confidence: railwayRoadKm != null ? 0.75 : 0
+      })
     },
     clusterDistances: dayClusterDistances
   };
@@ -474,6 +771,7 @@ export function enrichHotelAnchorMetrics(hotel, destination, dailyActivities = [
 
 /**
  * Calculate Day Route Summary with Clustering Comparisons
+ * Excludes legs with missing coordinates from totals.
  */
 export function calculateDayRouteSummary({
   dayNum,
@@ -481,47 +779,64 @@ export function calculateDayRouteSummary({
   activities = [],
   destination
 }) {
-  const hotelLat = hotel?.gpsCoordinates?.latitude || 15.4989;
-  const hotelLng = hotel?.gpsCoordinates?.longitude || 73.8278;
+  const hotelLat = hotel?.gpsCoordinates?.latitude ?? null;
+  const hotelLng = hotel?.gpsCoordinates?.longitude ?? null;
 
   let totalRoadKm = 0;
   let totalDriveMin = 0;
   let longestTransferKm = 0;
   let unoptimizedRoadKm = 0;
+  let skippedLegsCount = 0;
 
   let currentLat = hotelLat;
   let currentLng = hotelLng;
 
   // Forward path: Hotel -> Act 1 -> Act 2 -> ... -> Act N
   activities.forEach(act => {
-    const aLat = act.placeDetails?.gpsCoordinates?.latitude || currentLat;
-    const aLng = act.placeDetails?.gpsCoordinates?.longitude || currentLng;
-    const legRoadKm = calculateEstimatedRoadKm(currentLat, currentLng, aLat, aLng);
-    const legMin = estimateDriveMinutes(legRoadKm);
+    const aLat = act.placeDetails?.gpsCoordinates?.latitude ?? null;
+    const aLng = act.placeDetails?.gpsCoordinates?.longitude ?? null;
 
-    totalRoadKm += legRoadKm;
-    totalDriveMin += legMin;
-    if (legRoadKm > longestTransferKm) longestTransferKm = legRoadKm;
+    if (currentLat != null && currentLng != null && aLat != null && aLng != null) {
+      const legRoadKm = calculateEstimatedRoadKm(currentLat, currentLng, aLat, aLng);
+      const legMin = estimateDriveMinutes(legRoadKm);
 
-    currentLat = aLat;
-    currentLng = aLng;
+      if (legRoadKm != null) {
+        totalRoadKm += legRoadKm;
+        totalDriveMin += legMin || 0;
+        if (legRoadKm > longestTransferKm) longestTransferKm = legRoadKm;
+      }
+      currentLat = aLat;
+      currentLng = aLng;
+    } else {
+      skippedLegsCount++;
+      if (aLat != null && aLng != null) {
+        currentLat = aLat;
+        currentLng = aLng;
+      }
+    }
   });
 
   // Return to Hotel leg: Act N -> Hotel
-  const returnLegKm = calculateEstimatedRoadKm(currentLat, currentLng, hotelLat, hotelLng);
-  const returnMin = estimateDriveMinutes(returnLegKm);
-  totalRoadKm += returnLegKm;
-  totalDriveMin += returnMin;
-  if (returnLegKm > longestTransferKm) longestTransferKm = returnLegKm;
+  if (currentLat != null && currentLng != null && hotelLat != null && hotelLng != null) {
+    const returnLegKm = calculateEstimatedRoadKm(currentLat, currentLng, hotelLat, hotelLng);
+    const returnMin = estimateDriveMinutes(returnLegKm);
+    if (returnLegKm != null) {
+      totalRoadKm += returnLegKm;
+      totalDriveMin += returnMin || 0;
+      if (returnLegKm > longestTransferKm) longestTransferKm = returnLegKm;
+    }
+  } else {
+    skippedLegsCount++;
+  }
 
-  // Unoptimized simulation (criss-cross penalty ~1.45x)
-  unoptimizedRoadKm = Math.round(totalRoadKm * 1.45 * 10) / 10;
-  const distanceSavedKm = Math.round((unoptimizedRoadKm - totalRoadKm) * 10) / 10;
-  const efficiencyPercent = Math.round((distanceSavedKm / unoptimizedRoadKm) * 100);
+  const roundedTotalKm = Math.round(totalRoadKm * 10) / 10;
+  unoptimizedRoadKm = Math.round(roundedTotalKm * 1.45 * 10) / 10;
+  const distanceSavedKm = Math.round((unoptimizedRoadKm - roundedTotalKm) * 10) / 10;
+  const efficiencyPercent = unoptimizedRoadKm > 0 ? Math.round((distanceSavedKm / unoptimizedRoadKm) * 100) : 0;
 
   return {
     dayNum,
-    totalRoadDistanceKm: Math.round(totalRoadKm * 10) / 10,
+    totalRoadDistanceKm: roundedTotalKm,
     totalTravelTimeMinutes: totalDriveMin,
     stopsCount: activities.length,
     longestTransferKm: Math.round(longestTransferKm * 10) / 10,
@@ -529,8 +844,12 @@ export function calculateDayRouteSummary({
     unoptimizedDistanceKm: unoptimizedRoadKm,
     distanceSavedKm: Math.max(distanceSavedKm, 0),
     efficiencyGainPercent: Math.max(efficiencyPercent, 0),
+    skippedLegsCount,
+    hasUnavailableCoordinates: skippedLegsCount > 0,
     distanceType: 'road_estimate',
-    distanceTypeLabel: 'Estimated Road Distance (~1.3× network factor)',
-    whyThisRoute: `Grouped ${activities.length} stops along the ${destination} regional corridor to eliminate backtracking. Route: ${Math.round(totalRoadKm * 10) / 10} km (Alternative unclustered sequence: ${unoptimizedRoadKm} km — Saved: ~${distanceSavedKm} km).`
+    distanceTypeLabel: 'Estimated Road Distance (~1.32× network factor)',
+    whyThisRoute: skippedLegsCount > 0
+      ? `Grouped ${activities.length} stops (${skippedLegsCount} stops excluded due to unavailable live coordinates). Total route: ${roundedTotalKm} km.`
+      : `Grouped ${activities.length} stops along the ${destination} regional corridor to eliminate backtracking. Route: ${roundedTotalKm} km (Alternative unclustered sequence: ${unoptimizedRoadKm} km — Saved: ~${distanceSavedKm} km).`
   };
 }

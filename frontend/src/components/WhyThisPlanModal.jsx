@@ -152,7 +152,9 @@ export default function WhyThisPlanModal({ isOpen, onClose, trip, isDark }) {
                 </div>
                 <div>
                   <h4 className="font-black text-sm text-white">Why This Accommodation?</h4>
-                  <span className="font-mono text-[10px] text-violet-400">{exp.whyHotel?.rating || 4.5}★ Verified Google Rating</span>
+                  <span className="font-mono text-[10px] text-violet-400">
+                    {exp.whyHotel?.rating != null ? `${exp.whyHotel.rating}★ Verified Google Rating` : 'Google rating unavailable'}
+                  </span>
                 </div>
               </div>
               <p className="text-xs text-slate-300 leading-relaxed">

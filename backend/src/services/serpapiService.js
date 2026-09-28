@@ -1,5 +1,6 @@
 import axios from 'axios';
 import dotenv from 'dotenv';
+import { createProvenance, withProvenance, attachFieldProvenance } from '../models/provenance.js';
 
 dotenv.config();
 
@@ -140,7 +141,7 @@ export async function searchFlights({
         const mins = durationMin % 60;
         const durationStr = `${hours}h ${mins}m`;
 
-        return {
+        const flightObj = {
           id: `fl-${Math.random().toString(36).substring(2, 8)}`,
           airline: flightSegment.airline || 'Airline not provided',
           airlineLogo: flightSegment.airline_logo || '',
@@ -157,6 +158,19 @@ export async function searchFlights({
           bookingLink: res.data.search_metadata?.google_flights_url || null,
           carbonEmissions: item.carbon_emissions?.this_flight ? `${Math.round(item.carbon_emissions.this_flight / 1000)} kg CO2` : null
         };
+
+        attachFieldProvenance(flightObj, 'price', flightObj.price, {
+          source: 'serpapi_google_flights',
+          status: flightObj.price != null ? 'LIVE' : 'UNAVAILABLE',
+          confidence: flightObj.price != null ? 1.0 : 0
+        });
+        attachFieldProvenance(flightObj, 'duration', flightObj.duration, {
+          source: 'serpapi_google_flights',
+          status: flightObj.duration != null ? 'LIVE' : 'UNAVAILABLE',
+          confidence: flightObj.duration != null ? 1.0 : 0
+        });
+
+        return flightObj;
       });
     }
   } catch (err) {
@@ -259,30 +273,73 @@ export async function searchHotels({
     const properties = res.data.properties || [];
 
     if (properties.length > 0) {
-      return properties.slice(0, 8).map((p, idx) => {
+      return properties.slice(0, 8).map((p) => {
         const rate = p.rate_per_night || {};
-        const rawPrice = rate.extracted_lowest || rate.lowest || rate.before_taxes || 3200;
-        const priceNum = typeof rawPrice === 'number' ? rawPrice : parseInt(String(rawPrice).replace(/[^0-9]/g, ''), 10) || (2500 + idx * 700);
+        const rawPrice = rate.extracted_lowest ?? rate.lowest ?? rate.before_taxes;
+        const priceNum = typeof rawPrice === 'number'
+          ? rawPrice
+          : (rawPrice ? parseInt(String(rawPrice).replace(/[^0-9]/g, ''), 10) || null : null);
 
         const images = p.images || [];
-        const thumb = images[0]?.thumbnail || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=500&auto=format&fit=crop&q=80';
+        const thumb = images[0]?.thumbnail || null;
+        const rating = typeof p.overall_rating === 'number' ? p.overall_rating : null;
+        const reviewsCount = typeof p.reviews === 'number' ? p.reviews : null;
+        const amenities = Array.isArray(p.amenities) && p.amenities.length > 0 ? p.amenities.slice(0, 6) : null;
+        const hotelClass = p.hotel_class || null;
+        const coords = p.gps_coordinates ? {
+          latitude: p.gps_coordinates.latitude,
+          longitude: p.gps_coordinates.longitude
+        } : null;
 
-        return {
+        const hotelObj = {
           id: `ht-${Math.random().toString(36).substring(2, 8)}`,
           name: p.name || `Hotel in ${destination}`,
-          description: p.description || p.essential_info?.join('. ') || 'Comfortable stay with modern amenities and close to key attractions.',
-          rating: p.overall_rating || 4.4,
-          reviewsCount: p.reviews || 320,
+          description: p.description || (p.essential_info?.length ? p.essential_info.join('. ') : null),
+          rating,
+          reviewsCount,
           pricePerNight: priceNum,
-          currency: 'INR',
-          amenities: p.amenities?.slice(0, 6) || ['Free Wi-Fi', 'Air Conditioning', 'Breakfast Included', 'Pool'],
+          currency: priceNum != null ? 'INR' : null,
+          amenities,
           image: thumb,
           link: p.link || `https://www.google.com/travel/hotels?q=hotels+in+${encodeURIComponent(destination)}`,
-          address: p.neighborhood || p.address || `${destination} Central`,
-          gpsCoordinates: p.gps_coordinates || null,
-          hotelClass: p.hotel_class || '3-Star',
+          address: p.neighborhood || p.address || `${destination}`,
+          gpsCoordinates: coords,
+          hotelClass,
           ecoCertified: Boolean(p.eco_certified)
         };
+
+        attachFieldProvenance(hotelObj, 'price', priceNum, {
+          source: 'serpapi_google_hotels',
+          status: priceNum != null ? 'LIVE' : 'UNAVAILABLE',
+          confidence: priceNum != null ? 1.0 : 0
+        });
+        attachFieldProvenance(hotelObj, 'rating', rating, {
+          source: 'serpapi_google_hotels',
+          status: rating != null ? 'LIVE' : 'UNAVAILABLE',
+          confidence: rating != null ? 1.0 : 0
+        });
+        attachFieldProvenance(hotelObj, 'coordinates', coords, {
+          source: 'serpapi_google_hotels',
+          status: coords != null ? 'LIVE' : 'UNAVAILABLE',
+          confidence: coords != null ? 1.0 : 0
+        });
+        attachFieldProvenance(hotelObj, 'reviews', reviewsCount, {
+          source: 'serpapi_google_hotels',
+          status: reviewsCount != null ? 'LIVE' : 'UNAVAILABLE',
+          confidence: reviewsCount != null ? 1.0 : 0
+        });
+        attachFieldProvenance(hotelObj, 'amenities', amenities, {
+          source: 'serpapi_google_hotels',
+          status: amenities != null ? 'LIVE' : 'UNAVAILABLE',
+          confidence: amenities != null ? 1.0 : 0
+        });
+        attachFieldProvenance(hotelObj, 'hotelClass', hotelClass, {
+          source: 'serpapi_google_hotels',
+          status: hotelClass != null ? 'LIVE' : 'UNAVAILABLE',
+          confidence: hotelClass != null ? 1.0 : 0
+        });
+
+        return hotelObj;
       });
     }
   } catch (err) {
@@ -294,22 +351,76 @@ export async function searchHotels({
   const organic = await search(fallbackQuery, 6);
 
   if (organic && organic.length > 0) {
-    return organic.slice(0, 4).map((item, idx) => ({
-      id: `ht-org-${idx}`,
-      name: item.title.split(' - ')[0].split(' | ')[0].trim(),
-      description: item.snippet || `Top-rated accommodation in ${destination} according to verified traveler reviews.`,
-      rating: Math.round((4.4 + (idx * 0.1)) * 10) / 10,
-      reviewsCount: 320 + (idx * 110),
-      pricePerNight: 2400 + (idx * 750),
-      currency: 'INR',
-      amenities: ['Free High-Speed Wi-Fi', 'Complimentary Breakfast', 'Air Conditioning', '24/7 Front Desk', 'Housekeeping'],
-      image: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=600&auto=format&fit=crop&q=80',
-      link: item.link || `https://www.google.com/travel/hotels?q=hotels+in+${encodeURIComponent(destination)}`,
-      googleMapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.title.split(' - ')[0] + ' ' + destination)}`,
-      address: `${destination} Central Hub`,
-      gpsCoordinates: null,
-      hotelClass: idx === 0 ? '4-Star' : '3-Star'
-    }));
+    return organic.slice(0, 4).map((item, idx) => {
+      const fullText = `${item.title} ${item.snippet}`;
+
+      // Extract ONLY what is explicitly stated in organic title / snippet
+      const ratingMatch = fullText.match(/\b([1-5](?:\.[0-9])?)\s*(?:\/5|stars|★)/i);
+      const rating = ratingMatch ? parseFloat(ratingMatch[1]) : null;
+
+      const reviewMatch = fullText.match(/([0-9,]+)\s+reviews/i);
+      const reviewsCount = reviewMatch ? parseInt(reviewMatch[1].replace(/,/g, ''), 10) : null;
+
+      const priceMatch = fullText.match(/(?:₹|INR|Rs\.?)\s*([0-9,]+)/i);
+      const pricePerNight = priceMatch ? parseInt(priceMatch[1].replace(/,/g, ''), 10) : null;
+
+      const classMatch = fullText.match(/\b([1-5])[- ]star\b/i);
+      const hotelClass = classMatch ? `${classMatch[1]}-Star` : null;
+
+      const hotelObj = {
+        id: `ht-org-${idx}`,
+        name: item.title.split(' - ')[0].split(' | ')[0].trim(),
+        description: item.snippet || null,
+        rating,
+        reviewsCount,
+        pricePerNight,
+        currency: pricePerNight != null ? 'INR' : null,
+        amenities: null, // Organic search snippets do not reliably state full amenities
+        image: null,
+        link: item.link || `https://www.google.com/travel/hotels?q=hotels+in+${encodeURIComponent(destination)}`,
+        googleMapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.title.split(' - ')[0] + ' ' + destination)}`,
+        address: `${destination}`,
+        gpsCoordinates: null,
+        hotelClass
+      };
+
+      attachFieldProvenance(hotelObj, 'price', pricePerNight, {
+        source: 'serpapi_google_search',
+        status: pricePerNight != null ? 'FALLBACK' : 'UNAVAILABLE',
+        method: pricePerNight != null ? 'Parsed from organic snippet' : undefined,
+        confidence: pricePerNight != null ? 0.5 : 0
+      });
+      attachFieldProvenance(hotelObj, 'rating', rating, {
+        source: 'serpapi_google_search',
+        status: rating != null ? 'FALLBACK' : 'UNAVAILABLE',
+        method: rating != null ? 'Parsed from organic snippet' : undefined,
+        confidence: rating != null ? 0.5 : 0
+      });
+      attachFieldProvenance(hotelObj, 'coordinates', null, {
+        source: 'unavailable',
+        status: 'UNAVAILABLE',
+        confidence: 0
+      });
+      attachFieldProvenance(hotelObj, 'reviews', reviewsCount, {
+        source: 'serpapi_google_search',
+        status: reviewsCount != null ? 'FALLBACK' : 'UNAVAILABLE',
+        method: reviewsCount != null ? 'Parsed from organic snippet' : undefined,
+        confidence: reviewsCount != null ? 0.5 : 0
+      });
+      attachFieldProvenance(hotelObj, 'amenities', null, {
+        source: 'unavailable',
+        status: 'UNAVAILABLE',
+        confidence: 0
+      });
+      attachFieldProvenance(hotelObj, 'hotelClass', hotelClass, {
+        source: 'serpapi_google_search',
+        status: hotelClass != null ? 'FALLBACK' : 'UNAVAILABLE',
+        method: hotelClass != null ? 'Parsed from organic snippet' : undefined,
+        confidence: hotelClass != null ? 0.5 : 0
+      });
+
+      return hotelObj;
+    });
   }
 
   return [];
@@ -338,30 +449,64 @@ export async function searchPlaces({ destination, interests = [], limit = 20, st
 
     const localResults = res.data.local_results || [];
     if (localResults.length > 0) {
-      return localResults.slice(0, limit).map((place, idx) => {
+      return localResults.slice(0, limit).map((place) => {
         const placeTitle = place.title || `Attraction in ${destination}`;
         const placeAddress = place.address || `${destination} Area`;
         const mapsUrl = place.link || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(placeTitle + ' ' + placeAddress)}`;
+        const coords = place.gps_coordinates ? {
+          latitude: place.gps_coordinates.latitude,
+          longitude: place.gps_coordinates.longitude
+        } : null;
+        const rating = typeof place.rating === 'number' ? place.rating : null;
+        const reviewsCount = typeof place.reviews === 'number' ? place.reviews : null;
+        const operatingHours = place.operating_hours?.current_status || null;
+        const priceLevel = place.price || null;
+        const description = place.description || place.snippet || null;
 
-        return {
+        const placeObj = {
           id: `pl-${Math.random().toString(36).substring(2, 8)}`,
           title: placeTitle,
           category: place.type || 'Sightseeing & Landmark',
-          rating: place.rating ?? (strict ? null : 4.5),
-          reviewsCount: place.reviews ?? (strict ? null : 850),
+          rating,
+          reviewsCount,
           address: placeAddress,
-          gpsCoordinates: place.gps_coordinates ? {
-            latitude: place.gps_coordinates.latitude,
-            longitude: place.gps_coordinates.longitude
-          } : null,
-          description: place.description || place.snippet || (strict ? null : `Iconic point of interest in ${destination} loved by travelers.`),
-          thumbnail: place.thumbnail || (strict ? null : 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=500&auto=format&fit=crop&q=80'),
-          operatingHours: place.operating_hours?.current_status || (strict ? null : 'Open Daily · 09:00 AM - 06:00 PM'),
+          gpsCoordinates: coords,
+          description,
+          thumbnail: place.thumbnail || null,
+          operatingHours,
           website: place.website || null,
           googleMapsUrl: mapsUrl,
-          priceLevel: place.price || (strict ? null : 'Free / Moderate Entry'),
+          priceLevel,
           estimatedDurationMinutes: 90
         };
+
+        attachFieldProvenance(placeObj, 'rating', rating, {
+          source: 'serpapi_google_maps',
+          status: rating != null ? 'LIVE' : 'UNAVAILABLE',
+          confidence: rating != null ? 1.0 : 0
+        });
+        attachFieldProvenance(placeObj, 'coordinates', coords, {
+          source: 'serpapi_google_maps',
+          status: coords != null ? 'LIVE' : 'UNAVAILABLE',
+          confidence: coords != null ? 1.0 : 0
+        });
+        attachFieldProvenance(placeObj, 'openingHours', operatingHours, {
+          source: 'serpapi_google_maps',
+          status: operatingHours != null ? 'LIVE' : 'UNAVAILABLE',
+          confidence: operatingHours != null ? 1.0 : 0
+        });
+        attachFieldProvenance(placeObj, 'price', priceLevel, {
+          source: 'serpapi_google_maps',
+          status: priceLevel != null ? 'LIVE' : 'UNAVAILABLE',
+          confidence: priceLevel != null ? 1.0 : 0
+        });
+        attachFieldProvenance(placeObj, 'reviews', reviewsCount, {
+          source: 'serpapi_google_maps',
+          status: reviewsCount != null ? 'LIVE' : 'UNAVAILABLE',
+          confidence: reviewsCount != null ? 1.0 : 0
+        });
+
+        return placeObj;
       });
     }
   } catch (err) {
@@ -375,22 +520,50 @@ export async function searchPlaces({ destination, interests = [], limit = 20, st
   const organicPlaces = await search(`famous places to visit in ${destination} tourist attractions`, 12);
   return organicPlaces.map((item, idx) => {
     const title = item.title.split(' - ')[0].split(' | ')[0].trim();
-    return {
+    const placeObj = {
       id: `pl-fb-${idx}`,
       title,
       category: idx % 2 === 0 ? 'Heritage & Culture' : 'Scenic Viewpoint & Leisure',
-      rating: Math.round((4.4 + ((idx % 4) * 0.1)) * 10) / 10,
-      reviewsCount: 450 + (idx * 80),
+      rating: null,
+      reviewsCount: null,
       address: `${destination} Region`,
       gpsCoordinates: null,
-      description: item.snippet || `Must-visit destination highlight in ${destination}.`,
-      thumbnail: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=500&auto=format&fit=crop&q=80',
-      operatingHours: 'Open Daily · 09:00 AM - 06:00 PM',
-      website: item.link,
+      description: item.snippet || null,
+      thumbnail: null,
+      operatingHours: null,
+      website: item.link || null,
       googleMapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(title + ' ' + destination)}`,
-      priceLevel: '₹150 - ₹500',
-      estimatedDurationMinutes: 100
+      priceLevel: null,
+      estimatedDurationMinutes: 90
     };
+
+    attachFieldProvenance(placeObj, 'rating', null, {
+      source: 'unavailable',
+      status: 'UNAVAILABLE',
+      confidence: 0
+    });
+    attachFieldProvenance(placeObj, 'coordinates', null, {
+      source: 'unavailable',
+      status: 'UNAVAILABLE',
+      confidence: 0
+    });
+    attachFieldProvenance(placeObj, 'openingHours', null, {
+      source: 'unavailable',
+      status: 'UNAVAILABLE',
+      confidence: 0
+    });
+    attachFieldProvenance(placeObj, 'price', null, {
+      source: 'unavailable',
+      status: 'UNAVAILABLE',
+      confidence: 0
+    });
+    attachFieldProvenance(placeObj, 'reviews', null, {
+      source: 'unavailable',
+      status: 'UNAVAILABLE',
+      confidence: 0
+    });
+
+    return placeObj;
   });
 }
 
@@ -437,43 +610,109 @@ export async function searchEvents({ destination, query = null }) {
     title: item.title.split(' - ')[0].split(' | ')[0].trim(),
     description: item.snippet || `Cultural event & local festival in ${destination}.`,
     link: item.link || null,
-    source: 'SerpApi (Google Search Engine)',
+    source: 'serpapi_google_search',
     destination,
     category: idx % 3 === 0 ? 'Music & Nightlife' : idx % 3 === 1 ? 'Cultural Festival' : 'Flea Market & Art Pop-up',
-    dateEstimate: 'Ongoing / Upcoming this week'
+    dateEstimate: 'Ongoing / Upcoming this week',
+    provenance: createProvenance({
+      source: 'serpapi_google_search',
+      status: 'LIVE',
+      method: 'SerpApi Google Search organic results',
+      confidence: 0.9
+    })
   }));
 }
 
 /**
  * Review Intelligence search via SerpApi
+ * Derives sentiment and themes ONLY from returned snippets with transparent source links.
  */
 export async function searchReviews({ destination, subject }) {
   const query = `${subject || destination} traveler reviews pros cons feedback travel forum`;
-  const results = await search(query, 5);
+  const results = await search(query, 6);
 
-  const snippets = results.map(r => r.snippet).join(' ');
+  const validSnippets = results.filter(r => r.snippet && r.snippet.trim().length > 15);
 
-  // Extract themes grounded in search results
-  const positive = [
-    'Prime proximity to main attractions & coastal scenic points',
-    'Rich cultural authenticity and highly rated local dining options',
-    'Warm hospitality, helpful staff, and clean surroundings',
-    'Smooth local taxi and scooter rental availability'
-  ];
+  if (validSnippets.length === 0) {
+    return {
+      destination,
+      subject: subject || destination,
+      overallSentiment: null,
+      status: 'UNAVAILABLE',
+      positiveThemes: [],
+      potentialConcerns: [],
+      snippetCount: 0,
+      basedOnText: 'No live review snippets found',
+      sources: [],
+      agentRecommendation: `No live review snippets retrieved for ${subject || destination}.`,
+      provenance: createProvenance({
+        source: 'unavailable',
+        status: 'UNAVAILABLE',
+        confidence: 0
+      })
+    };
+  }
 
-  const concerns = [
-    'Peak season traffic congestion along arterial coastal routes',
-    'Popular viewpoints get crowded between 4:30 PM - 6:30 PM',
-    'Card acceptance may vary at local roadside eateries (keep UPI/cash handy)'
-  ];
+  // Derive sentiment & themes ONLY from real text in snippets
+  const positiveWords = /\b(great|excellent|beautiful|stunning|friendly|clean|amazing|scenic|authentic|delicious|loved|peaceful|breathtaking|convenient|helpful|must-visit|enjoyed|wonderful)\b/i;
+  const concernWords = /\b(crowded|traffic|expensive|overpriced|delay|noisy|avoid|long wait|beware|difficult|cash only|steep|scam|dirty|congestion|rush)\b/i;
+
+  const positiveThemes = [];
+  const potentialConcerns = [];
+
+  for (const item of validSnippets) {
+    const sentences = item.snippet.split(/(?<=[.!?])\s+/);
+    for (const sentence of sentences) {
+      const clean = sentence.trim().replace(/^[-•*]\s*/, '');
+      if (clean.length < 20 || clean.length > 200) continue;
+
+      if (positiveWords.test(clean) && !potentialConcerns.includes(clean) && !positiveThemes.includes(clean)) {
+        if (positiveThemes.length < 4) positiveThemes.push(clean);
+      } else if (concernWords.test(clean) && !potentialConcerns.includes(clean) && !positiveThemes.includes(clean)) {
+        if (potentialConcerns.length < 3) potentialConcerns.push(clean);
+      }
+    }
+  }
+
+  const positiveCount = positiveThemes.length;
+  const concernCount = potentialConcerns.length;
+
+  let overallSentiment = 'Grounded Positive';
+  if (concernCount > positiveCount) {
+    overallSentiment = 'Mixed to Cautious';
+  } else if (concernCount > 0 && positiveCount > 0) {
+    overallSentiment = 'Mostly Positive with Practical Caveats';
+  } else if (positiveCount === 0 && concernCount === 0) {
+    overallSentiment = 'Informational / Neutral';
+  }
+
+  const sources = validSnippets.map(s => ({
+    title: s.title,
+    link: s.link,
+    snippet: s.snippet
+  }));
+
+  const basedOnText = `Based on ${validSnippets.length} snippets`;
 
   return {
     destination,
     subject: subject || destination,
-    overallSentiment: 'Highly Positive (92% satisfaction among visitors)',
-    positiveThemes: positive,
-    potentialConcerns: concerns,
-    agentRecommendation: `Ideal fit for travelers seeking vibrant experiences and relaxed pacing. Planning visits to top landmarks before 11:00 AM or after 3:30 PM avoids peak congestion.`
+    overallSentiment: `${overallSentiment} (${basedOnText})`,
+    status: 'LIVE',
+    positiveThemes,
+    potentialConcerns,
+    snippetCount: validSnippets.length,
+    basedOnText,
+    sources,
+    agentRecommendation: positiveThemes.length > 0
+      ? `Based on ${validSnippets.length} snippets: ${positiveThemes[0]}${potentialConcerns.length > 0 ? ` (Note: ${potentialConcerns[0]})` : ''}.`
+      : `Reviews derived directly from ${validSnippets.length} search results. See source links.`,
+    provenance: createProvenance({
+      source: 'serpapi_google_search',
+      status: 'LIVE',
+      method: `Extracted from ${validSnippets.length} real search snippets`,
+      confidence: Math.min(1.0, 0.6 + validSnippets.length * 0.08)
+    })
   };
 }
 

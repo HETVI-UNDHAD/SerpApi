@@ -74,7 +74,7 @@ export default function TravelIntelligenceView() {
           <div className={`p-4 rounded-2xl border text-xs leading-relaxed ${
             isDark ? 'bg-[#0B0F19] border-slate-800 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
           }`}>
-            {decisions?.whyHotel || `Selected based on high guest rating (${selectedOptions.hotel?.rating || 4.7}★) and optimal proximity to your itinerary destinations.`}
+            {decisions?.whyHotel || `Selected based on ${selectedOptions.hotel?.rating != null ? `guest rating (${selectedOptions.hotel.rating}★)` : 'optimal location'} and proximity to your itinerary destinations.`}
           </div>
 
           {/* AI Metric Bars */}
