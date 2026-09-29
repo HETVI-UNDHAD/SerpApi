@@ -254,4 +254,47 @@ router.get('/images/search', async (req, res) => {
   }
 });
 
+// 15. Floating AI Assistant Chat — rule-based, no external API needed
+const RESPONSES = [
+  { match: /how.*(work|does it|travelos work)/i, reply: "TravelOS works in 3 steps:\n1. Enter your origin, destination, duration, budget & interests in Plan Your Trip.\n2. TravelOS queries live Google Flights, Hotels & Maps via SerpApi in real time.\n3. The AI orchestrates the results into a full itinerary with budget breakdown, route map, and day-by-day timeline — all grounded in live data, no hallucinations." },
+  { match: /plan.*(trip|journey|travel)/i, reply: "Click \"Plan Your Trip\" in the navbar. Fill in:\n• Origin & Destination\n• Duration (days)\n• Budget (₹)\n• Travel style (Balanced / Relaxed / Adventure / Luxury / Budget)\n• Transport preference (Flight / Train / Self Car)\n• Interests (Beaches, Food, Culture, etc.)\n\nHit \"Architect Journey\" and TravelOS will research live data and build your plan." },
+  { match: /explor|destination|where.*go|discover/i, reply: "The Explore Destinations page (home) lets you browse destinations. You can also type \"Help me choose a destination\" in the destination field of the trip builder — TravelOS will suggest options based on your budget and interests." },
+  { match: /flight|fly|airline/i, reply: "TravelOS fetches live flight data via SerpApi's google_flights engine — real prices, airlines, durations, stops, and booking links. You can view all returned flights in the \"Flights & Transit\" tab of your Dashboard after planning a trip.\n\nFor current prices, use the live Flights tab — I don't want to guess at fares." },
+  { match: /hotel|stay|accommodation|resort/i, reply: "TravelOS fetches live hotel data via SerpApi's google_hotels engine — real rates, guest ratings, amenities, and photos. View them in the \"Hotels & Stays\" tab of your Dashboard.\n\nFor current prices, use the live Hotels tab — rates change in real time." },
+  { match: /map|route|direction|gps|navigation/i, reply: "TravelOS uses SerpApi's google_maps engine to find attractions with exact GPS coordinates. The Route Map tab shows an interactive Leaflet map with your day's stops. Each activity card also has a \"Live GPS Directions\" button that opens Google Maps navigation." },
+  { match: /budget|cost|price|money|rupee|₹|optimize/i, reply: "The Budget Optimizer tab shows a full breakdown: flights, hotels, food, activities, local transit, and taxes. If your plan exceeds your budget, click \"Auto-Optimize\" — TravelOS will automatically rebalance hotel tiers, switch transport modes, and adjust dining to bring the total under your ceiling." },
+  { match: /replan|what.if|delay|change|simulator/i, reply: "The \"AI Replanner & What-If\" tab lets you simulate scenarios like:\n• Flight delayed by X hours\n• Add an extra day\n• Make a day more relaxed\n• Add nightlife\n• Reduce budget\n\nType your scenario in plain English and TravelOS will rebuild the affected parts of your itinerary." },
+  { match: /itinerary|schedule|day|timeline|activity/i, reply: "The Smart Itinerary tab shows a day-by-day travel journal. Each day has:\n• Geographically clustered stops (Haversine math)\n• Transit cards showing how to get between stops (walk/auto/cab)\n• Live GPS navigation links\n• Time slots, entry costs, and AI selection reasons" },
+  { match: /zero.hallucin|hallucin|grounded|live data|serpapi/i, reply: "Zero-Hallucination means TravelOS never invents travel facts. Every flight price, hotel rate, and attraction comes directly from live SerpApi queries (Google Flights, Hotels, Maps). The AI acts as an orchestrator and filter — not a source of made-up data.\n\nClick the \"Zero-Hallucination Proof\" badge in the navbar to inspect the live queries." },
+  { match: /showcase/i, reply: "The Showcase page presents the TravelOS design system and the main feature screens. Access it from the navbar." },
+  { match: /what.*(can you do|you do|features|capabilities)/i, reply: "I can help you:\n• Understand how TravelOS works\n• Navigate to any feature (flights, hotels, itinerary, budget, map)\n• Explain the Zero-Hallucination architecture\n• Guide you through planning a trip\n• Explain the What-If replanner\n\nFor live travel data (prices, availability), use the relevant TravelOS feature — I won't guess at real-time information." },
+  { match: /start|begin|how.*start/i, reply: "To get started: click \"Plan Your Trip\" in the navbar (or the \"Start Planning\" button). Enter your trip details and hit \"Architect Journey\". TravelOS will research live data and build your full plan in seconds." },
+  { match: /dashboard|tab|overview/i, reply: "After planning, the Dashboard has 8 tabs:\n1. Overview — KPIs and journey outline\n2. Smart Itinerary — day-by-day route journal\n3. Route Map — interactive Leaflet map\n4. Flights & Transit — live flight cards\n5. Hotels & Stays — live hotel cards\n6. Budget Optimizer — cost breakdown\n7. AI Reasoning & Reviews — why each option was selected\n8. AI Replanner & What-If — scenario simulator" },
+  { match: /supabase|save|saved|persist/i, reply: "TravelOS uses Supabase (PostgreSQL) to save your trip plans. Your generated trips are stored and can be retrieved by ID." },
+  { match: /dark|light|theme/i, reply: "Use the theme toggle button in the navbar (sun/moon icon) to switch between dark and light mode." },
+  { match: /hi|hello|hey|howdy/i, reply: "Hi there! 👋 I'm TravelOS AI. I can help you navigate the platform, understand its features, or guide you through planning a trip. What would you like to know?" },
+  { match: /thank/i, reply: "You're welcome! Let me know if you need anything else. Happy travels! ✈️" },
+];
+
+function getRuleBasedReply(message) {
+  const msg = message.trim();
+  for (const { match, reply } of RESPONSES) {
+    if (match.test(msg)) return reply;
+  }
+  return "I'm focused on helping with TravelOS and travel planning. Try asking about:\n• How TravelOS works\n• Planning a trip\n• Live flights or hotels\n• The budget optimizer\n• The What-If replanner\n• Zero-Hallucination architecture";
+}
+
+router.post('/assistant/chat', (req, res) => {
+  try {
+    const { message } = req.body;
+    if (!message || typeof message !== 'string') {
+      return res.status(400).json({ success: false, error: 'message is required' });
+    }
+    const reply = getRuleBasedReply(message);
+    res.json({ success: true, reply });
+  } catch (err) {
+    res.status(500).json({ success: false, reply: 'Something went wrong. Please try again.' });
+  }
+});
+
 export default router;

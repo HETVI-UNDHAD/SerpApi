@@ -226,7 +226,7 @@ export default function LandingPage() {
     setJourneyLoading(true);
     setJourneyError(false);
     try {
-      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
       const response = await fetch(`${baseUrl}/api/places/search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

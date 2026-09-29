@@ -3,7 +3,7 @@ import confetti from 'canvas-confetti';
 
 const TripContext = createContext();
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
 export const INITIAL_RESEARCH_STAGES = [
   { id: 1, key: 'TRANSPORT', title: 'Flights & Inter-city Transit', status: 'pending', duration_ms: null, result_count: 0, detail: 'Google Flights engine via SerpApi' },

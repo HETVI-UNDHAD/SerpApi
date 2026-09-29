@@ -648,13 +648,26 @@ export default function DashboardPage() {
                   }`}
                 >
                   <div className="relative h-56">
-                    <PlaceImage
-                      query={h.image ? null : `${h.name} ${destination} hotel resort`}
-                      fallbackSrc={h.image || null}
-                      alt={h.name}
-                      className="w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-700"
-                      skeletonClassName="absolute inset-0"
-                    />
+                    {h.image ? (
+                      <img
+                        src={h.image}
+                        alt={h.name}
+                        style={{ width: '100%', height: '220px', objectFit: 'cover', display: 'block' }}
+                        className="group-hover:scale-[1.04] transition-transform duration-700"
+                        onError={e => {
+                          e.currentTarget.style.display = 'none';
+                          e.currentTarget.nextSibling?.classList?.remove('hidden');
+                        }}
+                      />
+                    ) : (
+                      <PlaceImage
+                        query={`${h.name} ${destination} hotel resort`}
+                        fallbackSrc={null}
+                        alt={h.name}
+                        className="w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-700"
+                        skeletonClassName="absolute inset-0"
+                      />
+                    )}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
                     <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-black/75 backdrop-blur-md text-amber-400 text-xs font-black border border-white/10 flex items-center gap-1">
                       <span>{h.rating != null ? `★ ${h.rating}` : '★ Live data unavailable'}</span>

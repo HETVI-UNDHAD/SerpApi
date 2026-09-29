@@ -8,6 +8,7 @@ import ResearchCenterPage from './pages/ResearchCenterPage';
 import DashboardPage from './pages/DashboardPage';
 import DesignShowcasePage from './pages/DesignShowcasePage';
 import TravelBackdrop from './components/TravelBackdrop';
+import FloatingAssistant from './components/FloatingAssistant';
 
 function AppContent() {
   const { activeScreen, theme } = useTrip();
@@ -29,6 +30,7 @@ function AppContent() {
         </main>
         <Footer />
       </div>
+      <FloatingAssistant />
     </div>
   );
 }
