@@ -60,6 +60,8 @@ export function TripProvider({ children }) {
   });
 
   const [currentTrip, setCurrentTrip] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isDiscovering, setIsDiscovering] = useState(false);
   const [isReplanning, setIsReplanning] = useState(false);
@@ -353,7 +355,11 @@ export function TripProvider({ children }) {
         optimizeTripBudget,
         runWhatIf,
         checkForChanges,
-        resetTrip
+        resetTrip,
+        sidebarOpen,
+        setSidebarOpen,
+        sidebarCollapsed,
+        setSidebarCollapsed
       }}
     >
       {children}

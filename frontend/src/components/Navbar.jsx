@@ -1,251 +1,169 @@
 import React, { useState, useEffect } from 'react';
 import { useTrip } from '../context/TripContext';
+import AiAgentLogo from './AiAgentLogo';
+import SerpApiGroundingModal from './SerpApiGroundingModal';
 import {
-  Compass,
-  Sparkles,
   Sun,
   Moon,
   Menu,
-  X,
-  Zap,
-  MapPin,
-  Calendar,
-  Layers,
   ArrowRight,
-  ShieldCheck,
-  Search,
-  Globe
+  Plus,
+  PanelLeft,
+  MapPin,
+  ChevronRight
 } from 'lucide-react';
-import SerpApiGroundingModal from './SerpApiGroundingModal';
 
 export default function Navbar() {
-  const { activeScreen, setActiveScreen, currentTrip, theme, toggleTheme } = useTrip();
+  const {
+    activeScreen,
+    setActiveScreen,
+    activeTab,
+    currentTrip,
+    theme,
+    toggleTheme,
+    resetTrip,
+    sidebarOpen,
+    setSidebarOpen,
+    sidebarCollapsed,
+    setSidebarCollapsed
+  } = useTrip();
+
   const isDark = theme === 'dark';
-  const isLanding = activeScreen === 'landing';
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const isDashboard = activeScreen === 'dashboard' && currentTrip;
   const [groundingOpen, setGroundingOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 20);
+    const onScroll = () => setScrolled(window.scrollY > 15);
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
   function handleNavigate(screen) {
     setActiveScreen(screen);
-    setMobileOpen(false);
   }
+
+  // Determine current readable title for breadcrumb
+  const screenTitleMap = {
+    'landing': 'Explore Destinations',
+    'builder': 'Trip Planner',
+    'research': 'Live AI Research Center',
+    'dashboard': currentTrip ? `Trip to ${currentTrip.destination}` : 'Master Itinerary',
+    'design-showcase': 'Design Showcase'
+  };
 
   return (
     <>
-      {/* ══════════════════════════════════════════════════════════════════
-          VISIT THE USA STYLE GLOBAL EDITORIAL HEADER
-         ══════════════════════════════════════════════════════════════════ */}
-      <header className={`sticky top-0 z-50 w-full transition-all duration-300 ${
-        scrolled
-          ? isDark
-            ? 'bg-[#090D16]/95 backdrop-blur-xl border-b border-slate-800 shadow-xl'
-            : 'bg-white/95 backdrop-blur-xl border-b border-slate-200/90 shadow-[0_4px_20px_rgba(0,0,0,0.06)]'
-          : isDark
-          ? 'bg-[#090D16] border-b border-slate-800'
-          : 'bg-white border-b border-slate-200'
-      }`}>
-        <div className="max-w-7xl mx-auto h-[68px] px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+      <header
+        className={`sticky top-0 z-40 w-full transition-all duration-300 ${
+          scrolled
+            ? isDark
+              ? 'bg-[#090D16]/95 backdrop-blur-md border-b border-slate-800/80 shadow-lg'
+              : 'bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-sm'
+            : isDark
+            ? 'bg-[#090D16] border-b border-slate-800'
+            : 'bg-white border-b border-slate-200'
+        }`}
+      >
+        <div className="w-full px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
 
-          {/* ── LEFT: EDITORIAL BRAND LOGO ── */}
-          <button
-            onClick={() => handleNavigate('landing')}
-            className="flex items-center gap-3 group text-left focus:outline-none"
-          >
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-700 via-indigo-600 to-blue-500 text-white flex items-center justify-center font-black shadow-md shadow-blue-600/20 group-hover:scale-105 transition-transform">
-              <Compass className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className={`font-black text-lg tracking-tight font-serif ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                  Travel<span className="text-blue-600">OS</span>
-                </span>
-                <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-                  Global
-                </span>
-              </div>
-              <p className="text-[10px] uppercase tracking-[0.18em] font-semibold text-slate-400">
-                Official AI Travel Portal
-              </p>
-            </div>
-          </button>
-
-          {/* ── CENTER: VISITTHEUSA EDITORIAL NAVIGATION TABS ── */}
-          <nav className="hidden lg:flex items-center gap-1 font-sans">
-            <TopNavBtn
-              active={activeScreen === 'landing'}
-              onClick={() => handleNavigate('landing')}
-              isDark={isDark}
-            >
-              Explore Destinations
-            </TopNavBtn>
-
-            <TopNavBtn
-              active={activeScreen === 'builder'}
-              onClick={() => handleNavigate('builder')}
-              isDark={isDark}
-            >
-              Plan Your Trip
-            </TopNavBtn>
-
-            <TopNavBtn
-              active={activeScreen === 'design-showcase'}
-              onClick={() => handleNavigate('design-showcase')}
-              isDark={isDark}
-            >
-              <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-              <span>Showcase</span>
-            </TopNavBtn>
-
-            {currentTrip && (
-              <button
-                onClick={() => handleNavigate('dashboard')}
-                className={`ml-2 px-3.5 py-1.5 rounded-full text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all ${
-                  activeScreen === 'dashboard'
-                    ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25 scale-105'
-                    : isDark
-                    ? 'bg-slate-800 text-slate-200 border border-slate-700 hover:border-blue-400 hover:text-white'
-                    : 'bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100'
-                }`}
-              >
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span>{currentTrip.destination}</span>
-                <span className="text-[10px] font-normal opacity-80">({currentTrip.duration || 3}D)</span>
-              </button>
-            )}
-          </nav>
-
-          {/* ── RIGHT CONTROLS: GROUNDING PROOF, THEME & CTA ── */}
-          <div className="flex items-center gap-3">
-            {/* Live SerpApi Grounded Badge */}
+          {/* ── LEFT: SIDEBAR TOGGLE & BRAND BREADCRUMB ── */}
+          <div className="flex items-center gap-3.5 sm:gap-4 flex-shrink-0">
+            {/* Mobile Sidebar Hamburger Toggle */}
             <button
-              onClick={() => setGroundingOpen(true)}
-              className="px-3.5 py-1.5 rounded-full bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 text-blue-800 font-extrabold text-xs flex items-center gap-1.5 shadow-sm transition-all hover:scale-105 hover:border-blue-300"
-              title="Inspect live SerpApi search engines & technical architecture"
+              onClick={() => setSidebarOpen(true)}
+              className={`lg:hidden p-2 rounded-xl border transition-colors ${
+                isDark ? 'border-slate-800 text-slate-300 hover:bg-slate-800' : 'border-slate-200 text-slate-700 hover:bg-slate-100'
+              }`}
+              aria-label="Open sidebar menu"
+              title="Open Navigation Menu"
             >
-              <Zap className="w-3.5 h-3.5 text-blue-600 animate-pulse" />
-              <span className="hidden sm:inline">SerpApi Grounded</span>
-              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-blue-600 text-white font-bold">
-                LIVE
-              </span>
+              <Menu className="w-5 h-5" />
             </button>
 
-            {/* Premium Theme Switcher */}
+            {/* Desktop Sidebar Quick Toggle */}
+            <button
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              className={`hidden lg:flex p-2 rounded-xl border transition-colors ${
+                isDark ? 'border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800' : 'border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+              title={sidebarCollapsed ? 'Expand Left Sidebar' : 'Collapse Left Sidebar'}
+            >
+              <PanelLeft className="w-4 h-4" />
+            </button>
+
+            {/* Brand Logo */}
+            <AiAgentLogo
+              onClick={() => handleNavigate('landing')}
+              isDark={isDark}
+              size="sm"
+            />
+
+            {/* Breadcrumb Separator & Context */}
+            <div className="hidden sm:flex items-center gap-2 text-xs">
+              <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+              <span className={`font-semibold ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                {screenTitleMap[activeScreen] || 'TravelOS AI'}
+              </span>
+              {currentTrip && activeScreen === 'dashboard' && (
+                <span className="hidden md:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/10 text-blue-500 border border-blue-500/20">
+                  <MapPin className="w-2.5 h-2.5" />
+                  {currentTrip.destination}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* ── RIGHT: LIVE TRUST INDICATOR, THEME TOGGLE & PRIMARY ACTION ── */}
+          <div className="flex items-center gap-2.5 sm:gap-3 flex-shrink-0">
+            {/* Live Data Trust Indicator */}
+            <button
+              onClick={() => setGroundingOpen(true)}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
+              title="Click to view live SerpApi data provenance"
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="hidden sm:inline">Live data</span>
+              <span className="text-[10px] opacity-75 font-normal">SerpApi</span>
+            </button>
+
+            {/* Clean Theme Toggle */}
             <button
               onClick={toggleTheme}
-              aria-label="Toggle theme"
-              className={`relative flex items-center p-1 rounded-full border transition-all duration-300 ${
-                isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-100 border-slate-300 shadow-sm'
+              aria-label="Toggle dark/light mode"
+              className={`p-2 rounded-xl border transition-colors ${
+                isDark
+                  ? 'bg-slate-800/80 border-slate-700 text-slate-200 hover:text-white hover:bg-slate-700'
+                  : 'bg-slate-100 border-slate-200 text-slate-700 hover:text-slate-900 hover:bg-slate-200'
               }`}
-              style={{ width: 52, height: 28 }}
             >
-              <div className={`absolute top-0.5 w-6 h-6 rounded-full flex items-center justify-center transition-all duration-300 shadow-md ${
-                isDark ? 'translate-x-[24px] bg-blue-600 text-white' : 'translate-x-0.5 bg-blue-600 text-white'
-              }`}>
-                {isDark ? <Moon className="w-3.5 h-3.5" /> : <Sun className="w-3.5 h-3.5" />}
-              </div>
+              {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-600" />}
             </button>
 
             {/* Primary Action Button */}
-            <button
-              onClick={() => handleNavigate('builder')}
-              className="hidden sm:inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-slate-900 hover:bg-slate-800 text-white font-black text-xs uppercase tracking-wider shadow-md hover:scale-105 transition-all"
-            >
-              <span>Start Planning</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-
-            {/* Mobile Hamburger Toggle */}
-            <button
-              onClick={() => setMobileOpen(!mobileOpen)}
-              className={`lg:hidden p-2 rounded-xl border ${
-                isDark ? 'border-slate-800 text-slate-200' : 'border-slate-200 text-slate-800'
-              }`}
-              aria-label="Open menu"
-            >
-              {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            </button>
-          </div>
-        </div>
-
-        {/* ── MOBILE SLIDE-DOWN DRAWER ── */}
-        {mobileOpen && (
-          <div className={`lg:hidden border-t px-6 py-6 space-y-4 shadow-2xl ${
-            isDark ? 'bg-[#0D121F] border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'
-          }`}>
-            <div className="space-y-2">
+            {currentTrip ? (
               <button
-                onClick={() => handleNavigate('landing')}
-                className="w-full text-left py-2.5 px-3 rounded-xl font-bold text-sm hover:bg-slate-100/50 flex items-center gap-3"
+                onClick={resetTrip}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition-transform hover:scale-105 shadow-sm"
               >
-                <Compass className="w-4 h-4 text-blue-600" />
-                <span>Explore Destinations</span>
+                <Plus className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">New Trip</span>
               </button>
-
+            ) : (
               <button
                 onClick={() => handleNavigate('builder')}
-                className="w-full text-left py-2.5 px-3 rounded-xl font-bold text-sm hover:bg-slate-100/50 flex items-center gap-3"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition-transform hover:scale-105 shadow-sm"
               >
-                <Calendar className="w-4 h-4 text-blue-600" />
-                <span>Plan Your Trip</span>
+                <span>Start Planning</span>
+                <ArrowRight className="w-3.5 h-3.5" />
               </button>
-
-              <button
-                onClick={() => handleNavigate('design-showcase')}
-                className="w-full text-left py-2.5 px-3 rounded-xl font-bold text-sm hover:bg-slate-100/50 flex items-center gap-3"
-              >
-                <Sparkles className="w-4 h-4 text-violet-500" />
-                <span>Showcase</span>
-              </button>
-
-              {currentTrip && (
-                <button
-                  onClick={() => handleNavigate('dashboard')}
-                  className="w-full text-left py-2.5 px-3 rounded-xl font-bold text-sm bg-blue-50 text-blue-700 flex items-center gap-3"
-                >
-                  <MapPin className="w-4 h-4 text-blue-600" />
-                  <span>Active Plan: {currentTrip.destination}</span>
-                </button>
-              )}
-            </div>
-
-            <button
-              onClick={() => handleNavigate('builder')}
-              className="w-full py-3 rounded-xl bg-blue-600 text-white font-bold text-xs uppercase tracking-wider text-center block shadow-md"
-            >
-              Start Planning Trip
-            </button>
+            )}
           </div>
-        )}
+        </div>
       </header>
 
-      {/* Grounding & Differentiation Modal */}
+      {/* Live Data Provenance Inspector Modal */}
       <SerpApiGroundingModal isOpen={groundingOpen} onClose={() => setGroundingOpen(false)} />
     </>
-  );
-}
-
-function TopNavBtn({ children, active, onClick, isDark }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`relative px-4 py-2 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all duration-200 rounded-full ${
-        active
-          ? isDark
-            ? 'bg-slate-800 text-white'
-            : 'bg-slate-100 text-slate-900 font-extrabold'
-          : isDark
-          ? 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
-      }`}
-    >
-      {children}
-    </button>
   );
 }

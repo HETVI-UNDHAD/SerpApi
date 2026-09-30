@@ -16,6 +16,7 @@
 
 import axios from 'axios';
 import { createProvenance, withProvenance } from '../models/provenance.js';
+import { hasCommercialAirport } from './serpapiService.js';
 
 // Verified transit hubs for major Indian & international travel destinations
 export const TRANSIT_HUBS = {
@@ -278,6 +279,38 @@ export const TRANSIT_HUBS = {
       cityCenterDistanceKm: 2.8,
       typicalDriveMinutes: 12
     }
+  },
+  rajkot: {
+    airport: {
+      name: 'Rajkot International Airport (Hirasar)',
+      code: 'HSR',
+      type: 'International Airport',
+      city: 'Rajkot',
+      gpsCoordinates: { latitude: 22.3686, longitude: 71.0108 },
+      cityCenterDistanceKm: 28.0,
+      typicalDriveMinutes: 40
+    },
+    railway: {
+      name: 'Rajkot Junction Railway Station',
+      code: 'RJT',
+      type: 'Major Junction',
+      city: 'Rajkot',
+      gpsCoordinates: { latitude: 22.3117, longitude: 70.7972 },
+      cityCenterDistanceKm: 2.5,
+      typicalDriveMinutes: 10
+    }
+  },
+  jetpur: {
+    airport: null, // Jetpur has NO airport. Realistic transit is by road/rail to Rajkot (65 km).
+    railway: {
+      name: 'Jetpur Railway Station',
+      code: 'JTP',
+      type: 'Railway Station',
+      city: 'Jetpur',
+      gpsCoordinates: { latitude: 21.7583, longitude: 70.6276 },
+      cityCenterDistanceKm: 1.5,
+      typicalDriveMinutes: 6
+    }
   }
 };
 
@@ -342,12 +375,49 @@ export function estimateDriveMinutes(roadDistanceKm) {
 export function resolveTransitHub(cityName, mode = 'flight') {
   const clean = (cityName || '').toLowerCase().replace(/[^a-z]/g, '');
   const isTrain = mode === 'train';
+  const isRoad = mode === 'self_car' || mode === 'car' || mode === 'drive';
+
+  if (isRoad) {
+    return {
+      name: `${cityName} Road Departure Point`,
+      code: 'ROAD',
+      type: 'Highway / Road Network',
+      city: cityName,
+      hasAirport: false,
+      gpsCoordinates: null,
+      cityCenterDistanceKm: 0,
+      typicalDriveMinutes: 0,
+      provenance: createProvenance({
+        source: 'road_network',
+        status: 'LIVE',
+        confidence: 1.0
+      })
+    };
+  }
 
   for (const [key, hubData] of Object.entries(TRANSIT_HUBS)) {
-    if (clean.includes(key) || key.includes(clean)) {
+    if (clean === key || (clean.length >= 4 && key.length >= 4 && (clean.startsWith(key) || key.startsWith(clean)))) {
       const hub = isTrain ? hubData.railway : hubData.airport;
+      if (!hub) {
+        return {
+          name: isTrain ? `${cityName} (No Railway Station)` : `${cityName} (No Commercial Airport)`,
+          code: null,
+          hasAirport: false,
+          type: isTrain ? 'No Station' : 'No Commercial Airport',
+          city: cityName,
+          gpsCoordinates: null,
+          cityCenterDistanceKm: null,
+          typicalDriveMinutes: null,
+          provenance: createProvenance({
+            source: 'unavailable',
+            status: 'UNAVAILABLE',
+            confidence: 0
+          })
+        };
+      }
       return {
         ...hub,
+        hasAirport: !isTrain,
         provenance: createProvenance({
           source: 'curated_static',
           status: 'LIVE',
@@ -363,13 +433,33 @@ export function resolveTransitHub(cityName, mode = 'flight') {
     return RESOLVED_HUBS_CACHE.get(cacheKey);
   }
 
+  // Reality check: does the city actually have a commercial airport?
+  if (!isTrain && !hasCommercialAirport(cityName)) {
+    return {
+      name: `${cityName} (No Commercial Airport)`,
+      code: null,
+      hasAirport: false,
+      type: 'No Commercial Airport',
+      city: cityName,
+      gpsCoordinates: null,
+      cityCenterDistanceKm: null,
+      typicalDriveMinutes: null,
+      provenance: createProvenance({
+        source: 'unavailable',
+        status: 'UNAVAILABLE',
+        confidence: 0
+      })
+    };
+  }
+
   // Unknown city: NO fake coordinates! Coordinates are null + UNAVAILABLE
   return isTrain
     ? {
-        name: `${cityName} Central Railway Station`,
+        name: `${cityName} Railway Station`,
         code: `${cityName.slice(0, 3).toUpperCase()}`,
         type: 'Railway Station',
         city: cityName,
+        hasAirport: false,
         gpsCoordinates: null,
         cityCenterDistanceKm: null,
         typicalDriveMinutes: null,
@@ -380,10 +470,11 @@ export function resolveTransitHub(cityName, mode = 'flight') {
         })
       }
     : {
-        name: `${cityName} Domestic & International Airport`,
+        name: `${cityName} Airport`,
         code: `${cityName.slice(0, 3).toUpperCase()}`,
         type: 'Airport',
         city: cityName,
+        hasAirport: true,
         gpsCoordinates: null,
         cityCenterDistanceKm: null,
         typicalDriveMinutes: null,
@@ -465,6 +556,32 @@ export function buildOriginTransfer({
   scheduledDeparture = '09:20 AM'
 }) {
   const isTrain = transportMode === 'train';
+  const isRoad = transportMode === 'self_car' || transportMode === 'car' || transportMode === 'drive';
+
+  if (isRoad) {
+    return {
+      segmentType: 'origin_transfer',
+      title: `Road Departure: ${origin}`,
+      from: `${origin} (Residence / Starting Point)`,
+      to: `Direct Highway Connection`,
+      hubCode: 'ROAD',
+      hubType: 'Road Network',
+      roadDistanceKm: 0,
+      estimatedDriveMinutes: 0,
+      distanceType: 'road_direct',
+      distanceTypeLabel: 'Direct Road Journey',
+      scheduledTransitDeparture: scheduledDeparture,
+      recommendedLeaveHomeTime: scheduledDeparture,
+      recommendedHubArrivalTime: scheduledDeparture,
+      safetyBufferMinutes: 10,
+      corridor: `National / State Highway from ${origin}`,
+      warning: null,
+      excludedFromTotals: false,
+      provenance: createProvenance({ source: 'road_network', status: 'LIVE', confidence: 1.0 }),
+      note: `Direct road transit from ${origin}. No airport or station terminal transfer needed.`
+    };
+  }
+
   const hub = resolveTransitHub(origin, transportMode);
   const hasCoords = hub.gpsCoordinates?.latitude != null && hub.gpsCoordinates?.longitude != null;
 
@@ -533,6 +650,33 @@ export function buildDestinationArrivalTransfer({
   scheduledArrival = '11:05 AM'
 }) {
   const isTrain = transportMode === 'train';
+  const isRoad = transportMode === 'self_car' || transportMode === 'car' || transportMode === 'drive';
+
+  if (isRoad) {
+    return {
+      segmentType: 'destination_transfer',
+      title: `Arrival: Direct Check-in at ${hotel?.name || destination}`,
+      from: `Highway Route to ${destination}`,
+      fromHubCode: 'ROAD',
+      to: hotel?.name || `${destination} Stay Basecamp`,
+      hotelAddress: hotel?.address || `${destination}`,
+      hotelCoords: hotel?.gpsCoordinates || null,
+      roadDistanceKm: null,
+      estimatedDriveMinutes: null,
+      distanceType: 'road_direct',
+      distanceTypeLabel: 'Direct Road Transit',
+      scheduledArrival,
+      cabPickupTime: scheduledArrival,
+      hotelArrivalTime: scheduledArrival,
+      recommendedCheckInTime: scheduledArrival,
+      corridor: `Highway approach to ${destination}`,
+      warning: null,
+      excludedFromTotals: false,
+      provenance: createProvenance({ source: 'road_network', status: 'LIVE', confidence: 1.0 }),
+      googleMapsDirectionsUrl: `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent((hotel?.name || '') + ' ' + (hotel?.address || destination))}&travelmode=driving`
+    };
+  }
+
   const hub = resolveTransitHub(destination, transportMode);
 
   const hotelLat = hotel?.gpsCoordinates?.latitude;

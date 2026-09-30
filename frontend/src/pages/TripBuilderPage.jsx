@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTrip } from '../context/TripContext';
-import LocationAutocomplete from '../components/LocationAutocomplete';
+import LocationInput from '../components/LocationInput';
+import AnywhereInIndiaModal from '../components/AnywhereInIndiaModal';
 import PlaceImage from '../components/PlaceImage';
 import { loadGoogleMaps } from '../utils/loadGoogleMaps';
 import {
@@ -33,50 +34,29 @@ export default function TripBuilderPage() {
   const isDark = theme === 'dark';
   const [mapsReady, setMapsReady] = useState(false);
   const [discoveryOpen, setDiscoveryOpen] = useState(false);
-  const [promptInput, setPromptInput] = useState('3 days in Goa from Ahmedabad under ₹20,000 for 2 people, prefer beaches and local food');
-  const [isParsing, setIsParsing] = useState(false);
 
   useEffect(() => {
     loadGoogleMaps().then(() => setMapsReady(true)).catch(() => {});
   }, []);
 
-  async function handleParsePrompt() {
-    if (!promptInput.trim()) return;
-    setIsParsing(true);
-    try {
-      const res = await fetch('http://localhost:5000/api/trips/parse-prompt', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: promptInput })
-      });
-      const data = await res.json();
-      if (data.success && data.parsed) {
-        const p = data.parsed;
-        setFormData(prev => ({
-          ...prev,
-          origin: p.origin || prev.origin,
-          destination: p.destination || prev.destination,
-          duration: p.duration || prev.duration,
-          budget: p.budget || prev.budget,
-          travelers: p.travelers || prev.travelers,
-          interests: p.interests?.length ? p.interests : prev.interests,
-          transportPreference: p.transportPreference || prev.transportPreference,
-          travelStyle: p.travelStyle || prev.travelStyle
-        }));
-      }
-    } catch (err) {
-      console.warn('[Parse error]:', err);
-    } finally {
-      setIsParsing(false);
-    }
+  function handleOriginSelect(loc) {
+    setFormData(p => ({
+      ...p,
+      origin: loc.formattedAddress || loc.name,
+      originLocation: loc,
+      originCoords: loc.latitude && loc.longitude ? { lat: loc.latitude, lng: loc.longitude } : p.originCoords
+    }));
   }
 
-  function handleOriginChange(v, place) {
-    setFormData(p => ({ ...p, origin: v, originCoords: place ? { lat: place.lat, lng: place.lng } : p.originCoords }));
+  function handleDestSelect(loc) {
+    setFormData(p => ({
+      ...p,
+      destination: loc.formattedAddress || loc.name,
+      destinationLocation: loc,
+      destinationCoords: loc.latitude && loc.longitude ? { lat: loc.latitude, lng: loc.longitude } : p.destinationCoords
+    }));
   }
-  function handleDestChange(v, place) {
-    setFormData(p => ({ ...p, destination: v, destinationCoords: place ? { lat: place.lat, lng: place.lng } : p.destinationCoords }));
-  }
+
   function toggleInterest(id) {
     setFormData(p => {
       const has = p.interests.includes(id);
@@ -85,10 +65,23 @@ export default function TripBuilderPage() {
   }
   async function openDiscovery() {
     setDiscoveryOpen(true);
-    await runDestinationDiscovery({ origin: formData.origin, budget: formData.budget, duration: formData.duration, interests: formData.interests });
   }
   function selectDest(dest) {
-    setFormData(p => ({ ...p, destination: dest.name }));
+    setFormData(p => ({
+      ...p,
+      destination: dest.name,
+      destinationLocation: {
+        name: dest.name,
+        city: dest.city || dest.name,
+        district: '',
+        state: dest.state || '',
+        country: 'India',
+        latitude: null,
+        longitude: null,
+        formattedAddress: `${dest.name}, ${dest.state || 'India'}`,
+        source: 'anywhere_in_india_discovery'
+      }
+    }));
     setDiscoveryOpen(false);
   }
   function handleSubmit(e) {
@@ -134,90 +127,30 @@ export default function TripBuilderPage() {
             {/* ── LEFT: Main Configuration Cards ── */}
             <div className="lg:col-span-8 space-y-6">
 
-              {/* Natural Language Constraint Parser */}
-              <div className={`p-5 rounded-3xl border shadow-md space-y-3 ${
-                isDark ? 'bg-[#111726] border-slate-800' : 'bg-blue-50/70 border-blue-200'
-              }`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-cyan-500" />
-                    <span className="text-xs font-black uppercase tracking-wider text-cyan-400">
-                      Natural Language Constraint Parser
-                    </span>
-                  </div>
-                  <span className="text-[10px] font-mono font-bold text-slate-400">AI + Deterministic Model</span>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <input
-                    type="text"
-                    value={promptInput}
-                    onChange={e => setPromptInput(e.target.value)}
-                    placeholder="e.g. 3 days in Goa from Ahmedabad under ₹20,000 for 2 people, prefer beaches and local food"
-                    className={`flex-1 px-4 py-2.5 rounded-xl text-xs font-medium focus:outline-none ${
-                      isDark ? 'bg-slate-900 border border-slate-700 text-white' : 'bg-white border border-slate-300 text-slate-900 shadow-sm'
-                    }`}
-                  />
-                  <button
-                    type="button"
-                    onClick={handleParsePrompt}
-                    disabled={isParsing}
-                    className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 text-white font-bold text-xs whitespace-nowrap shadow-md hover:scale-105 transition-all"
-                  >
-                    {isParsing ? 'Parsing...' : 'Extract Constraints'}
-                  </button>
-                </div>
-                {/* Verified Constraint Model Pill Box */}
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-1 text-[11px] font-medium">
-                  <div className={`p-2 rounded-xl border text-center ${isDark ? 'bg-slate-900/60 border-white/5 text-slate-300' : 'bg-white border-slate-200'}`}>
-                    <span className="text-[9px] uppercase font-bold text-slate-400 block">Destination</span>
-                    <strong className="text-cyan-400 truncate block">{formData.destination || 'Goa'}</strong>
-                  </div>
-                  <div className={`p-2 rounded-xl border text-center ${isDark ? 'bg-slate-900/60 border-white/5 text-slate-300' : 'bg-white border-slate-200'}`}>
-                    <span className="text-[9px] uppercase font-bold text-slate-400 block">Duration</span>
-                    <strong className="text-emerald-400">{formData.duration} Days</strong>
-                  </div>
-                  <div className={`p-2 rounded-xl border text-center ${isDark ? 'bg-slate-900/60 border-white/5 text-slate-300' : 'bg-white border-slate-200'}`}>
-                    <span className="text-[9px] uppercase font-bold text-slate-400 block">Budget</span>
-                    <strong className="text-emerald-400">₹{Number(formData.budget).toLocaleString('en-IN')}</strong>
-                  </div>
-                  <div className={`p-2 rounded-xl border text-center ${isDark ? 'bg-slate-900/60 border-white/5 text-slate-300' : 'bg-white border-slate-200'}`}>
-                    <span className="text-[9px] uppercase font-bold text-slate-400 block">Travelers</span>
-                    <strong className="text-white">{formData.travelers} Pax</strong>
-                  </div>
-                  <div className={`p-2 rounded-xl border text-center ${isDark ? 'bg-slate-900/60 border-white/5 text-slate-300' : 'bg-white border-slate-200'}`}>
-                    <span className="text-[9px] uppercase font-bold text-slate-400 block">Interests</span>
-                    <strong className="text-cyan-300 truncate block">{formData.interests?.slice(0, 2).join(', ') || 'Beaches'}</strong>
-                  </div>
-                </div>
-              </div>
-
               {/* Destination & Origin Card */}
               <Card isDark={isDark} title="Where are you traveling?">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Field isDark={isDark} label="Departure City (From)">
-                    {mapsReady
-                      ? <LocationAutocomplete value={formData.origin} onChange={handleOriginChange} placeholder="Origin city" icon={MapPin} iconColor="text-slate-400" required />
-                      : <PlainInput isDark={isDark} icon={<MapPin className="w-4 h-4 text-slate-400" />} value={formData.origin} onChange={v => setFormData(p => ({ ...p, origin: v }))} placeholder="Origin city" required />
-                    }
-                  </Field>
+                  <div>
+                    <LocationInput
+                      label="Departure City (From)"
+                      value={formData.origin}
+                      onChange={v => setFormData(p => ({ ...p, origin: v }))}
+                      onSelectLocation={handleOriginSelect}
+                      placeholder="Origin city (e.g. Rajkot)"
+                    />
+                  </div>
 
-                  <Field isDark={isDark} label={
-                    <div className="flex items-center justify-between">
-                      <span>Destination (To)</span>
-                      <button
-                        type="button"
-                        onClick={openDiscovery}
-                        className="text-[10px] font-bold text-cyan-500 hover:text-cyan-400 flex items-center gap-1 transition-colors"
-                      >
-                        <Sparkles className="w-3 h-3" /> Help me choose
-                      </button>
-                    </div>
-                  }>
-                    {mapsReady
-                      ? <LocationAutocomplete value={formData.destination} onChange={handleDestChange} placeholder="Destination (or click 'Help me choose')" icon={MapPin} iconColor="text-cyan-500" />
-                      : <PlainInput isDark={isDark} icon={<MapPin className="w-4 h-4 text-cyan-500" />} value={formData.destination} onChange={v => setFormData(p => ({ ...p, destination: v }))} placeholder="Destination (or leave empty)" />
-                    }
-                  </Field>
+                  <div>
+                    <LocationInput
+                      label="Destination (To)"
+                      value={formData.destination}
+                      onChange={v => setFormData(p => ({ ...p, destination: v }))}
+                      onSelectLocation={handleDestSelect}
+                      placeholder="Destination (e.g. Jetpur, Goa)"
+                      isDestination={true}
+                      onOpenDiscovery={openDiscovery}
+                    />
+                  </div>
                 </div>
               </Card>
 
@@ -382,94 +315,16 @@ export default function TripBuilderPage() {
         </form>
       </div>
 
-      {/* ── AI DESTINATION DISCOVERY SCREEN (EDITORIAL DRAWER) ── */}
-      {discoveryOpen && (
-        <div className="fixed inset-0 z-50 bg-black/68 backdrop-blur-lg flex items-center justify-center p-4 overflow-y-auto">
-          <div className={`border rounded-3xl max-w-3xl w-full p-6 sm:p-8 shadow-2xl my-8 relative transition-colors duration-300 ${
-            isDark ? 'bg-slate-950 border-white/20' : 'bg-white border-slate-200'
-          }`}>
-            <button
-              onClick={() => setDiscoveryOpen(false)}
-              className={`absolute top-5 right-5 w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
-                isDark ? 'bg-white/10 text-white hover:bg-white/20' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              <X className="w-4 h-4" />
-            </button>
-
-            <div className="mb-6">
-              <span className="text-[10px] font-black uppercase tracking-widest text-cyan-500 bg-cyan-500/10 px-2.5 py-0.5 rounded-full border border-cyan-500/20">
-                AI Discovery Engine
-              </span>
-              <h2 className={`text-2xl sm:text-3xl font-black mt-2 ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                Recommended Destinations from {formData.origin || 'your origin'}
-              </h2>
-              <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                Ranked by interest match and live estimated fares within ₹{Number(formData.budget).toLocaleString('en-IN')}.
-              </p>
-            </div>
-
-            {isDiscovering ? (
-              <div className="py-20 text-center space-y-4">
-                <Loader2 className="w-10 h-10 text-cyan-400 animate-spin mx-auto" />
-                <p className={`text-sm font-semibold ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-                  Analyzing flight corridors & verified hotel rates...
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3.5 max-h-[60vh] overflow-y-auto pr-1">
-                {destinationsDiscovery.map(dest => (
-                  <div
-                    key={dest.name}
-                    onClick={() => selectDest(dest)}
-                    className={`flex items-center gap-4 p-4 rounded-2xl border transition-all cursor-pointer group hover:-translate-y-0.5 hover:shadow-lg ${
-                      isDark
-                        ? 'bg-slate-900/60 border-white/10 hover:border-cyan-400/40'
-                        : 'bg-slate-50 border-slate-200/80 hover:border-indigo-400/50'
-                    }`}
-                  >
-                    <div className="w-20 h-20 rounded-2xl overflow-hidden flex-shrink-0 relative shadow-md">
-                      <PlaceImage
-                        query={`${dest.name} travel photography landscape`}
-                        fallbackSrc={dest.coverImage || null}
-                        alt={dest.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                        skeletonClassName="absolute inset-0"
-                      />
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className={`font-black text-base ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                          {dest.name}
-                        </span>
-                        <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                          {dest.interestMatch || '95%'} Match
-                        </span>
-                      </div>
-                      <p className={`text-xs line-clamp-1 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-                        {dest.tagline || 'Scenic viewpoints, cultural landmarks and coastal breezes.'}
-                      </p>
-                      <div className="flex items-center gap-3 mt-1.5">
-                        <span className="text-xs font-black text-emerald-400">
-                          {dest.estimatedCostFormatted || `~₹${(formData.budget * 0.9).toLocaleString('en-IN')}`}
-                        </span>
-                        <span className={`text-[10px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                          {formData.duration} Days Plan
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="w-8 h-8 rounded-full bg-indigo-600/15 text-indigo-400 group-hover:bg-indigo-600 group-hover:text-white flex items-center justify-center transition-colors flex-shrink-0">
-                      <ChevronRight className="w-4 h-4" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      {/* ── ANYWHERE IN INDIA DESTINATION DISCOVERY MODAL ── */}
+      <AnywhereInIndiaModal
+        isOpen={discoveryOpen}
+        onClose={() => setDiscoveryOpen(false)}
+        initialOrigin={formData.origin || 'Rajkot'}
+        initialBudget={formData.budget || 8000}
+        initialDuration={formData.duration || 3}
+        initialInterest={formData.interests?.[0] || 'Mountains'}
+        onSelectDestination={selectDest}
+      />
 
     </div>
   );

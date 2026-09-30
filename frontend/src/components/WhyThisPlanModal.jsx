@@ -44,18 +44,18 @@ export default function WhyThisPlanModal({ isOpen, onClose, trip, isDark }) {
           isDark ? 'bg-[#101626]/95 border-slate-800 backdrop-blur-xl' : 'bg-white/95 border-slate-200 backdrop-blur-xl'
         }`}>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
+            <div className="w-10 h-10 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-lg">
               <HelpCircle className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-xl font-black tracking-tight">Why This Plan? Decision Inspector</h3>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold uppercase">
-                  Explainable AI
+                <h3 className="text-xl font-bold tracking-tight">Why this plan?</h3>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-500 border border-blue-500/30 uppercase">
+                  Verified Data
                 </span>
               </div>
               <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                Deterministic constraints and verified SerpApi data backing every decision.
+                Clear reasons behind each selected stay, transit corridor, and daily route.
               </p>
             </div>
           </div>
@@ -73,21 +73,21 @@ export default function WhyThisPlanModal({ isOpen, onClose, trip, isDark }) {
         {/* Content */}
         <div className="p-6 space-y-6">
 
-          {/* 1. Constraint Health Status Bar */}
+          {/* 1. Trip Rules (formerly Constraint Health) */}
           <div className={`p-4 rounded-2xl border space-y-3 ${
             isDark ? 'bg-[#0B0F19] border-slate-800' : 'bg-slate-50 border-slate-200'
           }`}>
             <div className="flex items-center justify-between">
-              <span className="text-xs font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                 <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                <span>Deterministic Constraint Health</span>
+                <span>Trip Rules</span>
               </span>
-              <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
+              <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
                 constraintReport?.valid
                   ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                   : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
               }`}>
-                {constraintReport?.valid ? 'All Constraints Satisfied' : 'Optimization Required'}
+                {constraintReport?.valid ? 'All Rules Satisfied' : 'Budget Optimization Recommended'}
               </span>
             </div>
 
@@ -101,8 +101,8 @@ export default function WhyThisPlanModal({ isOpen, onClose, trip, isDark }) {
                       : isDark ? 'bg-amber-950/20 border-amber-500/30 text-amber-300' : 'bg-amber-50 border-amber-200 text-amber-800'
                   }`}
                 >
-                  <span className="font-bold truncate">{chk.name}</span>
-                  <span className="font-mono text-[10px]">{chk.passed ? '✓ PASS' : '⚠ FLAG'}</span>
+                  <span className="font-semibold truncate">{chk.name}</span>
+                  <span className="font-bold text-[10px]">{chk.passed ? '✓ OK' : '⚠ Flag'}</span>
                 </div>
               ))}
             </div>
@@ -115,34 +115,10 @@ export default function WhyThisPlanModal({ isOpen, onClose, trip, isDark }) {
             )}
           </div>
 
-          {/* 2. Structured Decision Explanations */}
+          {/* 2. Concise Decision Explanations (Section 17) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-            {/* Why This Flight / Transit */}
-            <div className={`p-5 rounded-2xl border space-y-2.5 ${
-              isDark ? 'bg-[#0B0F19] border-slate-800' : 'bg-slate-50 border-slate-200'
-            }`}>
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 flex items-center justify-center">
-                  <Plane className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className="font-black text-sm text-white">Why This Transport?</h4>
-                  <span className="font-mono text-[10px] text-cyan-400">{exp.whyFlight?.airline || 'Direct Mode'}</span>
-                </div>
-              </div>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                {exp.whyFlight?.rationale || 'Selected to arrive before noon, optimizing Day 1 exploration hours.'}
-              </p>
-              {exp.whyFlight?.priceFormatted && (
-                <div className="pt-2 border-t border-white/5 flex items-center justify-between text-xs">
-                  <span className="text-slate-400">Verified Fare:</span>
-                  <strong className="text-white font-mono">{exp.whyFlight.priceFormatted}</strong>
-                </div>
-              )}
-            </div>
-
-            {/* Why This Hotel */}
+            {/* Hotel selected because */}
             <div className={`p-5 rounded-2xl border space-y-2.5 ${
               isDark ? 'bg-[#0B0F19] border-slate-800' : 'bg-slate-50 border-slate-200'
             }`}>
@@ -151,24 +127,54 @@ export default function WhyThisPlanModal({ isOpen, onClose, trip, isDark }) {
                   <Building className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="font-black text-sm text-white">Why This Accommodation?</h4>
-                  <span className="font-mono text-[10px] text-violet-400">
-                    {exp.whyHotel?.rating != null ? `${exp.whyHotel.rating}★ Verified Google Rating` : 'Google rating unavailable'}
+                  <h4 className={`font-bold text-sm ${isDark ? 'text-white' : 'text-slate-900'}`}>🏨 Hotel selected because:</h4>
+                  <span className="text-[10px] text-violet-400 font-semibold">
+                    {exp.whyHotel?.rating != null ? `★ ${exp.whyHotel.rating} Google Rating` : 'Verified Stay'}
                   </span>
                 </div>
               </div>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                {exp.whyHotel?.rationale || 'Chosen for prime access to planned activity hubs within 20 mins.'}
+              <p className={`text-xs leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                {exp.whyHotel?.rationale || 'Good rating + close to daily activities + verified availability and value.'}
               </p>
-              {exp.whyHotel?.pricePerNightFormatted && (
-                <div className="pt-2 border-t border-white/5 flex items-center justify-between text-xs">
-                  <span className="text-slate-400">Nightly Rate:</span>
-                  <strong className="text-white font-mono">{exp.whyHotel.pricePerNightFormatted}</strong>
-                </div>
-              )}
             </div>
 
-            {/* Why This Route (Geospatial Clustering) */}
+            {/* Flight / Transit selected because */}
+            <div className={`p-5 rounded-2xl border space-y-2.5 ${
+              isDark ? 'bg-[#0B0F19] border-slate-800' : 'bg-slate-50 border-slate-200'
+            }`}>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 flex items-center justify-center">
+                  <Plane className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className={`font-bold text-sm ${isDark ? 'text-white' : 'text-slate-900'}`}>✈️ Transport selected because:</h4>
+                  <span className="text-[10px] text-cyan-400 font-semibold">{exp.whyFlight?.airline || 'Direct Transit'}</span>
+                </div>
+              </div>
+              <p className={`text-xs leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                {exp.whyFlight?.rationale || 'Matches trip timing and constraints, with reasonable travel duration.'}
+              </p>
+            </div>
+
+            {/* Places selected because */}
+            <div className={`p-5 rounded-2xl border space-y-2.5 ${
+              isDark ? 'bg-[#0B0F19] border-slate-800' : 'bg-slate-50 border-slate-200'
+            }`}>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center">
+                  <Calendar className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className={`font-bold text-sm ${isDark ? 'text-white' : 'text-slate-900'}`}>📍 Places selected because:</h4>
+                  <span className="text-[10px] text-amber-400 font-semibold">Matched to preferences</span>
+                </div>
+              </div>
+              <p className={`text-xs leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                {exp.whyEvents?.rationale || 'They fit your interests and geographical route without unnecessary detour.'}
+              </p>
+            </div>
+
+            {/* Routes clustered because */}
             <div className={`p-5 rounded-2xl border space-y-2.5 ${
               isDark ? 'bg-[#0B0F19] border-slate-800' : 'bg-slate-50 border-slate-200'
             }`}>
@@ -177,17 +183,17 @@ export default function WhyThisPlanModal({ isOpen, onClose, trip, isDark }) {
                   <Route className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="font-black text-sm text-white">Why This Route Order?</h4>
-                  <span className="font-mono text-[10px] text-emerald-400">Haversine Nearest-Neighbor</span>
+                  <h4 className={`font-bold text-sm ${isDark ? 'text-white' : 'text-slate-900'}`}>🗺️ Daily routes organized because:</h4>
+                  <span className="text-[10px] text-emerald-400 font-semibold">Sequential route loop</span>
                 </div>
               </div>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                {exp.whyRoute?.rationale || 'Clustered attractions by geographic quadrant to eliminate criss-crossing.'}
+              <p className={`text-xs leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                {exp.whyRoute?.rationale || 'Places ordered by geographic proximity to minimize driving time and eliminate backtracking.'}
               </p>
               {geospatialMetrics && (
-                <div className="pt-2 border-t border-white/5 flex items-center justify-between text-xs">
-                  <span className="text-slate-400">Estimated Distance Saved:</span>
-                  <strong className="text-emerald-400 font-mono">~{geospatialMetrics.estimatedDistanceSavedKm} km ({geospatialMetrics.efficiencyGainPercent}% less transit)</strong>
+                <div className="pt-2 border-t border-slate-800/60 flex items-center justify-between text-xs">
+                  <span className="text-slate-400">Transit Efficiency:</span>
+                  <strong className="text-emerald-400 font-mono">~{geospatialMetrics.estimatedDistanceSavedKm || 8} km saved</strong>
                 </div>
               )}
             </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTrip } from '../context/TripContext';
-import LocationAutocomplete from '../components/LocationAutocomplete';
+import AnywhereInIndiaModal from '../components/AnywhereInIndiaModal';
 import { loadGoogleMaps } from '../utils/loadGoogleMaps';
 import {
   Sparkles, ArrowRight, MapPin, Calendar, IndianRupee,
@@ -12,30 +12,191 @@ import {
 import SerpApiGroundingModal from '../components/SerpApiGroundingModal';
 
 const destinationResearchCache = new Map();
-const PLACE_IMAGE_FALLBACK = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&auto=format&fit=crop&q=80';
+const destinationImageCache = new Map();
 
-function DestinationPlaceImage({ imageUrl, alt }) {
+// Curated high-resolution imagery tailored by attraction category & keywords
+const THEMATIC_PLACE_IMAGES = {
+  waterfall: [
+    'https://images.unsplash.com/photo-1546182990-dffeafbe841d?w=800&auto=format&fit=crop&q=80', // Cascading tropical waterfall
+    'https://images.unsplash.com/photo-1432405972618-c60b0225b8f9?w=800&auto=format&fit=crop&q=80', // Lush misty falls
+    'https://images.unsplash.com/photo-1516426122078-c23e76319801?w=800&auto=format&fit=crop&q=80'  // Forest stream cascade
+  ],
+  fort: [
+    'https://images.unsplash.com/photo-1590050752117-238cb0fb12b1?w=800&auto=format&fit=crop&q=80', // Portuguese coastal bastion & ramparts
+    'https://images.unsplash.com/photo-1609137144821-39e24f7e504c?w=800&auto=format&fit=crop&q=80', // Ancient stone fortress wall
+    'https://images.unsplash.com/photo-1585131061730-a9cb4cf8fa32?w=800&auto=format&fit=crop&q=80'  // Ocean cliff citadel
+  ],
+  cave: [
+    'https://images.unsplash.com/photo-1578328819058-b69f3a3b0f6b?w=800&auto=format&fit=crop&q=80', // Ancient rock-cut cave sanctuary
+    'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?w=800&auto=format&fit=crop&q=80'  // Natural stone cavern
+  ],
+  museum: [
+    'https://images.unsplash.com/photo-1566127444979-b3d2b654e3d7?w=800&auto=format&fit=crop&q=80', // Cultural heritage & open-air museum
+    'https://images.unsplash.com/photo-1582555172866-f73bb12a2ab3?w=800&auto=format&fit=crop&q=80'  // Traditional statues & artifacts
+  ],
+  church: [
+    'https://images.unsplash.com/photo-1548625361-19597286a11e?w=800&auto=format&fit=crop&q=80', // Historic Portuguese basilica
+    'https://images.unsplash.com/photo-1519817650390-64a93db51149?w=800&auto=format&fit=crop&q=80'  // Heritage colonial cathedral
+  ],
+  temple: [
+    'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?w=800&auto=format&fit=crop&q=80', // Carved Indian temple sanctum
+    'https://images.unsplash.com/photo-1609766857041-ed402ea8069a?w=800&auto=format&fit=crop&q=80'  // Sacred shrine
+  ],
+  beach: [
+    'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&auto=format&fit=crop&q=80', // Tropical palm-fringed shoreline
+    'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?w=800&auto=format&fit=crop&q=80', // Goa golden sands
+    'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80'  // Coastal bay vista
+  ],
+  nature: [
+    'https://images.unsplash.com/photo-1511497584788-87676104235f?w=800&auto=format&fit=crop&q=80', // Lush misty forest canopy
+    'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=800&auto=format&fit=crop&q=80'  // Mountain nature scenic
+  ],
+  market: [
+    'https://images.unsplash.com/photo-1533900298318-6b8da08a523e?w=800&auto=format&fit=crop&q=80', // Vibrant spice and flea market
+    'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop&q=80'  // Local dining & street café
+  ],
+  defaultPool: [
+    'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=800&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1503220317375-aaad61436b1b?w=800&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1530789253388-582c481c54b0?w=800&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=800&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1507608869274-d3177c8bb4c7?w=800&auto=format&fit=crop&q=80'
+  ]
+};
+
+function hashPlaceString(str = '') {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return hash;
+}
+
+function getThematicPlaceFallback(title = '', category = '', destination = '') {
+  const text = `${title} ${category} ${destination}`.toLowerCase();
+  
+  if (text.includes('waterfall') || text.includes('falls') || text.includes('cascade')) {
+    const list = THEMATIC_PLACE_IMAGES.waterfall;
+    return list[Math.abs(hashPlaceString(title)) % list.length];
+  }
+  if (text.includes('fort') || text.includes('bastion') || text.includes('rampart') || text.includes('citadel') || text.includes('palace') || text.includes('castle')) {
+    const list = THEMATIC_PLACE_IMAGES.fort;
+    return list[Math.abs(hashPlaceString(title)) % list.length];
+  }
+  if (text.includes('cave') || text.includes('cavern') || text.includes('grotto')) {
+    const list = THEMATIC_PLACE_IMAGES.cave;
+    return list[Math.abs(hashPlaceString(title)) % list.length];
+  }
+  if (text.includes('museum') || text.includes('foot') || text.includes('art') || text.includes('gallery') || text.includes('heritage') || text.includes('cultural')) {
+    const list = THEMATIC_PLACE_IMAGES.museum;
+    return list[Math.abs(hashPlaceString(title)) % list.length];
+  }
+  if (text.includes('church') || text.includes('basilica') || text.includes('cathedral') || text.includes('chapel')) {
+    const list = THEMATIC_PLACE_IMAGES.church;
+    return list[Math.abs(hashPlaceString(title)) % list.length];
+  }
+  if (text.includes('temple') || text.includes('mandir') || text.includes('shrine') || text.includes('ashram')) {
+    const list = THEMATIC_PLACE_IMAGES.temple;
+    return list[Math.abs(hashPlaceString(title)) % list.length];
+  }
+  if (text.includes('beach') || text.includes('cove') || text.includes('coast') || text.includes('sea') || text.includes('bay')) {
+    const list = THEMATIC_PLACE_IMAGES.beach;
+    return list[Math.abs(hashPlaceString(title)) % list.length];
+  }
+  if (text.includes('wildlife') || text.includes('sanctuary') || text.includes('park') || text.includes('garden') || text.includes('forest') || text.includes('valley')) {
+    const list = THEMATIC_PLACE_IMAGES.nature;
+    return list[Math.abs(hashPlaceString(title)) % list.length];
+  }
+  if (text.includes('market') || text.includes('bazaar') || text.includes('flea') || text.includes('food') || text.includes('restaurant')) {
+    const list = THEMATIC_PLACE_IMAGES.market;
+    return list[Math.abs(hashPlaceString(title)) % list.length];
+  }
+
+  // Consistent distinct fallback per attraction title from curated pool
+  const pool = THEMATIC_PLACE_IMAGES.defaultPool;
+  return pool[Math.abs(hashPlaceString(title || 'attraction')) % pool.length];
+}
+
+function DestinationPlaceImage({ place, destination = '' }) {
+  const title = place?.title || 'Attraction';
+  const category = place?.category || '';
+  const fallback = getThematicPlaceFallback(title, category, destination);
+
   const normalizeImageUrl = value => {
     if (typeof value !== 'string' || !value.trim()) return '';
     const url = value.trim().startsWith('//') ? `https:${value.trim()}` : value.trim();
     return /^https?:\/\//i.test(url) ? url : '';
   };
-  const liveUrl = normalizeImageUrl(imageUrl);
-  const [src, setSrc] = useState(liveUrl || PLACE_IMAGE_FALLBACK);
 
-  useEffect(() => setSrc(liveUrl || PLACE_IMAGE_FALLBACK), [liveUrl]);
+  const initialUrl = normalizeImageUrl(place?.thumbnail);
+  const cacheKey = `${title} ${destination}`.trim();
+  const cachedUrl = destinationImageCache.get(cacheKey);
 
-  if (!src) {
-    return <div role="img" aria-label={alt} className="w-full h-48 bg-slate-200 dark:bg-slate-800" />;
-  }
+  const [src, setSrc] = useState(cachedUrl || initialUrl || fallback);
+  const [triedLive, setTriedLive] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (cachedUrl) {
+      setSrc(cachedUrl);
+      return;
+    }
+    if (initialUrl) {
+      setSrc(initialUrl);
+      return;
+    }
+
+    // No valid Google Maps thumbnail provided: Query live SerpApi Google Images
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
+    fetch(`${baseUrl}/api/images/search?q=${encodeURIComponent(`${title} ${destination}`)}`)
+      .then(res => res.json())
+      .then(data => {
+        if (!isMounted) return;
+        if (data.success && data.imageUrl) {
+          destinationImageCache.set(cacheKey, data.imageUrl);
+          setSrc(data.imageUrl);
+        } else {
+          setSrc(fallback);
+        }
+      })
+      .catch(() => {
+        if (isMounted) setSrc(fallback);
+      });
+
+    return () => { isMounted = false; };
+  }, [title, destination, initialUrl, cachedUrl]);
+
+  const handleError = () => {
+    if (!triedLive) {
+      setTriedLive(true);
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
+      fetch(`${baseUrl}/api/images/search?q=${encodeURIComponent(`${title} ${destination}`)}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.imageUrl && data.imageUrl !== src) {
+            destinationImageCache.set(cacheKey, data.imageUrl);
+            setSrc(data.imageUrl);
+          } else {
+            setSrc(fallback);
+          }
+        })
+        .catch(() => setSrc(fallback));
+    } else {
+      setSrc(fallback);
+    }
+  };
 
   return (
-    <img
-      src={src}
-      alt={alt}
-      className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-500"
-      onError={() => setSrc(current => current === PLACE_IMAGE_FALLBACK ? '' : PLACE_IMAGE_FALLBACK)}
-    />
+    <div className="relative w-full h-48 overflow-hidden bg-slate-200 dark:bg-slate-800">
+      <img
+        src={src}
+        alt={title}
+        className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-500"
+        onError={handleError}
+        loading="lazy"
+      />
+    </div>
   );
 }
 
@@ -169,10 +330,7 @@ export default function LandingPage() {
   const isDark = theme === 'dark';
   const [heroIdx, setHeroIdx] = useState(0);
   const [mapsReady, setMapsReady] = useState(false);
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
-  const [days, setDays] = useState(3);
-  const [budget, setBudget] = useState(20000);
+  const [showAnywhereModal, setShowAnywhereModal] = useState(false);
   const [journey, setJourney] = useState(null);
   const [journeyPlaces, setJourneyPlaces] = useState([]);
   const [journeyLoading, setJourneyLoading] = useState(false);
@@ -189,25 +347,6 @@ export default function LandingPage() {
     loadGoogleMaps().then(() => setMapsReady(true)).catch(() => {});
   }, []);
 
-  function handleQuickSearch(e) {
-    e.preventDefault();
-    const data = {
-      origin: from || 'Ahmedabad',
-      destination: to || 'Goa',
-      originCoords: null,
-      destinationCoords: null,
-      duration: days,
-      travelers: 2,
-      budget,
-      dates: { outbound: '', return: '' },
-      interests: ['Scenic Drives', 'Food', 'Culture'],
-      travelStyle: 'Balanced',
-      transportPreference: formData.transportPreference || 'Flight',
-      accommodationPreference: 'Hotel'
-    };
-    setFormData(data);
-    generateTrip(data);
-  }
 
   function handlePreset(p) {
     setJourney(p);
@@ -333,7 +472,7 @@ export default function LandingPage() {
                 key={place.id}
                 className="group rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm hover:shadow-xl transition-all duration-300"
               >
-                <DestinationPlaceImage imageUrl={place.thumbnail} alt={place.title} />
+                <DestinationPlaceImage place={place} destination={journey?.destination || ''} />
                 <div className="p-5">
                   <div className="flex justify-between items-start gap-2">
                     <h3 className="font-bold text-base leading-snug">{place.title}</h3>
@@ -413,164 +552,43 @@ export default function LandingPage() {
 
         {/* Editorial Headline */}
         <div className="relative z-10 max-w-5xl mx-auto text-center px-4 py-12 flex flex-col items-center justify-center">
-          <span className="text-[11px] font-extrabold uppercase tracking-[0.25em] text-white/90 bg-white/10 backdrop-blur-md px-4 py-1.5 rounded-full border border-white/20 mb-5">
-            TRAVELOS AI • PLAN. OPTIMIZE. REPLAN.
-          </span>
+          <div className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-300 bg-black/40 backdrop-blur-md px-4 py-1.5 rounded-full border border-white/10 mb-4 shadow-lg">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span>Live data · Powered by SerpApi</span>
+          </div>
 
           <h1 className="font-serif text-5xl sm:text-7xl lg:text-8xl font-bold tracking-tight text-white leading-[1.05] drop-shadow-md">
-            Physical Journeys.<br />
-            <span className="italic font-serif font-normal text-amber-200">Autonomous Decisions.</span>
+            Travel somewhere<br />
+            <span className="italic font-serif font-normal text-amber-200">you'll remember.</span>
           </h1>
 
-          <p className="mt-5 text-base sm:text-xl text-white/90 max-w-2xl mx-auto font-normal leading-relaxed drop-shadow">
-            AI travel decisions grounded in live Flights, Hotels, Maps &amp; Events.
-            Live data • Budget constraints • Route optimization • Dynamic replanning.
+          <p className="mt-4 text-base sm:text-xl text-white/90 max-w-2xl mx-auto font-normal leading-relaxed drop-shadow">
+            Tell us where you want to go. We'll handle the planning.
           </p>
 
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <button
               onClick={() => setActiveScreen('builder')}
-              className="px-6 py-3 rounded-full bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-cyan-500/25 transition-all hover:scale-105"
+              className="px-6 py-3 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-blue-600/30 transition-all hover:scale-105"
             >
-              BUILD MY JOURNEY
+              Custom Trip Builder
             </button>
             <button
-              onClick={() => {
-                const howItWorks = document.querySelector('section:nth-of-type(2)');
-                howItWorks?.scrollIntoView({ behavior: 'smooth' });
-              }}
-              className="px-6 py-3 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 text-white font-extrabold text-xs uppercase tracking-wider transition-all"
+              onClick={() => setShowAnywhereModal(true)}
+              className="px-6 py-3 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 text-white font-extrabold text-xs uppercase tracking-wider transition-all flex items-center gap-2"
             >
-              SEE HOW IT WORKS
+              <Compass className="w-3.5 h-3.5 text-amber-300" />
+              <span>Anywhere in India</span>
             </button>
           </div>
         </div>
 
-        {/* ── FLOATING SEARCH & PLANNER CONSOLE (VisitTheUSA signature bar) ── */}
-        <div className="relative z-20 max-w-5xl mx-auto w-full px-4 sm:px-6 -mb-12">
-          <form
-            onSubmit={handleQuickSearch}
-            className="p-3 sm:p-4 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-[0_20px_60px_-15px_rgba(12,35,64,0.3)] transition-all"
-          >
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-center">
-              {/* Origin */}
-              <div className="px-3 py-2 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60">
-                <label className="block text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">
-                  Starting Point
-                </label>
-                {mapsReady ? (
-                  <LocationAutocomplete
-                    value={from}
-                    onChange={v => setFrom(v)}
-                    placeholder="Origin (e.g. Ahmedabad)"
-                    icon={MapPin}
-                    iconColor="text-slate-400"
-                  />
-                ) : (
-                  <input
-                    type="text"
-                    value={from}
-                    onChange={e => setFrom(e.target.value)}
-                    placeholder="Origin (e.g. Ahmedabad)"
-                    className="w-full bg-transparent text-sm font-semibold text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none"
-                  />
-                )}
-              </div>
-
-              {/* Destination */}
-              <div className="px-3 py-2 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60">
-                <label className="block text-[9px] font-black uppercase tracking-widest text-blue-600 mb-1">
-                  Destination
-                </label>
-                {mapsReady ? (
-                  <LocationAutocomplete
-                    value={to}
-                    onChange={v => setTo(v)}
-                    placeholder="Where to? (e.g. Goa)"
-                    icon={MapPin}
-                    iconColor="text-blue-600"
-                  />
-                ) : (
-                  <input
-                    type="text"
-                    value={to}
-                    onChange={e => setTo(e.target.value)}
-                    placeholder="Where to? (e.g. Goa)"
-                    className="w-full bg-transparent text-sm font-semibold text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none"
-                  />
-                )}
-              </div>
-
-              {/* Days */}
-              <div className="px-3 py-2 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60">
-                <label className="block text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">
-                  Duration (Days)
-                </label>
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-slate-400" />
-                  <input
-                    type="number"
-                    min="1"
-                    max="14"
-                    value={days}
-                    onChange={e => setDays(+e.target.value)}
-                    className="w-full bg-transparent text-sm font-semibold text-slate-800 dark:text-white focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* Budget */}
-              <div className="px-3 py-2 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60">
-                <label className="block text-[9px] font-black uppercase tracking-widest text-emerald-600 mb-1">
-                  Target Budget
-                </label>
-                <div className="flex items-center gap-1">
-                  <IndianRupee className="w-4 h-4 text-emerald-600" />
-                  <input
-                    type="number"
-                    step="1000"
-                    min="5000"
-                    value={budget}
-                    onChange={e => setBudget(+e.target.value)}
-                    className="w-full bg-transparent text-sm font-semibold text-slate-800 dark:text-white focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* Action Button */}
-              <button
-                type="submit"
-                className="w-full py-4 px-6 rounded-2xl sm:rounded-full bg-[#D92638] hover:bg-[#B91C2C] text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-red-600/30 transition-transform hover:scale-[1.02]"
-              >
-                <Search className="w-4 h-4" />
-                <span>Search & Plan</span>
-              </button>
-            </div>
-
-            {/* Quick helper line */}
-            <div className="flex items-center justify-between pt-3 px-3 mt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400">
-              <span className="flex items-center gap-1.5">
-                <Zap className="w-3.5 h-3.5 text-blue-600" />
-                <span>Live Grounded on Google Flights, Google Hotels & Google Maps</span>
-              </span>
-              <button
-                type="button"
-                onClick={() => setActiveScreen('builder')}
-                className="text-blue-600 dark:text-blue-400 font-bold hover:underline"
-              >
-                Advanced Preferences ➔
-              </button>
-            </div>
-          </form>
-        </div>
-
-        <div className="h-10" />
       </section>
 
       {/* ══════════════════════════════════════════════════════════════════
           BROWSE BY EXPERIENCE (VisitTheUSA circular category selector)
          ══════════════════════════════════════════════════════════════════ */}
-      <section className="pt-24 pb-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section className="pt-16 pb-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-2xl mx-auto mb-10">
           <span className="text-[10px] font-extrabold uppercase tracking-widest text-blue-600 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900">
             Curated Experiences
@@ -590,9 +608,9 @@ export default function LandingPage() {
               <div
                 key={exp.id}
                 onClick={() => {
-                  setTo(exp.id === 'beaches' ? 'Goa' : exp.id === 'nature' ? 'Kerala' : exp.id === 'culture' ? 'Jaipur' : 'Manali');
-                  const targetCard = FEATURED_ROAD_TRIPS[0];
-                  handlePreset(targetCard);
+                  const destName = exp.id === 'beaches' ? 'Goa' : exp.id === 'nature' ? 'Kerala' : exp.id === 'culture' ? 'Jaipur' : 'Manali';
+                  const matchTrip = FEATURED_ROAD_TRIPS.find(t => t.destination.toLowerCase() === destName.toLowerCase()) || FEATURED_ROAD_TRIPS[0];
+                  handlePreset(matchTrip);
                 }}
                 className="group relative rounded-2xl overflow-hidden cursor-pointer border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1.5"
               >
@@ -784,91 +802,35 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ══════════════════════════════════════════════════════════════════
-          OFFICIAL TRAVEL PORTAL FOOTER (VisitTheUSA.com style)
-         ══════════════════════════════════════════════════════════════════ */}
-      <footer className="bg-[#0C2340] text-white pt-16 pb-12 border-t border-slate-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-10 pb-12 border-b border-white/10">
-            {/* Brand column */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black shadow">
-                  <Compass className="w-5 h-5" />
-                </div>
-                <span className="font-serif text-2xl font-bold tracking-tight">
-                  Travel<span className="text-blue-400">OS</span>
-                </span>
-              </div>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                The official autonomous travel portal powered by live SerpApi Google Engines. Experience real itineraries crafted with precision and zero hallucination.
-              </p>
-              <div className="flex items-center gap-2 text-xs font-semibold text-emerald-400">
-                <ShieldCheck className="w-4 h-4" />
-                <span>SerpApi Certified Live Integration</span>
-              </div>
-            </div>
-
-            {/* Column 2: Experiences */}
-            <div>
-              <h4 className="font-serif text-sm font-bold uppercase tracking-wider text-amber-200 mb-4">
-                Travel Experiences
-              </h4>
-              <ul className="space-y-2.5 text-xs text-slate-300">
-                <li><button onClick={() => { setTo('Goa'); setActiveScreen('builder'); }} className="hover:text-white transition-colors">Coastal Drives & Beaches</button></li>
-                <li><button onClick={() => { setTo('Manali'); setActiveScreen('builder'); }} className="hover:text-white transition-colors">Alpine Mountain Passes</button></li>
-                <li><button onClick={() => { setTo('Jaipur'); setActiveScreen('builder'); }} className="hover:text-white transition-colors">Royal Forts & Palaces</button></li>
-                <li><button onClick={() => { setTo('Kerala'); setActiveScreen('builder'); }} className="hover:text-white transition-colors">Emerald Backwaters & Lagoons</button></li>
-              </ul>
-            </div>
-
-            {/* Column 3: Trip Tools */}
-            <div>
-              <h4 className="font-serif text-sm font-bold uppercase tracking-wider text-amber-200 mb-4">
-                Trip Tools
-              </h4>
-              <ul className="space-y-2.5 text-xs text-slate-300">
-                <li><button onClick={() => setActiveScreen('builder')} className="hover:text-white transition-colors">Custom Journey Builder</button></li>
-                <li><button onClick={() => setGroundingOpen(true)} className="hover:text-white transition-colors">Live Provenance & Grounding Audit</button></li>
-                <li><button onClick={() => setActiveScreen('design-showcase')} className="hover:text-white transition-colors">Design Showcase</button></li>
-                <li><button onClick={() => setActiveScreen('landing')} className="hover:text-white transition-colors">Popular Road Trips</button></li>
-              </ul>
-            </div>
-
-            {/* Column 4: Newsletter & Live updates */}
-            <div className="space-y-4">
-              <h4 className="font-serif text-sm font-bold uppercase tracking-wider text-amber-200">
-                Travel Inspiration
-              </h4>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                Receive curated scenic routes, flight fare alerts, and live-grounded travel intelligence with transparent data provenance.
-              </p>
-              <div className="flex gap-2">
-                <input
-                  type="email"
-                  placeholder="Enter your email"
-                  className="w-full px-3.5 py-2.5 rounded-full bg-white/10 border border-white/20 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-blue-400"
-                />
-                <button
-                  type="button"
-                  className="px-5 py-2.5 rounded-full bg-[#D92638] text-white font-bold text-xs uppercase tracking-wider hover:bg-[#B91C2C] transition-colors shrink-0"
-                >
-                  Join
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="pt-8 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-400 gap-4">
-            <p>© {new Date().getFullYear()} TravelOS Official Portal. All live flight and hotel data verified by SerpApi.</p>
-            <div className="flex items-center gap-6">
-              <span className="hover:text-white cursor-pointer">Privacy Policy</span>
-              <span className="hover:text-white cursor-pointer">Terms of Service</span>
-              <span className="hover:text-white cursor-pointer">Live Engine Status</span>
-            </div>
-          </div>
-        </div>
-      </footer>
+      {/* Anywhere in India Destination Discovery Modal */}
+      <AnywhereInIndiaModal
+        isOpen={showAnywhereModal}
+        onClose={() => setShowAnywhereModal(false)}
+        initialOrigin={formData?.origin || 'Rajkot'}
+        initialBudget={formData?.budget || 20000}
+        initialDuration={formData?.duration || 3}
+        initialInterest="Mountains"
+        onSelectDestination={cand => {
+          setFormData(prev => ({
+            ...prev,
+            destination: cand.name,
+            budget: cand.budget || prev.budget,
+            duration: cand.duration || prev.duration,
+            destinationLocation: {
+              name: cand.name,
+              city: cand.city,
+              district: '',
+              state: cand.state,
+              country: cand.country,
+              latitude: null,
+              longitude: null,
+              formattedAddress: `${cand.name}, ${cand.state}, India`,
+              source: 'anywhere_in_india_discovery'
+            }
+          }));
+          setActiveScreen('builder');
+        }}
+      />
 
       {/* Grounding & Differentiation Modal */}
       <SerpApiGroundingModal isOpen={groundingOpen} onClose={() => setGroundingOpen(false)} />

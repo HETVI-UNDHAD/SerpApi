@@ -5,7 +5,11 @@ import {
   searchPlaces,
   searchReviews,
   searchEvents,
-  discoverDestinations
+  discoverDestinations,
+  verifyLocationQuery,
+  hasCommercialAirport,
+  getAirportCode,
+  INDIAN_GAZETTEER
 } from './serpapiService.js';
 import {
   buildConstraintModel,
@@ -117,6 +121,9 @@ function normalizeTransportation({ mode, result }) {
 }
 
 function describeTransportation(transportation) {
+  if (transportation?.realityCheck) {
+    return `${transportation.realityCheck} ${transportation.distance ? `Route distance is ${transportation.distance}` : ''}${transportation.duration ? ` taking ~${transportation.duration}` : ''}.`;
+  }
   if (!transportation?.available) return transportation?.mode === 'train' ? 'No train/transit route was returned by Google Maps Directions.' : transportation?.mode === 'self_car' ? 'Driving route unavailable.' : 'Flight information unavailable.';
   if (transportation.mode === 'flight') return `Flight selected from live Google Flights data${transportation.operator ? ` (${transportation.operator})` : ''}${transportation.cost != null ? ` at ₹${transportation.cost.toLocaleString('en-IN')}` : ''}.`;
   if (transportation.mode === 'train') return `Train/transit selected from the Google Maps Directions transit result${transportation.duration ? `; duration ${transportation.duration}` : ''}${transportation.cost != null ? `; returned fare ${transportation.currency || ''} ${transportation.cost}` : '; fare not provided'}.`;
@@ -187,11 +194,11 @@ export async function planTripWorkflow(tripRequest, onProgress = null) {
     }
   }
 
-  // Step 1: If destination is missing, run Destination Discovery
+  // Step 1: If destination is missing or discovery requested, run Destination Discovery
   let targetDestination = destination;
   let destinationDiscoveryResults = null;
 
-  if (!targetDestination || targetDestination.trim().toLowerCase() === 'help me choose a destination') {
+  if (!targetDestination || targetDestination.trim().toLowerCase() === 'help me choose a destination' || targetDestination.trim().toLowerCase().includes('anywhere in india')) {
     destinationDiscoveryResults = await discoverDestinations({
       origin,
       budget,
@@ -201,6 +208,67 @@ export async function planTripWorkflow(tripRequest, onProgress = null) {
     targetDestination = destinationDiscoveryResults[0]?.name || 'Goa';
   }
 
+  // Step 1b: Location Verification — Normalize location without silent conversion
+  let targetLocation = tripRequest.destinationLocation || null;
+  if (!targetLocation && targetDestination) {
+    try {
+      const ver = await verifyLocationQuery(targetDestination);
+      if (ver?.candidates?.[0]) {
+        targetLocation = ver.candidates[0];
+        targetDestination = targetLocation.name || targetDestination;
+      }
+    } catch (_) {}
+  }
+
+  let originLocation = tripRequest.originLocation || null;
+  if (!originLocation && origin) {
+    try {
+      const verOrigin = await verifyLocationQuery(origin);
+      if (verOrigin?.candidates?.[0]) {
+        originLocation = verOrigin.candidates[0];
+      }
+    } catch (_) {}
+  }
+
+  // Normalized search query targeting the verified locality
+  const searchDestQuery = targetLocation?.formattedAddress || targetDestination;
+
+  // Step 1c: Intercity Transit Reality Check (Anti-Fabrication & Geographical Feasibility)
+  const oClean = String(origin || '').toLowerCase().replace(/[^a-z]/g, '');
+  const dClean = String(targetDestination || '').toLowerCase().replace(/[^a-z]/g, '');
+  const oGaz = INDIAN_GAZETTEER[oClean];
+  const dGaz = INDIAN_GAZETTEER[dClean];
+  const oLat = originLocation?.gpsCoordinates?.latitude || oGaz?.latitude;
+  const oLng = originLocation?.gpsCoordinates?.longitude || oGaz?.longitude;
+  const dLat = targetLocation?.gpsCoordinates?.latitude || dGaz?.latitude;
+  const dLng = targetLocation?.gpsCoordinates?.longitude || dGaz?.longitude;
+
+  const approxDistanceKm = (oLat != null && oLng != null && dLat != null && dLng != null)
+    ? haversineDistanceKm(oLat, oLng, dLat, dLng)
+    : null;
+
+  const originAirport = getAirportCode(origin);
+  const destAirport = getAirportCode(targetDestination);
+
+  let effectiveTransportMode = transportMode;
+  let realityCheckReason = null;
+
+  if (transportMode === 'flight') {
+    if (!originAirport) {
+      effectiveTransportMode = 'self_car';
+      realityCheckReason = `Reality Check: ${origin} does not have an active commercial airport. Automatically switched to realistic road transit (Car / Cab / Bus) to ${targetDestination}.`;
+    } else if (!destAirport) {
+      effectiveTransportMode = 'self_car';
+      realityCheckReason = `Reality Check: ${targetDestination} does not have an active commercial airport. Automatically switched to realistic road transit.`;
+    } else if (originAirport === destAirport) {
+      effectiveTransportMode = 'self_car';
+      realityCheckReason = `Reality Check: ${origin} and ${targetDestination} are in the same local transit district. Switched to direct road transit.`;
+    } else if (approxDistanceKm != null && approxDistanceKm < 200) {
+      effectiveTransportMode = 'self_car';
+      realityCheckReason = `Reality Check: Road distance between ${origin} and ${targetDestination} is only ~${Math.round(approxDistanceKm)} km. Direct commercial flights do not operate on this short distance; routed realistically via road transit (Car / Cab / Bus).`;
+    }
+  }
+
   // Step 2: Live SerpApi parallel research with real stage tracking
   const [transportOptions, hotels, places, reviewInsights, liveEvents] = await Promise.all([
     timedStage(
@@ -208,21 +276,33 @@ export async function planTripWorkflow(tripRequest, onProgress = null) {
       'TRANSPORT_SEARCH_STARTED',
       'TRANSPORT_SEARCH_COMPLETE',
       'TRANSPORT_SEARCH_FAILED',
-      `Searching ${transportMode} options between ${origin} and ${targetDestination}...`,
-      () => transportMode === 'flight' ? searchFlights({
-        origin,
-        destination: targetDestination,
-        outboundDate: dates.outbound,
-        returnDate: dates.return,
-        travelers,
-        cabinClass: 'economy'
-      }) : searchDirections({ origin, destination: targetDestination, mode: transportMode }),
+      `Searching ${effectiveTransportMode} options between ${origin} and ${targetDestination}...`,
+      async () => {
+        if (effectiveTransportMode === 'flight') {
+          const flights = await searchFlights({
+            origin,
+            destination: targetDestination,
+            outboundDate: dates.outbound,
+            returnDate: dates.return,
+            travelers,
+            cabinClass: 'economy'
+          });
+          // If no flights found, seamlessly fall back to realistic road transit
+          if (!Array.isArray(flights) || flights.length === 0) {
+            effectiveTransportMode = 'self_car';
+            realityCheckReason = realityCheckReason || `No direct commercial flights operate between ${origin} and ${targetDestination}. Seamlessly switched to road transit via Google Maps Directions.`;
+            return await searchDirections({ origin, destination: targetDestination, mode: 'self_car' });
+          }
+          return flights;
+        }
+        return await searchDirections({ origin, destination: targetDestination, mode: effectiveTransportMode });
+      },
       (res) => {
-        const count = transportMode === 'flight' ? (Array.isArray(res) ? res.length : 0) : (res ? 1 : 0);
+        const count = effectiveTransportMode === 'flight' ? (Array.isArray(res) ? res.length : 0) : (res ? 1 : 0);
         const status = count > 0 ? 'LIVE' : 'UNAVAILABLE';
         const detail = count > 0
-          ? `Found ${count} ${transportMode === 'flight' ? 'live flight itineraries' : 'transit routes'} via SerpApi`
-          : `No live ${transportMode} options found; marked unavailable`;
+          ? `Found ${count} ${effectiveTransportMode === 'flight' ? 'live flight itineraries' : 'transit routes'} via SerpApi`
+          : `No live ${effectiveTransportMode} options found; marked unavailable`;
         return { status, result_count: count, detail };
       }
     ),
@@ -302,9 +382,15 @@ export async function planTripWorkflow(tripRequest, onProgress = null) {
     )
   ]);
 
-  const flightOptions = transportMode === 'flight' ? transportOptions : [];
-  const selectedFlight = transportMode === 'flight' ? flightOptions[0] || null : null;
-  const transportation = normalizeTransportation({ mode: transportMode, result: transportMode === 'flight' ? selectedFlight : transportOptions });
+  const flightOptions = effectiveTransportMode === 'flight' && Array.isArray(transportOptions) ? transportOptions : [];
+  const selectedFlight = effectiveTransportMode === 'flight' ? flightOptions[0] || null : null;
+  const transportation = normalizeTransportation({
+    mode: effectiveTransportMode,
+    result: effectiveTransportMode === 'flight' ? selectedFlight : transportOptions
+  });
+  if (realityCheckReason) {
+    transportation.realityCheck = realityCheckReason;
+  }
 
   // Step 4: Select Best Hotel based on criteria
   const selectedHotel = hotels[0] || {
@@ -344,7 +430,7 @@ export async function planTripWorkflow(tripRequest, onProgress = null) {
     travelStyle,
     transportation,
     selectedFlight,
-    transportMode
+    transportMode: effectiveTransportMode
   });
 
   const routingDuration = Date.now() - tRouting;
@@ -522,6 +608,8 @@ export async function planTripWorkflow(tripRequest, onProgress = null) {
     status: 'planned',
     origin,
     destination: targetDestination,
+    destinationLocation: targetLocation,
+    originLocation: originLocation,
     duration: parseInt(duration, 10) || 3,
     dates,
     travelers: parseInt(travelers, 10) || 2,
@@ -529,7 +617,7 @@ export async function planTripWorkflow(tripRequest, onProgress = null) {
     interests,
     travelStyle,
     transportPreference,
-    transportMode,
+    transportMode: effectiveTransportMode,
     transportation,
     destinationDiscovery: destinationDiscoveryResults,
     liveRoutingSummary,
@@ -1262,15 +1350,34 @@ export function optimizeTripForBudget(currentTrip) {
     }
   }
 
+  // Re-enrich hotel anchor & recalculate day routes
+  const enrichedHotel = enrichHotelAnchorMetrics(hotel, updated.destination, itinerary) || hotel;
+  if (Array.isArray(itinerary)) {
+    itinerary.forEach((d, idx) => {
+      d.hotelBase = enrichedHotel;
+      d.routeSummary = calculateDayRouteSummary({
+        dayNum: idx + 1,
+        hotel: enrichedHotel,
+        activities: d.activities || [],
+        destination: updated.destination
+      });
+    });
+  }
+
   // Final State Application
   selected.flight = flight;
   selected.transportation = transportation;
-  selected.hotel = hotel;
+  selected.hotel = enrichedHotel;
   updated.selectedOptions = selected;
+  updated.hotelAnchor = enrichedHotel;
   updated.transportation = transportation;
   updated.budgetBreakdown = breakdown;
+  updated.itinerary = itinerary;
+  updated.geospatialMetrics = calculateGeospatialMetrics(itinerary);
+
   if (updated.liveData) {
     updated.liveData.transportation = transportation;
+    updated.liveData.hotel = enrichedHotel;
   }
 
   const finalTotal = breakdown.totalEstimatedCost;
@@ -1278,7 +1385,7 @@ export function optimizeTripForBudget(currentTrip) {
   const isNowUnderBudget = finalTotal <= target;
 
   let recommendation;
-  if (actionsTaken.length > 0) {
+  if (actionsTaken.length > 0 && totalSaved > 0) {
     if (isNowUnderBudget) {
       const surplus = target - finalTotal;
       recommendation = `✨ Successfully Auto-Optimized! Saved ₹${totalSaved.toLocaleString('en-IN')} (Total reduced from ₹${initialTotal.toLocaleString('en-IN')} to ₹${finalTotal.toLocaleString('en-IN')} — now ₹${surplus.toLocaleString('en-IN')} under your ₹${target.toLocaleString('en-IN')} budget). Actions applied: ${actionsTaken.join('; ')}.`;
@@ -1286,7 +1393,7 @@ export function optimizeTripForBudget(currentTrip) {
       recommendation = `⚡ Optimized trip cost by ₹${totalSaved.toLocaleString('en-IN')} (Reduced from ₹${initialTotal.toLocaleString('en-IN')} to ₹${finalTotal.toLocaleString('en-IN')}). Actions applied: ${actionsTaken.join('; ')}. Remaining difference: ₹${(finalTotal - target).toLocaleString('en-IN')}.`;
     }
   } else {
-    recommendation = `Your current trip configuration (₹${finalTotal.toLocaleString('en-IN')}) is already optimized.`;
+    recommendation = 'No lower-cost verified option is currently available.';
   }
 
   updated.budgetStatus = {
@@ -1296,6 +1403,14 @@ export function optimizeTripForBudget(currentTrip) {
     remaining: Math.max(target - finalTotal, 0),
     optimizationRecommendation: recommendation,
     alternatives: { suggestions: actionsTaken }
+  };
+
+  updated.optimizationDiff = {
+    beforeCost: initialTotal,
+    afterCost: finalTotal,
+    savings: totalSaved,
+    succeeded: actionsTaken.length > 0 && totalSaved > 0,
+    changes: actionsTaken.length > 0 ? actionsTaken : ['No lower-cost verified option is currently available.']
   };
 
   updated.replanningReason = recommendation;

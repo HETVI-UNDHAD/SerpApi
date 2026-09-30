@@ -31,15 +31,8 @@ export default function PlaceImage({
   const fetchedRef = useRef(false);
 
   useEffect(() => {
-    // Curated destination thumbnails are already available and avoid an extra
-    // image-search request for every discovery row.
-    if (fallbackSrc) {
-      if (query) imageCache.set(query, fallbackSrc);
-      setSrc(fallbackSrc);
-      return;
-    }
     if (!query) {
-      setSrc('');
+      setSrc(fallbackSrc || '');
       return;
     }
 
@@ -47,6 +40,11 @@ export default function PlaceImage({
     if (imageCache.has(query)) {
       setSrc(imageCache.get(query) || fallbackSrc || '');
       return;
+    }
+
+    // Display fallback immediately while loading live SerpApi photo
+    if (fallbackSrc) {
+      setSrc(fallbackSrc);
     }
 
     if (eager) {

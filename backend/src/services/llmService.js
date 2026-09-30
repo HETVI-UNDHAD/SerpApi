@@ -88,13 +88,28 @@ export function deterministicParsePrompt(prompt = '') {
   let destination = 'Goa';
 
   const fromToMatch = p.match(/(?:from)\s+([a-zA-Z\s]+?)\s+(?:to)\s+([a-zA-Z\s]+?)(?:under|for|with|in|\d|$)/i);
+  const destFromOrigMatch = p.match(/(?:in|to|visit)\s+([a-zA-Z\s]+?)\s+(?:from)\s+([a-zA-Z\s]+?)(?:under|for|with|\d|$)/i);
+  const directRouteMatch = p.match(/^(?:plan|trip|travel|explore)?\s*([a-zA-Z\s]+?)\s+(?:to)\s+([a-zA-Z\s]+?)(?:under|for|with|in|\d|$)/i);
+
   if (fromToMatch) {
     origin = fromToMatch[1].trim();
     destination = fromToMatch[2].trim();
+  } else if (destFromOrigMatch) {
+    destination = destFromOrigMatch[1].trim();
+    origin = destFromOrigMatch[2].trim();
+  } else if (directRouteMatch && !directRouteMatch[1].toLowerCase().includes('day') && !directRouteMatch[1].toLowerCase().includes('budget')) {
+    origin = directRouteMatch[1].trim();
+    destination = directRouteMatch[2].trim();
   } else {
     const toMatch = p.match(/(?:to|in|visit)\s+([a-zA-Z\s]+?)(?:from|under|for|with|\d|$)/i);
     if (toMatch) destination = toMatch[1].trim();
+    const fromMatch = p.match(/(?:from|departing|depart)\s+([a-zA-Z\s]+?)(?:to|under|for|with|\d|$)/i);
+    if (fromMatch) origin = fromMatch[1].trim();
   }
+
+  // Normalize common Saurashtra/Indian spellings & typos
+  if (destination.toLowerCase() === 'junagtah') destination = 'Junagadh';
+  if (origin.toLowerCase() === 'junagtah') origin = 'Junagadh';
 
   // Interests
   const interests = [];

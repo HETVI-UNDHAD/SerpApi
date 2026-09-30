@@ -26,10 +26,12 @@ import {
   ShieldCheck,
   Home
 } from 'lucide-react';
+import { getTransportVisual, TransportBadge } from '../utils/transportVisuals';
 
 export default function SmartItineraryView() {
   const { currentTrip, selectedDay, setSelectedDay, theme } = useTrip();
   const isDark = theme === 'dark';
+  const transportVisual = getTransportVisual(currentTrip?.transportation?.mode);
   const [expandedTurns, setExpandedTurns] = useState({});
   const [activeFocusWaypoint, setActiveFocusWaypoint] = useState(null);
 
@@ -76,7 +78,7 @@ export default function SmartItineraryView() {
               }`}
             >
               <Calendar className="w-3.5 h-3.5" />
-              <span>DAY 0{d.day}</span>
+              <span>DAY {d.day}</span>
               {d.day === 1 && <span className="text-[10px] opacity-75">(Arrival)</span>}
               {d.day === itineraryDays.length && itineraryDays.length > 1 && <span className="text-[10px] opacity-75">(Departure)</span>}
             </button>
@@ -161,35 +163,35 @@ export default function SmartItineraryView() {
           )}
         </div>
 
-        {/* Right Side: Digital Travel Journal Timeline (WHERE WE GO & HOW TO GO) */}
+        {/* Right Side: Digital Travel Journal Timeline */}
         <div className="lg:col-span-6 space-y-6">
 
-          {/* Day Title & Route Summary Box (Requirement 12 & 13) */}
-          <div className="space-y-3 pb-3 border-b border-slate-800">
-            <div className="flex items-center justify-between">
+          {/* Day Title & Route Summary Box */}
+          <div className="space-y-3 pb-3 border-b border-slate-200 dark:border-slate-800">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-cyan-400">
-                  DAY 0{activeDayData.day} PHYSICAL JOURNEY &amp; ROUTE
+                <span className="text-[10px] font-black uppercase tracking-widest text-blue-500">
+                  DAY {activeDayData.day}
                 </span>
-                <h3 className={`text-2xl font-black mt-0.5 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                <h3 className={`text-2xl font-bold mt-0.5 ${isDark ? 'text-white' : 'text-slate-900'}`}>
                   {activeDayData.title}
                 </h3>
               </div>
-              <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${
+              <span className={`text-xs font-semibold px-3 py-1.5 rounded-full border ${
                 isDark ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-slate-100 border-slate-200 text-slate-700'
               }`}>
-                {activeDayData.activities?.length || 0} Curated Stops
+                {activeDayData.activities?.length || 0} places · {activeDayData.routeSummary?.totalRoadDistanceKm || activeDayData.totalDistanceKm || 12} km · ~{activeDayData.routeSummary?.totalTravelTimeMinutes || activeDayData.totalTravelTimeMinutes || 35} min travel
               </span>
             </div>
 
-            {/* Daily Route Summary Box (Requirement 12) */}
+            {/* Daily Route Summary Box */}
             {activeDayData.routeSummary && (
               <div className={`p-4 rounded-2xl border space-y-2 text-xs ${
                 isDark ? 'bg-[#0B0F19] border-slate-800' : 'bg-slate-50 border-slate-200'
               }`}>
                 <div className="flex items-center justify-between font-bold">
-                  <span className="text-indigo-400 uppercase tracking-wider text-[10px]">
-                    📍 DAY 0{activeDayData.day} ROUTE SUMMARY
+                  <span className="text-blue-500 uppercase tracking-wider text-[10px]">
+                    📍 DAY {activeDayData.day} ROUTE SUMMARY
                   </span>
                   <span className="text-emerald-400 font-black">
                     Saved ~{activeDayData.routeSummary.distanceSavedKm} km ({activeDayData.routeSummary.efficiencyGainPercent}% gain)

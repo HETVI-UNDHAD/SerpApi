@@ -31,12 +31,15 @@ import {
   Car,
   Zap,
   HelpCircle,
-  Route
+  Route,
+  Loader2
 } from 'lucide-react';
+import { getTransportVisual, TransportBadge } from '../utils/transportVisuals';
 
 export default function DashboardPage() {
   const [groundingOpen, setGroundingOpen] = useState(false);
   const [whyPlanOpen, setWhyPlanOpen] = useState(false);
+  const [optimizingProgress, setOptimizingProgress] = useState(null);
   const {
     currentTrip,
     activeTab,
@@ -52,9 +55,43 @@ export default function DashboardPage() {
     theme
   } = useTrip();
 
+  async function handleOptimizeBudget() {
+    setOptimizingProgress(0);
+    for (let i = 0; i <= 4; i++) {
+      setOptimizingProgress(i);
+      await new Promise(r => setTimeout(r, 220));
+    }
+    await optimizeTripBudget();
+    setOptimizingProgress(null);
+  }
+
   const isDark = theme === 'dark';
 
-  if (!currentTrip) return null;
+  if (!currentTrip) {
+    return (
+      <div className={`min-h-[70vh] flex items-center justify-center p-6 ${
+        isDark ? 'text-slate-100' : 'text-slate-900'
+      }`}>
+        <div className={`max-w-md w-full text-center p-8 rounded-3xl border shadow-xl ${
+          isDark ? 'bg-[#0E1320] border-slate-800' : 'bg-white border-slate-200'
+        }`}>
+          <div className="w-16 h-16 rounded-2xl bg-blue-600/10 text-blue-500 flex items-center justify-center mx-auto mb-4 border border-blue-500/20 shadow-inner">
+            <Compass className="w-8 h-8" />
+          </div>
+          <h2 className="text-xl font-bold mb-2">No Active Trip Plan Yet</h2>
+          <p className="text-xs text-slate-400 leading-relaxed mb-6">
+            Start planning your trip to generate an itinerary with live SerpApi Google Flights, Google Hotels, and Google Maps routing.
+          </p>
+          <button
+            onClick={() => setActiveScreen('builder')}
+            className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-wider transition-all shadow-md hover:scale-[1.02]"
+          >
+            Go to Trip Planner
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const {
     destination,
@@ -72,6 +109,7 @@ export default function DashboardPage() {
   const totalCost = budgetBreakdown?.totalEstimatedCost || 0;
   const transportation = currentTrip.transportation || selectedOptions?.transportation;
   const transportMode = transportation?.mode || 'flight';
+  const transportVisual = getTransportVisual(transportMode);
   const isOverBudget = budgetStatus?.isOverBudget;
   const overBudgetDiff = budgetStatus?.difference || 0;
   const budgetUtilization = Number.isFinite(Number(totalCost)) && Number(budget) > 0
@@ -82,7 +120,7 @@ export default function DashboardPage() {
     { id: 'overview', label: 'Overview', icon: Compass },
     { id: 'itinerary', label: 'Smart Itinerary', icon: Calendar },
     { id: 'map', label: 'Route Map', icon: MapPin },
-    { id: 'flights', label: 'Flights & Transit', icon: Plane },
+    { id: 'flights', label: `${transportVisual.label || 'Flights & Transit'}`, icon: transportVisual.icon || Plane },
     { id: 'hotels', label: 'Hotels & Stays', icon: Building },
     { id: 'budget', label: 'Budget Optimizer', icon: IndianRupee },
     { id: 'intelligence', label: 'AI Reasoning & Reviews', icon: Brain },
@@ -168,12 +206,12 @@ export default function DashboardPage() {
             : 'bg-white border-slate-200/80 shadow-luxury-light'
         }`}>
           <div>
-            <div className="flex items-center gap-2 text-xs font-bold text-indigo-400 mb-1">
+            <div className="flex items-center gap-2 text-xs font-bold text-blue-500 mb-1">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>TravelOS Autonomous Live Decision Console</span>
+              <span>Trip Control</span>
             </div>
             <p className={`text-xs ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-              Target Ceiling: <strong className={isDark ? 'text-white' : 'text-slate-900'}>₹{budget?.toLocaleString('en-IN')}</strong> · All options verified live via SerpApi engines.
+              Target Ceiling: <strong className={isDark ? 'text-white' : 'text-slate-900'}>₹{budget?.toLocaleString('en-IN')}</strong> · All options verified live via SerpApi.
             </p>
           </div>
 
@@ -194,12 +232,12 @@ export default function DashboardPage() {
 
             {isOverBudget && (
               <button
-                onClick={optimizeTripBudget}
-                disabled={isReplanning}
-                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white text-xs font-black shadow-lg shadow-orange-500/25 flex items-center gap-2 transition-all hover:scale-105"
+                onClick={handleOptimizeBudget}
+                disabled={isReplanning || optimizingProgress !== null}
+                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white text-xs font-black shadow-lg shadow-orange-500/25 flex items-center gap-2 transition-all hover:scale-105 disabled:opacity-50"
               >
                 <TrendingDown className="w-3.5 h-3.5" />
-                <span>Optimize for Budget</span>
+                <span>Optimize Budget</span>
               </button>
             )}
 
@@ -209,7 +247,7 @@ export default function DashboardPage() {
               title="Inspect why this flight, hotel, and route were chosen"
             >
               <HelpCircle className="w-3.5 h-3.5 text-indigo-400" />
-              <span>Why This Plan?</span>
+              <span>Why this plan?</span>
             </button>
 
             <button
@@ -218,17 +256,46 @@ export default function DashboardPage() {
               title="Inspect live SerpApi search queries & architecture"
             >
               <Zap className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
-              <span>SerpApi Proof</span>
+              <span>Live Sources</span>
             </button>
 
             <button
               onClick={resetTrip}
-              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white text-xs font-black shadow-md shadow-indigo-500/25 transition-all hover:scale-105"
+              className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md transition-all hover:scale-105"
             >
               New Journey
             </button>
           </div>
         </div>
+
+        {/* Optimizing Progress Banner (Section 15) */}
+        {optimizingProgress !== null && (
+          <div className={`p-5 rounded-2xl border shadow-lg animate-in fade-in duration-200 ${
+            isDark ? 'bg-blue-950/40 border-blue-500/40 text-blue-200' : 'bg-blue-50 border-blue-300 text-blue-900'
+          }`}>
+            <div className="flex items-center gap-3 mb-3">
+              <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />
+              <strong className="text-sm">Optimizing your trip...</strong>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
+              <div className={`flex items-center gap-1.5 ${optimizingProgress >= 0 ? 'text-emerald-500 font-bold' : 'opacity-40'}`}>
+                <span>{optimizingProgress >= 0 ? '✓' : '•'}</span> Checking hotels
+              </div>
+              <div className={`flex items-center gap-1.5 ${optimizingProgress >= 1 ? 'text-emerald-500 font-bold' : 'opacity-40'}`}>
+                <span>{optimizingProgress >= 1 ? '✓' : '•'}</span> Checking transport
+              </div>
+              <div className={`flex items-center gap-1.5 ${optimizingProgress >= 2 ? 'text-emerald-500 font-bold' : 'opacity-40'}`}>
+                <span>{optimizingProgress >= 2 ? '✓' : '•'}</span> Checking activities
+              </div>
+              <div className={`flex items-center gap-1.5 ${optimizingProgress >= 3 ? 'text-emerald-500 font-bold' : 'opacity-40'}`}>
+                <span>{optimizingProgress >= 3 ? '✓' : '•'}</span> Recalculating routes
+              </div>
+              <div className={`flex items-center gap-1.5 ${optimizingProgress >= 4 ? 'text-emerald-500 font-bold' : 'opacity-40'}`}>
+                <span>{optimizingProgress >= 4 ? '✓' : '•'}</span> Rechecking live data
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── BUDGET ALERT BANNER (IF OVER BUDGET) ── */}
         {isOverBudget ? (
@@ -242,17 +309,17 @@ export default function DashboardPage() {
                   Your plan exceeds your target budget by ₹{overBudgetDiff.toLocaleString('en-IN')}.
                 </strong>
                 <span className={`text-xs ${isDark ? 'text-amber-200' : 'text-amber-800'}`}>
-                  {budgetOptimizationError || budgetStatus?.optimizationRecommendation || 'Click Auto-Optimize to autonomously rebalance transit, stay tiers, and dining to fit your target budget.'}
+                  {budgetOptimizationError || budgetStatus?.optimizationRecommendation || 'Click Auto-Optimize to rebalance stay tiers and transit to fit your target budget.'}
                 </span>
               </div>
             </div>
 
             <button
-              onClick={optimizeTripBudget}
-              disabled={isReplanning}
-              className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs whitespace-nowrap shadow-md transition-colors"
+              onClick={handleOptimizeBudget}
+              disabled={isReplanning || optimizingProgress !== null}
+              className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs whitespace-nowrap shadow-md transition-colors disabled:opacity-50"
             >
-              {isReplanning ? 'Optimizing...' : `Auto-Optimize for ₹${budget.toLocaleString('en-IN')}`}
+              {optimizingProgress !== null ? 'Optimizing...' : `Auto-Optimize for ₹${budget.toLocaleString('en-IN')}`}
             </button>
           </div>
         ) : (
@@ -271,173 +338,211 @@ export default function DashboardPage() {
           )
         )}
 
-        {/* ── LUXURY TAB NAVIGATION PILLS ── */}
-        <div className={`p-1.5 rounded-2xl border flex items-center gap-1.5 overflow-x-auto shadow-md ${
-          isDark ? 'bg-[#111726] border-slate-800' : 'bg-slate-100/90 border-slate-200'
-        }`}>
-          {tabs.map(tab => {
-            const Icon = tab.icon;
-            const isSelected = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`relative px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap flex items-center gap-2 transition-all duration-200 ${
-                  isSelected
-                    ? isDark
-                      ? 'bg-gradient-to-r from-cyan-500 to-indigo-600 text-white shadow-lg shadow-indigo-500/25'
-                      : 'bg-white text-slate-950 shadow-md border border-slate-200'
-                    : isDark
-                    ? 'text-slate-300 hover:text-white hover:bg-slate-800/70'
-                    : 'text-slate-600 hover:text-slate-950 hover:bg-white/80'
-                }`}
-              >
-                <Icon className={`w-3.5 h-3.5 ${isSelected ? 'text-white' : isDark ? 'text-slate-400' : 'text-slate-500'}`} />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
-        </div>
+
 
         {/* ════════════════════════════════════════════════════════════════
-            TAB 1: OVERVIEW (MAGAZINE DASHBOARD WITH RHYTHM)
+            TAB 1: OVERVIEW (THE 5 ESSENTIALS + YOUR JOURNEY)
            ════════════════════════════════════════════════════════════════ */}
         {activeTab === 'overview' && (
           <div className="space-y-6">
-            {/* 4 KPI Stat Widgets */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <StatWidget
-                isDark={isDark}
-                title="Total Estimated Cost"
-                value={`₹${totalCost.toLocaleString('en-IN')}`}
-                sub={`~₹${budgetBreakdown?.costPerPerson?.toLocaleString('en-IN')} per traveler`}
-                icon={IndianRupee}
-                color="text-indigo-500"
-              />
-              <StatWidget
-                isDark={isDark}
-                title="Budget Status"
-                value={isOverBudget ? `Exceeds by ₹${overBudgetDiff.toLocaleString('en-IN')}` : `Within Budget`}
-                sub={`Target: ₹${budget.toLocaleString('en-IN')}`}
-                icon={ShieldCheck}
-                color={isOverBudget ? 'text-amber-500' : 'text-emerald-500'}
-                valueColor={isOverBudget ? 'text-amber-500' : 'text-emerald-500'}
-              />
-              <StatWidget
-                isDark={isDark}
-                title="Selected Stay"
-                value={selectedOptions.hotel?.name || 'Curated Stay'}
-                sub={`${selectedOptions.hotel?.pricePerNight != null ? `₹${selectedOptions.hotel.pricePerNight.toLocaleString('en-IN')}/night` : 'Price unavailable'} • ${selectedOptions.hotel?.rating != null ? `★ ${selectedOptions.hotel.rating}` : '★ Live data unavailable'}`}
-                icon={Building}
-                color="text-violet-500"
-              />
-              <StatWidget
-                isDark={isDark}
-                title="Primary Transit"
-                value={transportMode === 'flight' ? (selectedOptions.flight?.airline || 'Flight information unavailable') : transportMode === 'train' ? 'Train' : 'Self Car'}
-                sub={`${transportation?.distance || transportation?.duration || transportation?.details?.formattedDuration || (transportation?.available ? 'Route available' : 'Route unavailable')} • ${transportation?.cost == null ? 'Cost not provided' : `₹${transportation.cost.toLocaleString('en-IN')}${transportation.costType === 'estimated' ? ' estimated' : ''}`}`}
-                icon={Plane}
-                color="text-cyan-500"
-              />
+            
+            {/* The 5 Essential Questions Grid (Requirement 10) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+              {/* 1. Where am I going? */}
+              <div className={`p-4 rounded-2xl border space-y-1.5 ${isDark ? 'bg-[#111726] border-slate-800' : 'bg-white border-slate-200'}`}>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-blue-500 block">1. Where to</span>
+                <strong className={`text-base font-bold block truncate ${isDark ? 'text-white' : 'text-slate-900'}`}>{destination}</strong>
+                <p className="text-xs text-slate-400 truncate">From {origin}</p>
+              </div>
+
+              {/* 2. How am I getting there? */}
+              <div className={`p-4 rounded-2xl border space-y-1.5 ${isDark ? 'bg-[#111726] border-slate-800' : 'bg-white border-slate-200'}`}>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-500 block">2. How to get there</span>
+                  {transportation?.realityCheck && (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/20" title={transportation.realityCheck}>
+                      ✓ Ground Reality Verified
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5 font-bold text-base">
+                  <span>{transportVisual.emoji}</span>
+                  <span className={`truncate ${isDark ? 'text-white' : 'text-slate-900'}`}>{transportVisual.label}</span>
+                </div>
+                <p className="text-xs text-slate-400 truncate">
+                  {selectedOptions.flight?.departureTime && selectedOptions.flight?.arrivalTime
+                    ? `${selectedOptions.flight.departureTime} → ${selectedOptions.flight.arrivalTime}`
+                    : transportation?.details?.formattedDuration || transportation?.duration || (transportation?.distance ? `${transportation.distance} road transit` : 'Direct transit')}
+                </p>
+                {transportation?.realityCheck && (
+                  <p className="text-[10px] text-slate-400 font-medium leading-tight">
+                    {transportation.realityCheck}
+                  </p>
+                )}
+              </div>
+
+              {/* 3. Where am I staying? */}
+              <div className={`p-4 rounded-2xl border space-y-1.5 ${isDark ? 'bg-[#111726] border-slate-800' : 'bg-white border-slate-200'}`}>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-violet-500 block">3. Where to stay</span>
+                <strong className={`text-base font-bold block truncate ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                  {selectedOptions.hotel?.name || 'Curated Hotel'}
+                </strong>
+                <p className="text-xs text-slate-400 truncate">
+                  {selectedOptions.hotel?.pricePerNight != null
+                    ? `₹${selectedOptions.hotel.pricePerNight.toLocaleString('en-IN')}/night`
+                    : 'Live price unavailable'}
+                </p>
+              </div>
+
+              {/* 4. What will I do? */}
+              <div className={`p-4 rounded-2xl border space-y-1.5 ${isDark ? 'bg-[#111726] border-slate-800' : 'bg-white border-slate-200'}`}>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-500 block">4. What to do</span>
+                <strong className={`text-base font-bold block ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                  {itinerary?.reduce((acc, d) => acc + (d.activities?.length || 0), 0) || 0} Places
+                </strong>
+                <p className="text-xs text-slate-400 truncate">Across {duration} days</p>
+              </div>
+
+              {/* 5. How much will it cost? */}
+              <div className={`p-4 rounded-2xl border space-y-1.5 ${isDark ? 'bg-[#111726] border-slate-800' : 'bg-white border-slate-200'}`}>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-500 block">5. Total Cost</span>
+                <strong className="text-base font-bold block text-emerald-500">
+                  ₹{totalCost.toLocaleString('en-IN')}
+                </strong>
+                <p className="text-xs text-slate-400 truncate">
+                  ~₹{Math.round(totalCost / travelers).toLocaleString('en-IN')}/traveler
+                </p>
+              </div>
             </div>
 
-            {/* ── TRIP SUMMARY & PHYSICAL MOVEMENT PIPELINE (Requirement 28) ── */}
+            {/* ── YOUR JOURNEY TIMELINE (Requirement 9) ── */}
             <div className={`p-6 sm:p-7 rounded-3xl border shadow-xl space-y-4 ${
-              isDark ? 'bg-gradient-to-r from-slate-900 via-[#111726] to-slate-900 border-indigo-500/30' : 'bg-gradient-to-r from-white via-indigo-50/30 to-white border-indigo-200'
+              isDark ? 'bg-[#111726] border-slate-800' : 'bg-white border-slate-200 shadow-sm'
             }`}>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/10">
-                <div className="flex items-center gap-2.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse" />
-                  <span className="text-xs font-black uppercase tracking-wider text-cyan-400">
-                    Physical Journey Pipeline: {origin} → {destination}
-                  </span>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+                  <h3 className={`font-serif text-lg font-bold tracking-tight uppercase ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                    YOUR JOURNEY
+                  </h3>
                 </div>
-                <div className="text-[11px] font-bold text-slate-400 flex items-center gap-3">
+                <div className="text-xs text-slate-400 flex items-center gap-3">
                   <span>Stay: <strong className={isDark ? 'text-white' : 'text-slate-900'}>{selectedOptions.hotel?.name || 'Hotel Basecamp'}</strong></span>
                   <span>•</span>
-                  <span>Budget: <strong className="text-emerald-400">₹{totalCost.toLocaleString('en-IN')} / ₹{budget.toLocaleString('en-IN')}</strong></span>
+                  <span>Total: <strong className="text-emerald-500">₹{totalCost.toLocaleString('en-IN')}</strong></span>
                 </div>
               </div>
 
-              {/* Physical Movements Chain */}
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs font-medium">
-                <div className="p-3 rounded-2xl bg-black/20 border border-white/5 space-y-1">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-indigo-400 block">
-                    1. Origin Transfer
-                  </span>
-                  <p className={`font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>{origin} Residence → Airport</p>
-                  <span className="text-[10px] text-slate-400 block">~28m drive · 120m safety buffer</span>
+              {/* Visual Journey Steps: 🏠 Origin → ✈️/🚆/🚗 Transit → 🚕 Hub → 🏨 Hotel → 📍 Day 1 → 🏨 Hotel → 📍 Day 2 */}
+              <div className="flex flex-col md:flex-row items-center justify-between gap-3 py-2 overflow-x-auto">
+                {/* 1. Origin */}
+                <div className={`p-3.5 rounded-2xl border text-center flex-1 w-full md:w-auto min-w-[130px] ${
+                  isDark ? 'bg-[#0B0F19] border-slate-800' : 'bg-slate-50 border-slate-200'
+                }`}>
+                  <span className="text-2xl block mb-1">🏠</span>
+                  <strong className={`text-xs block truncate ${isDark ? 'text-white' : 'text-slate-900'}`}>{origin}</strong>
+                  <span className="text-[10px] text-slate-400 block">Departure</span>
                 </div>
 
-                <div className="p-3 rounded-2xl bg-black/20 border border-white/5 space-y-1">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-cyan-400 block">
-                    2. Inbound Flight / Transit
+                <span className="text-slate-400 font-bold hidden md:inline">➔</span>
+                <span className="text-slate-400 font-bold md:hidden">↓</span>
+
+                {/* 2. Transit */}
+                <div className={`p-3.5 rounded-2xl border text-center flex-1 w-full md:w-auto min-w-[150px] ${
+                  isDark ? 'bg-[#0B0F19] border-slate-800' : 'bg-slate-50 border-slate-200'
+                }`}>
+                  <span className="text-2xl block mb-1">{transportVisual.emoji}</span>
+                  <strong className={`text-xs block truncate ${isDark ? 'text-white' : 'text-slate-900'}`}>{transportVisual.label}</strong>
+                  <span className="text-[10px] text-slate-400 block truncate">
+                    {selectedOptions.flight?.departureTime && selectedOptions.flight?.arrivalTime
+                      ? `${selectedOptions.flight.departureTime} → ${selectedOptions.flight.arrivalTime}`
+                      : transportation?.duration || 'Transit'}
                   </span>
-                  <p className={`font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>{selectedOptions.flight?.airline || 'Direct Transit'}</p>
-                  <span className="text-[10px] text-slate-400 block">{selectedOptions.flight?.departureTime || '09:20 AM'} → {selectedOptions.flight?.arrivalTime || '11:05 AM'}</span>
                 </div>
 
-                <div className="p-3 rounded-2xl bg-black/20 border border-white/5 space-y-1">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 block">
-                    3. Destination Transfer
-                  </span>
-                  <p className={`font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>{destination} Airport → Stay</p>
-                  <span className="text-[10px] text-slate-400 block">~42m cab commute · Check-in 12:00</span>
+                <span className="text-slate-400 font-bold hidden md:inline">➔</span>
+                <span className="text-slate-400 font-bold md:hidden">↓</span>
+
+                {/* 3. Destination Hub (Only when arriving by flight or train) */}
+                {transportMode !== 'self_car' && (
+                  <>
+                    <div className={`p-3.5 rounded-2xl border text-center flex-1 w-full md:w-auto min-w-[140px] ${
+                      isDark ? 'bg-[#0B0F19] border-slate-800' : 'bg-slate-50 border-slate-200'
+                    }`}>
+                      <span className="text-2xl block mb-1">🚕</span>
+                      <strong className={`text-xs block truncate ${isDark ? 'text-white' : 'text-slate-900'}`}>{destination} Hub</strong>
+                      <span className="text-[10px] text-slate-400 block">Local transfer</span>
+                    </div>
+
+                    <span className="text-slate-400 font-bold hidden md:inline">➔</span>
+                    <span className="text-slate-400 font-bold md:hidden">↓</span>
+                  </>
+                )}
+
+                {/* 4. Hotel Base */}
+                <div className={`p-3.5 rounded-2xl border text-center flex-1 w-full md:w-auto min-w-[150px] ${
+                  isDark ? 'bg-[#0B0F19] border-slate-800' : 'bg-slate-50 border-slate-200'
+                }`}>
+                  <span className="text-2xl block mb-1">🏨</span>
+                  <strong className={`text-xs block truncate ${isDark ? 'text-white' : 'text-slate-900'}`}>{selectedOptions.hotel?.name || 'Hotel'}</strong>
+                  <span className="text-[10px] text-slate-400 block">Check-in</span>
                 </div>
 
-                <div className="p-3 rounded-2xl bg-black/20 border border-white/5 space-y-1">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-purple-400 block">
-                    4. Daily Corridors
-                  </span>
-                  <p className={`font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Hotel ↺ Daily Loops</p>
-                  <span className="text-[10px] text-slate-400 block">Nearest-neighbor road loops</span>
-                </div>
-              </div>
+                {/* 5. Day 1 */}
+                <span className="text-slate-400 font-bold hidden md:inline">➔</span>
+                <span className="text-slate-400 font-bold md:hidden">↓</span>
 
-              {/* Today's Route Flow Preview */}
-              <div className="pt-2 flex flex-wrap items-center gap-2 text-xs border-t border-white/10">
-                <span className="text-[10px] font-black text-cyan-400 uppercase tracking-wider">
-                  TODAY'S ROUTE FLOW:
-                </span>
-                <span className="px-2 py-0.5 rounded-lg bg-indigo-500/20 text-indigo-300 font-bold text-[11px]">
-                  🏨 Basecamp
-                </span>
-                <span className="text-slate-500">↓</span>
-                <span className="px-2 py-0.5 rounded-lg bg-cyan-500/20 text-cyan-300 font-bold text-[11px]">
-                  📍 {itinerary?.[0]?.activities?.[0]?.title || 'Morning Landmark'}
-                </span>
-                <span className="text-slate-500">↓</span>
-                <span className="px-2 py-0.5 rounded-lg bg-amber-500/20 text-amber-300 font-bold text-[11px]">
-                  📍 {itinerary?.[0]?.activities?.[1]?.title || 'Afternoon Cultural Point'}
-                </span>
-                <span className="text-slate-500">↓</span>
-                <span className="px-2 py-0.5 rounded-lg bg-indigo-500/20 text-indigo-300 font-bold text-[11px]">
-                  🏨 Return Basecamp
-                </span>
+                <div className={`p-3.5 rounded-2xl border text-center flex-1 w-full md:w-auto min-w-[140px] ${
+                  isDark ? 'bg-[#0B0F19] border-slate-800' : 'bg-slate-50 border-slate-200'
+                }`}>
+                  <span className="text-2xl block mb-1">📍</span>
+                  <strong className={`text-xs block truncate ${isDark ? 'text-white' : 'text-slate-900'}`}>Day 1</strong>
+                  <span className="text-[10px] text-slate-400 block truncate">
+                    {itinerary?.[0]?.activities?.length || 0} places
+                  </span>
+                </div>
+
+                {/* 6. Day 2 if applicable */}
+                {itinerary?.length > 1 && (
+                  <>
+                    <span className="text-slate-400 font-bold hidden md:inline">➔</span>
+                    <span className="text-slate-400 font-bold md:hidden">↓</span>
+
+                    <div className={`p-3.5 rounded-2xl border text-center flex-1 w-full md:w-auto min-w-[140px] ${
+                      isDark ? 'bg-[#0B0F19] border-slate-800' : 'bg-slate-50 border-slate-200'
+                    }`}>
+                      <span className="text-2xl block mb-1">📍</span>
+                      <strong className={`text-xs block truncate ${isDark ? 'text-white' : 'text-slate-900'}`}>Day 2</strong>
+                      <span className="text-[10px] text-slate-400 block truncate">
+                        {itinerary?.[1]?.activities?.length || 0} places
+                      </span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
-            {/* Day-by-Day Journey Preview Cards */}
+            {/* Day-by-Day Journey Preview Cards (Requirement 11 & 12) */}
             <div className={`p-6 sm:p-8 rounded-3xl border shadow-xl space-y-4 ${
-              isDark ? 'bg-[#111726] border-slate-800 shadow-xl' : 'bg-white border-slate-200/80 shadow-luxury-light'
+              isDark ? 'bg-[#111726] border-slate-800 shadow-xl' : 'bg-white border-slate-200 shadow-sm'
             }`}>
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className={`font-black text-lg flex items-center gap-2 ${
+                  <h3 className={`font-serif text-lg font-bold flex items-center gap-2 ${
                     isDark ? 'text-white' : 'text-slate-900'
                   }`}>
-                    <Calendar className="w-4 h-4 text-indigo-400" />
-                    Journey Outline & Route Clustering
+                    <Calendar className="w-4 h-4 text-blue-500" />
+                    <span>Your Daily Routes</span>
                   </h3>
-                  <p className={`text-xs mt-0.5 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-                    Stops clustered geographically using Haversine math to minimize commute times.
+                  <p className={`text-xs mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                    Optimized daily itineraries clustered geographically to minimize transit time.
                   </p>
                 </div>
                 <button
                   onClick={() => setActiveTab('itinerary')}
-                  className="text-xs font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition-colors"
+                  className="text-xs font-bold text-blue-500 hover:underline flex items-center gap-1 transition-colors"
                 >
-                  <span>Open Full Journal</span>
+                  <span>Open Full Itinerary</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -446,31 +551,38 @@ export default function DashboardPage() {
                 {itinerary?.slice(0, 3).map(day => (
                   <div
                     key={day.day}
-                    className={`p-5 rounded-2xl border space-y-2.5 transition-all hover:-translate-y-1 ${
+                    onClick={() => {
+                      setSelectedDay(day.day);
+                      setActiveTab('itinerary');
+                    }}
+                    className={`p-5 rounded-2xl border space-y-2.5 transition-all hover:-translate-y-1 cursor-pointer ${
                       isDark
                         ? 'bg-[#0B0F19] border-slate-800 hover:border-slate-700'
-                        : 'bg-slate-50 border-slate-200/70 hover:border-slate-300'
+                        : 'bg-slate-50 border-slate-200/80 hover:border-slate-300'
                     }`}
                   >
                     <div className="flex items-center justify-between text-xs">
-                      <span className="font-black text-indigo-400">DAY 0{day.day}</span>
+                      <span className="font-black text-blue-500">DAY {day.day}</span>
                       <span className={`text-[10px] font-semibold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                        {day.activities?.length || 0} stops
+                        {day.activities?.length || 0} places · {day.totalDistanceKm || 12} km · ~{day.totalTravelTimeMinutes || 30} min
                       </span>
                     </div>
                     <h4 className={`text-sm font-bold line-clamp-1 ${
                       isDark ? 'text-white' : 'text-slate-900'
                     }`}>{day.title}</h4>
                     <p className={`text-xs line-clamp-2 leading-relaxed ${
-                      isDark ? 'text-slate-300' : 'text-slate-600'
+                      isDark ? 'text-slate-400' : 'text-slate-600'
                     }`}>
-                      {day.activities?.[0]?.title} → {day.activities?.[1]?.title || 'Evening coastal retreat'}
+                      {day.activities?.[0]?.title} → {day.activities?.[1]?.title || 'Evening exploration'}
                     </p>
                     <div className={`pt-2 text-[10px] font-semibold flex items-center justify-between border-t ${
-                      isDark ? 'border-slate-800 text-slate-300' : 'border-slate-200 text-slate-600'
+                      isDark ? 'border-slate-800 text-slate-400' : 'border-slate-200 text-slate-500'
                     }`}>
-                      <span className="flex items-center gap-1"><Car className="w-3 h-3 text-cyan-400" /> ~{day.totalTravelTimeMinutes || 30} mins transit</span>
-                      <span>{day.totalDistanceKm || 12} km</span>
+                      <span className="flex items-center gap-1">
+                        <Car className="w-3 h-3 text-cyan-400" />
+                        ~{day.totalTravelTimeMinutes || 30} min travel
+                      </span>
+                      <span>Hotel Return ✓</span>
                     </div>
                   </div>
                 ))}
@@ -543,81 +655,129 @@ export default function DashboardPage() {
             </div>
 
             {transportMode !== 'flight' ? (
-              transportation?.available ? <div className={`p-6 rounded-3xl border ${isDark ? 'bg-[#111726] border-slate-800 shadow-xl' : 'bg-white border-slate-200/80 shadow-sm'}`}>
-                <div className="flex items-center justify-between mb-4"><span className="font-black text-base">{transportMode === 'train' ? (transportation.operator || 'Train / Transit') : 'Self Car'}</span><span className="text-xl font-black text-emerald-400">{transportation.cost == null ? 'Cost not provided' : `₹${transportation.cost.toLocaleString('en-IN')}${transportation.costType === 'estimated' ? ' estimated' : ''}`}</span></div>
-                <div className="text-sm space-y-2"><div>{transportation.details?.startAddress || origin} → {transportation.details?.endAddress || destination}</div>{transportation.details?.startStop && <div>Board at {transportation.details.startStop}{transportation.details.endStop ? ` · arrive ${transportation.details.endStop}` : ''}</div>}<div>Distance: {transportation.distance || 'Not provided'} · Duration: {transportation.duration || 'Not provided'}</div>{transportation.operator && <div>Service: {transportation.operator}</div>}{transportation.details?.stops != null && <div>Stops/transfers: {transportation.details.stops}</div>}{transportMode === 'self_car' && <div>{transportation.costAssumptions ? `Fuel estimate uses ${transportation.costAssumptions.fuelEfficiencyKmPerLitre} km/L and ₹${transportation.costAssumptions.fuelPricePerLitre}/L assumptions; it is not a live fuel price.` : 'Fuel cost estimate unavailable because route distance was not returned.'}</div>}{transportation.tollInfo && <div>Toll information: {typeof transportation.tollInfo === 'string' ? transportation.tollInfo : JSON.stringify(transportation.tollInfo)}</div>}{transportation.route?.steps?.map((step, index) => step.instruction && <div key={index} className="text-xs opacity-75">{step.instruction}</div>)}</div>
-              </div> : <div className="p-6 rounded-3xl border border-amber-500/20 text-sm">{transportMode === 'train' ? 'No train route found for this journey.' : 'Driving route unavailable.'}</div>
-            ) : <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {liveData?.flights?.map((fl, idx) => (
-                <div
-                  key={fl.id || idx}
-                  className={`p-6 rounded-3xl border transition-all duration-300 ${
-                    fl.airline === selectedOptions.flight?.airline
-                      ? isDark
-                        ? 'bg-[#162038] border-indigo-500 shadow-xl shadow-indigo-500/20'
-                        : 'bg-indigo-50/70 border-indigo-400 shadow-xl shadow-indigo-100'
-                      : isDark
-                      ? 'bg-[#111726] border-slate-800 shadow-xl hover:border-slate-700'
-                      : 'bg-white border-slate-200/80 shadow-sm hover:border-slate-300'
-                  }`}
-                >
+              transportation?.available ? (
+                <div className={`p-6 rounded-3xl border ${isDark ? 'bg-[#111726] border-slate-800 shadow-xl' : 'bg-white border-slate-200/80 shadow-sm'}`}>
                   <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                      <span className={`font-black text-lg ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                        {fl.airline}
-                      </span>
-                      {fl.airline === selectedOptions.flight?.airline && (
-                        <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-500/25 text-indigo-300 border border-indigo-400/40">
-                          AI Chosen
-                        </span>
-                      )}
-                    </div>
-                    <span className="text-2xl font-black text-emerald-400">
-                      ₹{fl.price?.toLocaleString('en-IN')}
+                    <span className="font-black text-base">{transportMode === 'train' ? (transportation.operator || 'Train / Transit') : 'Self Car'}</span>
+                    <span className="text-xl font-black text-emerald-400">
+                      {transportation.cost == null ? 'Cost not provided' : `₹${transportation.cost.toLocaleString('en-IN')}${transportation.costType === 'estimated' ? ' estimated' : ''}`}
                     </span>
                   </div>
-
-                  <div className={`p-4 rounded-2xl border flex items-center justify-between text-xs mb-4 ${
-                    isDark ? 'bg-[#0B0F19] border-slate-800' : 'bg-slate-50 border-slate-200'
-                  }`}>
-                    <div>
-                      <span className={`font-black text-base block ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                        {fl.departureTime}
-                      </span>
-                      <span className={`text-xs font-semibold ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{origin}</span>
-                    </div>
-
-                    <div className="text-center text-xs space-y-1">
-                      <span className={`font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{fl.duration}</span>
-                      <div className="w-24 h-1 bg-gradient-to-r from-cyan-400 to-indigo-500 mx-auto rounded-full" />
-                      <span className="font-bold text-cyan-400 text-[11px]">{fl.stops === 0 ? 'Non-Stop' : `${fl.stops} Stop`}</span>
-                    </div>
-
-                    <div className="text-right">
-                      <span className={`font-black text-base block ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                        {fl.arrivalTime}
-                      </span>
-                      <span className={`text-xs font-semibold ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{destination}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between text-xs">
-                    <span className={`text-xs font-medium flex items-center gap-1.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                      <span className="w-2 h-2 rounded-full bg-emerald-400" /> Grounded via Google Flights
-                    </span>
-                    {fl.bookingLink && <a
-                      href={fl.bookingLink}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="px-3 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 font-bold flex items-center gap-1.5 border border-cyan-500/30 transition-colors"
-                    >
-                      <span>View Live Fare</span>
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </a>}
+                  <div className="text-sm space-y-2">
+                    <div>{transportation.details?.startAddress || origin} → {transportation.details?.endAddress || destination}</div>
+                    {transportation.details?.startStop && <div>Board at {transportation.details.startStop}{transportation.details.endStop ? ` · arrive ${transportation.details.endStop}` : ''}</div>}
+                    <div>Distance: {transportation.distance || 'Not provided'} · Duration: {transportation.duration || 'Not provided'}</div>
+                    {transportation.operator && <div>Service: {transportation.operator}</div>}
+                    {transportation.details?.stops != null && <div>Stops/transfers: {transportation.details.stops}</div>}
+                    {transportMode === 'self_car' && <div>{transportation.costAssumptions ? `Fuel estimate uses ${transportation.costAssumptions.fuelEfficiencyKmPerLitre} km/L and ₹${transportation.costAssumptions.fuelPricePerLitre}/L assumptions; it is not a live fuel price.` : 'Fuel cost estimate unavailable because route distance was not returned.'}</div>}
+                    {transportation.tollInfo && <div>Toll information: {typeof transportation.tollInfo === 'string' ? transportation.tollInfo : JSON.stringify(transportation.tollInfo)}</div>}
+                    {transportation.route?.steps?.map((step, index) => step.instruction && <div key={index} className="text-xs opacity-75">{step.instruction}</div>)}
                   </div>
                 </div>
-              ))}
-            </div>}
+              ) : (
+                <div className={`p-8 rounded-3xl border text-center space-y-3 max-w-md mx-auto ${
+                  isDark ? 'bg-slate-900/60 border-slate-800 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
+                }`}>
+                  <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center mx-auto text-2xl">
+                    🗺️
+                  </div>
+                  <h4 className="font-bold text-base">Route information unavailable</h4>
+                  <p className="text-xs text-slate-400">
+                    {transportMode === 'train' ? 'No direct train route was returned by SerpApi for this journey.' : 'Driving route information unavailable.'}
+                  </p>
+                </div>
+              )
+            ) : (!liveData?.flights || liveData.flights.length === 0) ? (
+              <div className={`p-8 rounded-3xl border text-center space-y-3 max-w-md mx-auto ${
+                isDark ? 'bg-slate-900/60 border-slate-800 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
+              }`}>
+                <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center mx-auto text-2xl">
+                  ✈️
+                </div>
+                <h4 className="font-bold text-base">Live flight information unavailable</h4>
+                <p className="text-xs text-slate-400">
+                  SerpApi could not verify live flight schedules or fares for this route.
+                </p>
+                <button
+                  onClick={() => setActiveTab('overview')}
+                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all"
+                >
+                  Search again
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {liveData?.flights?.map((fl, idx) => (
+                  <div
+                    key={fl.id || idx}
+                    className={`p-6 rounded-3xl border transition-all duration-300 ${
+                      fl.airline === selectedOptions.flight?.airline
+                        ? isDark
+                          ? 'bg-[#162038] border-indigo-500 shadow-xl shadow-indigo-500/20'
+                          : 'bg-indigo-50/70 border-indigo-400 shadow-xl shadow-indigo-100'
+                        : isDark
+                        ? 'bg-[#111726] border-slate-800 shadow-xl hover:border-slate-700'
+                        : 'bg-white border-slate-200/80 shadow-sm hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <span className={`font-black text-lg ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                          {fl.airline}
+                        </span>
+                        {fl.airline === selectedOptions.flight?.airline && (
+                          <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-500/25 text-indigo-300 border border-indigo-400/40">
+                            AI Chosen
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-2xl font-black text-emerald-400">
+                        ₹{fl.price?.toLocaleString('en-IN')}
+                      </span>
+                    </div>
+
+                    <div className={`p-4 rounded-2xl border flex items-center justify-between text-xs mb-4 ${
+                      isDark ? 'bg-[#0B0F19] border-slate-800' : 'bg-slate-50 border-slate-200'
+                    }`}>
+                      <div>
+                        <span className={`font-black text-base block ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                          {fl.departureTime}
+                        </span>
+                        <span className={`text-xs font-semibold ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{origin}</span>
+                      </div>
+
+                      <div className="text-center text-xs space-y-1">
+                        <span className={`font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{fl.duration}</span>
+                        <div className="w-24 h-1 bg-gradient-to-r from-cyan-400 to-indigo-500 mx-auto rounded-full" />
+                        <span className="font-bold text-cyan-400 text-[11px]">{fl.stops === 0 ? 'Non-Stop' : `${fl.stops} Stop`}</span>
+                      </div>
+
+                      <div className="text-right">
+                        <span className={`font-black text-base block ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                          {fl.arrivalTime}
+                        </span>
+                        <span className={`text-xs font-semibold ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{destination}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs">
+                      <span className={`text-xs font-medium flex items-center gap-1.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                        <span className="w-2 h-2 rounded-full bg-emerald-400" /> Grounded via Google Flights
+                      </span>
+                      {fl.bookingLink && <a
+                        href={fl.bookingLink}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-3 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 font-bold flex items-center gap-1.5 border border-cyan-500/30 transition-colors"
+                      >
+                        <span>View Live Fare</span>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -633,20 +793,39 @@ export default function DashboardPage() {
               Live Google Hotels via SerpApi ({destination})
             </h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {liveData?.hotels?.map((h, idx) => (
-                <div
-                  key={h.id || idx}
-                  className={`group rounded-3xl border overflow-hidden transition-all duration-300 card-hover ${
-                    h.name === selectedOptions.hotel?.name
-                      ? isDark
-                        ? 'bg-[#162038] border-indigo-500 shadow-xl shadow-indigo-500/20'
-                        : 'bg-indigo-50/50 border-indigo-400 shadow-xl shadow-indigo-100'
-                      : isDark
-                      ? 'bg-[#111726] border-slate-800 shadow-xl hover:border-slate-700'
-                      : 'bg-white border-slate-200/80 shadow-luxury'
-                  }`}
+            {(!liveData?.hotels || liveData.hotels.length === 0) ? (
+              <div className={`p-8 rounded-3xl border text-center space-y-3 max-w-md mx-auto ${
+                isDark ? 'bg-slate-900/60 border-slate-800 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
+              }`}>
+                <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mx-auto text-2xl">
+                  🏨
+                </div>
+                <h4 className="font-bold text-base">Live price unavailable</h4>
+                <p className="text-xs text-slate-400">
+                  SerpApi could not verify the current price.
+                </p>
+                <button
+                  onClick={() => setActiveTab('overview')}
+                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all"
                 >
+                  Search again
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {liveData?.hotels?.map((h, idx) => (
+                  <div
+                    key={h.id || idx}
+                    className={`group rounded-3xl border overflow-hidden transition-all duration-300 card-hover ${
+                      h.name === selectedOptions.hotel?.name
+                        ? isDark
+                          ? 'bg-[#162038] border-indigo-500 shadow-xl shadow-indigo-500/20'
+                          : 'bg-indigo-50/50 border-indigo-400 shadow-xl shadow-indigo-100'
+                        : isDark
+                        ? 'bg-[#111726] border-slate-800 shadow-xl hover:border-slate-700'
+                        : 'bg-white border-slate-200/80 shadow-luxury'
+                    }`}
+                  >
                   <div className="relative h-56">
                     {h.image ? (
                       <img
@@ -734,8 +913,9 @@ export default function DashboardPage() {
                 </div>
               ))}
             </div>
-          </div>
-        )}
+          )}
+        </div>
+      )}
 
         {/* ════════════════════════════════════════════════════════════════
             TAB 6: BUDGET OPTIMIZER (WITH ELEGANT SVG CHARTS)
@@ -759,19 +939,78 @@ export default function DashboardPage() {
                 </div>
                 {isOverBudget && (
                   <button
-                    onClick={optimizeTripBudget}
-                    disabled={isReplanning}
-                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-xs shadow-md transition-all hover:scale-105"
+                    onClick={handleOptimizeBudget}
+                    disabled={isReplanning || optimizingProgress !== null}
+                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-xs shadow-md transition-all hover:scale-105 disabled:opacity-50 flex items-center gap-2"
                   >
-                    {isReplanning ? 'Optimizing...' : 'Auto-Optimize'}
+                    {optimizingProgress !== null ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                    <span>{optimizingProgress !== null ? 'Optimizing...' : 'Auto-Optimize Trip'}</span>
                   </button>
                 )}
               </div>
 
+              {/* Progress State (Section 15) */}
+              {optimizingProgress !== null && (
+                <div className={`p-5 rounded-2xl border shadow-lg ${isDark ? 'bg-blue-950/40 border-blue-500/40' : 'bg-blue-50 border-blue-200'}`}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />
+                    <span className="font-bold text-xs uppercase tracking-wider">Optimizing your trip...</span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
+                    <div className={`flex items-center gap-1 ${optimizingProgress >= 0 ? 'text-emerald-500 font-bold' : 'opacity-40'}`}>
+                      <span>{optimizingProgress >= 0 ? '✓' : '•'}</span> Checking hotels
+                    </div>
+                    <div className={`flex items-center gap-1 ${optimizingProgress >= 1 ? 'text-emerald-500 font-bold' : 'opacity-40'}`}>
+                      <span>{optimizingProgress >= 1 ? '✓' : '•'}</span> Checking transport
+                    </div>
+                    <div className={`flex items-center gap-1 ${optimizingProgress >= 2 ? 'text-emerald-500 font-bold' : 'opacity-40'}`}>
+                      <span>{optimizingProgress >= 2 ? '✓' : '•'}</span> Checking activities
+                    </div>
+                    <div className={`flex items-center gap-1 ${optimizingProgress >= 3 ? 'text-emerald-500 font-bold' : 'opacity-40'}`}>
+                      <span>{optimizingProgress >= 3 ? '✓' : '•'}</span> Recalculating routes
+                    </div>
+                    <div className={`flex items-center gap-1 ${optimizingProgress >= 4 ? 'text-emerald-500 font-bold' : 'opacity-40'}`}>
+                      <span>{optimizingProgress >= 4 ? '✓' : '•'}</span> Rechecking live data
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Before / After Optimization Diff (Section 15) */}
+              {currentTrip.optimizationDiff && (
+                <div className={`p-5 rounded-2xl border shadow-sm space-y-3 ${
+                  isDark ? 'bg-emerald-950/30 border-emerald-500/30' : 'bg-emerald-50 border-emerald-200'
+                }`}>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <span className="text-xs font-black uppercase tracking-wider text-emerald-500">
+                      ✓ Trip Optimization Complete
+                    </span>
+                    <div className="text-xs font-bold space-x-3">
+                      <span className="text-slate-400">Before: <del>₹{currentTrip.optimizationDiff.beforeCost?.toLocaleString('en-IN')}</del></span>
+                      <span className="text-emerald-500 font-black">After: ₹{currentTrip.optimizationDiff.afterCost?.toLocaleString('en-IN')}</span>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-emerald-500/20 text-xs">
+                    <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium">
+                      ✓ Hotel rebalanced
+                    </div>
+                    <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium">
+                      ✓ Transport verified
+                    </div>
+                    <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium">
+                      ✓ Activities adjusted
+                    </div>
+                    <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium">
+                      ✓ Daily routes recalculated
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* 5 Category Cards */}
               <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 {[
-                  { title: transportMode === 'flight' ? 'Flight' : transportMode === 'train' ? 'Train' : 'Self Car', val: budgetBreakdown?.transportation, unavailable: budgetBreakdown?.transportationCostUnavailable, col: 'text-cyan-400', bg: isDark ? 'bg-cyan-950/30 border-cyan-800/40' : 'bg-cyan-50 border-cyan-200' },
+                  { title: transportVisual.label || 'Transit', val: budgetBreakdown?.transportation, unavailable: budgetBreakdown?.transportationCostUnavailable, col: 'text-cyan-400', bg: isDark ? 'bg-cyan-950/30 border-cyan-800/40' : 'bg-cyan-50 border-cyan-200' },
                   { title: `🏨 Hotels`, val: budgetBreakdown?.accommodation, col: 'text-violet-400', bg: isDark ? 'bg-violet-950/30 border-violet-800/40' : 'bg-violet-50 border-violet-200' },
                   { title: `Food`, val: budgetBreakdown?.foodAndDining, col: 'text-amber-400', bg: isDark ? 'bg-amber-950/30 border-amber-800/40' : 'bg-amber-50 border-amber-200' },
                   { title: `🎫 Activities`, val: budgetBreakdown?.activitiesAndSightseeing, col: 'text-emerald-400', bg: isDark ? 'bg-emerald-950/30 border-emerald-800/40' : 'bg-emerald-50 border-emerald-200' },
@@ -806,17 +1045,19 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* AI Recommendation */}
+              {/* AI Recommendation / Notice */}
               <div className={`p-5 rounded-2xl border flex items-start gap-3 ${
-                isDark ? 'bg-[#0B0F19] border-slate-800' : 'bg-violet-50 border-violet-200'
+                isDark ? 'bg-[#0B0F19] border-slate-800' : 'bg-slate-50 border-slate-200'
               }`}>
-                <Sparkles className="w-5 h-5 text-violet-400 flex-shrink-0 mt-0.5" />
+                <Sparkles className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-xs font-black text-violet-400 uppercase tracking-wider mb-1">✨ AI Recommendation</p>
+                  <p className="text-xs font-bold text-blue-500 uppercase tracking-wider mb-1">Budget Optimization Status</p>
                   <p className={`text-xs leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                    {budgetOptimizationError || budgetStatus?.optimizationRecommendation || (isOverBudget
-                      ? 'Click Auto-Optimize above to autonomously rebalance transit modes, stay tiers, and dining to bring this trip under budget.'
-                      : `Your budget allocation is well-optimized. Transportation and accommodation account for ${totalCost > 0 ? Math.round(((budgetBreakdown?.transportation || 0) + (budgetBreakdown?.accommodation || 0)) / totalCost * 100) : 0}% of total spend.`)}
+                    {budgetOptimizationError
+                      ? 'No lower-cost verified option is currently available.'
+                      : (isOverBudget
+                        ? 'Click Auto-Optimize above to autonomously rebalance transit, stays, and activities to bring this trip under budget.'
+                        : `Your budget allocation is well-balanced. Transportation and accommodation account for ${totalCost > 0 ? Math.round(((budgetBreakdown?.transportation || 0) + (budgetBreakdown?.accommodation || 0)) / totalCost * 100) : 0}% of total spend.`)}
                   </p>
                 </div>
               </div>

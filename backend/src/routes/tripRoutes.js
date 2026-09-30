@@ -6,7 +6,8 @@ import {
   searchReviews,
   searchEvents,
   discoverDestinations,
-  searchImage
+  searchImage,
+  verifyLocationQuery
 } from '../services/serpapiService.js';
 import {
   planTripWorkflow,
@@ -18,6 +19,21 @@ import { parseTravelPrompt } from '../services/llmService.js';
 import { saveTrip, getTripById, listSavedTrips } from '../services/supabaseService.js';
 
 const router = express.Router();
+
+// Location Verification Endpoint (SerpApi + Indian Gazetteer)
+router.post('/locations/verify', async (req, res) => {
+  try {
+    const { query } = req.body;
+    if (!query || typeof query !== 'string') {
+      return res.status(400).json({ success: false, error: 'Query is required' });
+    }
+    const result = await verifyLocationQuery(query);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    console.error('[Error in /locations/verify]:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 // 0. Natural Language Prompt Parser (AI + Deterministic Fallback)
 router.post('/trips/parse-prompt', async (req, res) => {

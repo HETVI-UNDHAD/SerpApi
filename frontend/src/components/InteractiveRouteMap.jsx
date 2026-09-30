@@ -21,6 +21,20 @@ const DAY_COLORS = ['#06b6d4', '#f59e0b', '#a855f7', '#10b981', '#ec4899'];
 const PIN_COLORS = ['#06b6d4', '#f59e0b', '#ec4899', '#10b981', '#8b5cf6'];
 
 const CITY_COORDINATES = {
+  rajkot: { lat: 22.3039, lng: 70.8022 },
+  junagadh: { lat: 21.5222, lng: 70.4579 },
+  junagtah: { lat: 21.5222, lng: 70.4579 },
+  jetpur: { lat: 21.7583, lng: 70.6276 },
+  somnath: { lat: 20.8880, lng: 70.4012 },
+  dwarka: { lat: 22.2442, lng: 68.9685 },
+  sasangir: { lat: 21.1243, lng: 70.8242 },
+  gir: { lat: 21.1243, lng: 70.8242 },
+  morbi: { lat: 22.8173, lng: 70.8378 },
+  gondal: { lat: 21.9619, lng: 70.7923 },
+  jamnagar: { lat: 22.4707, lng: 70.0577 },
+  bhavnagar: { lat: 21.7645, lng: 72.1519 },
+  surat: { lat: 21.1702, lng: 72.8311 },
+  vadodara: { lat: 22.3072, lng: 73.1812 },
   udaipur: { lat: 24.5854, lng: 73.7125 },
   goa: { lat: 15.4989, lng: 73.8278 },
   ahmedabad: { lat: 23.0225, lng: 72.5714 },
@@ -46,13 +60,16 @@ const CITY_COORDINATES = {
   switzerland: { lat: 46.8182, lng: 8.2275 }
 };
 
-function getCityCenter(destination) {
-  if (!destination) return { lat: 24.5854, lng: 73.7125 };
+function getCityCenter(destination, destinationLocation = null) {
+  if (destinationLocation?.latitude && destinationLocation?.longitude) {
+    return { lat: Number(destinationLocation.latitude), lng: Number(destinationLocation.longitude) };
+  }
+  if (!destination) return { lat: 22.3039, lng: 70.8022 };
   const clean = destination.toLowerCase().replace(/[^a-z]/g, '');
   for (const [city, coords] of Object.entries(CITY_COORDINATES)) {
     if (clean.includes(city) || city.includes(clean)) return coords;
   }
-  return { lat: 24.5854, lng: 73.7125 };
+  return { lat: 22.3039, lng: 70.8022 };
 }
 
 export default function InteractiveRouteMap({
@@ -74,7 +91,7 @@ export default function InteractiveRouteMap({
   const lTileLayerRef = useRef(null);
   const lLayerRef = useRef(null);
 
-  const cityCenter = getCityCenter(destination);
+  const cityCenter = getCityCenter(destination, currentTrip?.destinationLocation);
   const hotelLat = hotel?.gpsCoordinates?.latitude || cityCenter.lat;
   const hotelLng = hotel?.gpsCoordinates?.longitude || cityCenter.lng;
   const hotelName = hotel?.name || 'Hotel Basecamp';
