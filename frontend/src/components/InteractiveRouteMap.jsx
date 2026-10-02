@@ -37,6 +37,9 @@ const CITY_COORDINATES = {
   vadodara: { lat: 22.3072, lng: 73.1812 },
   udaipur: { lat: 24.5854, lng: 73.7125 },
   goa: { lat: 15.4989, lng: 73.8278 },
+  panaji: { lat: 15.4909, lng: 73.8278 },
+  madgaon: { lat: 15.2736, lng: 73.9749 },
+  margao: { lat: 15.2736, lng: 73.9749 },
   ahmedabad: { lat: 23.0225, lng: 72.5714 },
   jaipur: { lat: 26.9124, lng: 75.7873 },
   delhi: { lat: 28.6139, lng: 77.2090 },
@@ -45,6 +48,7 @@ const CITY_COORDINATES = {
   bengaluru: { lat: 12.9716, lng: 77.5946 },
   kerala: { lat: 9.9312, lng: 76.2673 },
   kochi: { lat: 9.9312, lng: 76.2673 },
+  munnar: { lat: 10.0889, lng: 77.0595 },
   manali: { lat: 32.2432, lng: 77.1892 },
   shimla: { lat: 31.1048, lng: 77.1734 },
   varanasi: { lat: 25.3176, lng: 82.9739 },
@@ -60,16 +64,42 @@ const CITY_COORDINATES = {
   switzerland: { lat: 46.8182, lng: 8.2275 }
 };
 
-function getCityCenter(destination, destinationLocation = null) {
-  if (destinationLocation?.latitude && destinationLocation?.longitude) {
-    return { lat: Number(destinationLocation.latitude), lng: Number(destinationLocation.longitude) };
+export function sanitizeLatLng(raw, fallbackLat = 15.4989, fallbackLng = 73.8278) {
+  if (!raw) return [fallbackLat, fallbackLng];
+  let lat = raw.latitude ?? raw.lat ?? (Array.isArray(raw) ? raw[0] : null);
+  let lng = raw.longitude ?? raw.lng ?? (Array.isArray(raw) ? raw[1] : null);
+  lat = Number(lat);
+  lng = Number(lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || (lat === 0 && lng === 0)) {
+    return [fallbackLat, fallbackLng];
   }
-  if (!destination) return { lat: 22.3039, lng: 70.8022 };
-  const clean = destination.toLowerCase().replace(/[^a-z]/g, '');
+  // Check if coordinates were inadvertently swapped ([lng, lat] instead of [lat, lng])
+  if (lat > 50 && lng < 40 && lng >= 6 && lat <= 98) {
+    const temp = lat;
+    lat = lng;
+    lng = temp;
+  }
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    return [fallbackLat, fallbackLng];
+  }
+  return [lat, lng];
+}
+
+function getCityCenter(cityName, locationObj = null) {
+  if (locationObj?.latitude && locationObj?.longitude) {
+    const [lat, lng] = sanitizeLatLng(locationObj);
+    return { lat, lng };
+  }
+  if (locationObj?.lat && locationObj?.lng) {
+    const [lat, lng] = sanitizeLatLng(locationObj);
+    return { lat, lng };
+  }
+  if (!cityName) return { lat: 15.4989, lng: 73.8278 };
+  const clean = cityName.toLowerCase().replace(/[^a-z]/g, '');
   for (const [city, coords] of Object.entries(CITY_COORDINATES)) {
     if (clean.includes(city) || city.includes(clean)) return coords;
   }
-  return { lat: 22.3039, lng: 70.8022 };
+  return { lat: 15.4989, lng: 73.8278 };
 }
 
 export default function InteractiveRouteMap({
@@ -84,16 +114,21 @@ export default function InteractiveRouteMap({
 
   const mapDivRef = useRef(null);
   const [engine, setEngine] = useState('detecting');
-  const [viewMode, setViewMode] = useState('day'); // 'day' or 'full'
+  const [viewMode, setViewMode] = useState('day'); // 'day' | 'full' | 'intercity'
 
   // Leaflet refs
   const lMapRef = useRef(null);
   const lTileLayerRef = useRef(null);
   const lLayerRef = useRef(null);
 
-  const cityCenter = getCityCenter(destination, currentTrip?.destinationLocation);
-  const hotelLat = hotel?.gpsCoordinates?.latitude || cityCenter.lat;
-  const hotelLng = hotel?.gpsCoordinates?.longitude || cityCenter.lng;
+  const cityCenter = getCityCenter(destination || currentTrip?.destination, currentTrip?.destinationLocation);
+  const originCityCenter = getCityCenter(currentTrip?.origin || 'Ahmedabad', currentTrip?.originLocation);
+
+  const [hotelLat, hotelLng] = sanitizeLatLng(
+    hotel?.gpsCoordinates || hotel?.coordinates,
+    cityCenter.lat,
+    cityCenter.lng
+  );
   const hotelName = hotel?.name || 'Hotel Basecamp';
 
   const allItineraryDays = currentTrip?.itinerary || [];
@@ -120,7 +155,7 @@ export default function InteractiveRouteMap({
       const map = L.map(mapDivRef.current, {
         zoomControl: true,
         attributionControl: true
-      }).setView([hotelLat, hotelLng], 13);
+      }).setView([hotelLat, hotelLng], 12);
 
       const tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 
@@ -154,6 +189,69 @@ export default function InteractiveRouteMap({
     const hotelPos = [hotelLat, hotelLng];
     const allBoundPoints = [hotelPos];
 
+    // ── INTERCITY JOURNEY OVERVIEW (Origin -> Destination) ──
+    if (viewMode === 'intercity') {
+      const [originLat, originLng] = sanitizeLatLng(originCityCenter, 23.0225, 72.5714);
+      const originPos = [originLat, originLng];
+      const destPos = [hotelLat, hotelLng];
+
+      allBoundPoints.push(originPos);
+      allBoundPoints.push(destPos);
+
+      // Origin Marker
+      const originIcon = L.divIcon({
+        className: 'origin-icon',
+        html: `
+          <div style="background:#0284c7;color:white;width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(2,132,199,0.65);border:3px solid #ffffff;font-size:18px;cursor:pointer;">
+            🏠
+          </div>
+        `,
+        iconSize: [38, 38],
+        iconAnchor: [19, 19]
+      });
+
+      L.marker(originPos, { icon: originIcon }).addTo(layer).bindPopup(`
+        <div style="padding:6px;min-width:180px">
+          <strong style="color:#0284c7;font-size:11px;text-transform:uppercase">Origin Point</strong>
+          <p style="margin:2px 0;font-size:13px;font-weight:bold">${currentTrip?.origin || 'Ahmedabad'}</p>
+          <span style="font-size:11px;color:#64748b">Trip Departure</span>
+        </div>
+      `);
+
+      // Destination / Hotel Basecamp Marker
+      const destIcon = L.divIcon({
+        className: 'dest-icon',
+        html: `
+          <div style="background:#4f46e5;color:white;width:42px;height:42px;border-radius:14px;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(79,70,229,0.65);border:3px solid #ffffff;font-size:20px;cursor:pointer;">
+            🏨
+          </div>
+        `,
+        iconSize: [42, 42],
+        iconAnchor: [21, 21]
+      });
+
+      L.marker(destPos, { icon: destIcon }).addTo(layer).bindPopup(`
+        <div style="padding:6px;min-width:200px">
+          <strong style="color:#4f46e5;font-size:11px;text-transform:uppercase">Destination Anchor</strong>
+          <p style="margin:2px 0;font-size:13px;font-weight:bold">${hotelName}</p>
+          <span style="font-size:11px;color:#64748b">${destination || 'Goa'}</span>
+        </div>
+      `);
+
+      // Inter-city Transit Route Corridor Line
+      L.polyline([originPos, destPos], {
+        color: '#06b6d4',
+        weight: 4.5,
+        opacity: 0.9,
+        dashArray: '10, 10',
+        lineCap: 'round',
+        lineJoin: 'round'
+      }).addTo(layer);
+
+      map.fitBounds(L.latLngBounds([originPos, destPos]), { padding: [50, 50], maxZoom: 10 });
+      return;
+    }
+
     // ── 1. HOTEL BASECAMP ANCHOR PIN ──
     const hotelIcon = L.divIcon({
       className: 'hotel-icon',
@@ -171,7 +269,7 @@ export default function InteractiveRouteMap({
       <div style="padding:8px;min-width:220px">
         <strong style="color:#4f46e5;font-size:11px;text-transform:uppercase;letter-spacing:1px">🏨 Trip Geographic Anchor</strong>
         <p style="margin:4px 0 2px;font-size:14px;font-weight:bold;color:#0f172a">${hotelName}</p>
-        <span style="font-size:11px;color:#64748b">${hotel?.address || destination}</span>
+        <span style="font-size:11px;color:#64748b">${hotel?.address || destination || 'Goa'}</span>
         <div style="margin-top:6px;padding:4px 8px;background:#eef2ff;border-radius:8px;font-size:10px;font-weight:bold;color:#4338ca">
           All daily routes depart from & return to this stay
         </div>
@@ -186,10 +284,13 @@ export default function InteractiveRouteMap({
         const acts = day.activities || [];
 
         acts.forEach((act, aIdx) => {
-          const offsetLat = (aIdx === 0 ? 0.012 : aIdx === 1 ? -0.015 : aIdx === 2 ? 0.022 : -0.018) + (dIdx * 0.01);
-          const offsetLng = (aIdx === 0 ? 0.014 : aIdx === 1 ? -0.012 : aIdx === 2 ? -0.018 : 0.021) + (dIdx * 0.01);
-          const lat = act.placeDetails?.gpsCoordinates?.latitude || (hotelLat + offsetLat);
-          const lng = act.placeDetails?.gpsCoordinates?.longitude || (hotelLng + offsetLng);
+          const offsetLat = (aIdx === 0 ? 0.012 : aIdx === 1 ? -0.015 : aIdx === 2 ? 0.022 : -0.018) + (dIdx * 0.008);
+          const offsetLng = (aIdx === 0 ? 0.014 : aIdx === 1 ? -0.012 : aIdx === 2 ? -0.018 : 0.021) + (dIdx * 0.008);
+          const [lat, lng] = sanitizeLatLng(
+            act.placeDetails?.gpsCoordinates || act.gpsCoordinates,
+            hotelLat + offsetLat,
+            hotelLng + offsetLng
+          );
           const pos = [lat, lng];
           dayLatLngs.push(pos);
           allBoundPoints.push(pos);
@@ -259,7 +360,7 @@ export default function InteractiveRouteMap({
         .bindPopup(`
           <div style="padding:6px;min-width:200px">
             <strong style="color:#0284c7;font-size:11px;text-transform:uppercase">✈️ Inbound Destination Transfer</strong>
-            <p style="margin:3px 0;font-size:13px;font-weight:bold">${arrTransfer?.from || `${destination} Airport`}</p>
+            <p style="margin:3px 0;font-size:13px;font-weight:bold">${arrTransfer?.from || `${destination || 'Goa'} Airport`}</p>
             <span style="font-size:11px;color:#475569">Touchdown → Cab to Hotel Basecamp</span>
             <div style="font-size:11px;color:#0369a1;font-weight:bold;margin-top:4px">
               🚗 ${arrTransfer?.roadDistanceKm || 28} km · ~${arrTransfer?.estimatedDriveMinutes || 42} min drive
@@ -282,8 +383,11 @@ export default function InteractiveRouteMap({
     acts.forEach((act, idx) => {
       const offsetLat = (idx === 0 ? 0.012 : idx === 1 ? -0.015 : idx === 2 ? 0.022 : -0.018);
       const offsetLng = (idx === 0 ? 0.014 : idx === 1 ? -0.012 : idx === 2 ? -0.018 : 0.021);
-      const lat = act.placeDetails?.gpsCoordinates?.latitude || (hotelLat + offsetLat);
-      const lng = act.placeDetails?.gpsCoordinates?.longitude || (hotelLng + offsetLng);
+      const [lat, lng] = sanitizeLatLng(
+        act.placeDetails?.gpsCoordinates || act.gpsCoordinates,
+        hotelLat + offsetLat,
+        hotelLng + offsetLng
+      );
       const pos = [lat, lng];
       dayLatLngs.push(pos);
       allBoundPoints.push(pos);
@@ -375,23 +479,33 @@ export default function InteractiveRouteMap({
       const act = activities[idx];
       const offsetLat = (idx === 0 ? 0.012 : idx === 1 ? -0.015 : idx === 2 ? 0.022 : -0.018);
       const offsetLng = (idx === 0 ? 0.014 : idx === 1 ? -0.012 : idx === 2 ? -0.018 : 0.021);
-      const lat = act.placeDetails?.gpsCoordinates?.latitude || (hotelLat + offsetLat);
-      const lng = act.placeDetails?.gpsCoordinates?.longitude || (hotelLng + offsetLng);
+      const [lat, lng] = sanitizeLatLng(
+        act.placeDetails?.gpsCoordinates || act.gpsCoordinates,
+        hotelLat + offsetLat,
+        hotelLng + offsetLng
+      );
       lMapRef.current.flyTo([lat, lng], 15, { animate: true, duration: 0.8 });
     }
   }
 
   function resetBounds() {
     if (!lMapRef.current) return;
+    if (viewMode === 'intercity') {
+      const [originLat, originLng] = sanitizeLatLng(originCityCenter, 23.0225, 72.5714);
+      lMapRef.current.fitBounds(L.latLngBounds([[originLat, originLng], [hotelLat, hotelLng]]), { padding: [50, 50], maxZoom: 10 });
+      return;
+    }
     const activities = currentDay?.activities || [];
     const pts = [[hotelLat, hotelLng]];
     activities.forEach((act, idx) => {
       const offsetLat = (idx === 0 ? 0.012 : idx === 1 ? -0.015 : idx === 2 ? 0.022 : -0.018);
       const offsetLng = (idx === 0 ? 0.014 : idx === 1 ? -0.012 : idx === 2 ? -0.018 : 0.021);
-      pts.push([
-        act.placeDetails?.gpsCoordinates?.latitude || (hotelLat + offsetLat),
-        act.placeDetails?.gpsCoordinates?.longitude || (hotelLng + offsetLng)
-      ]);
+      const [lat, lng] = sanitizeLatLng(
+        act.placeDetails?.gpsCoordinates || act.gpsCoordinates,
+        hotelLat + offsetLat,
+        hotelLng + offsetLng
+      );
+      pts.push([lat, lng]);
     });
     lMapRef.current.fitBounds(L.latLngBounds(pts), { padding: [45, 45], maxZoom: 14 });
   }
@@ -445,6 +559,21 @@ export default function InteractiveRouteMap({
           <Layers className="w-3.5 h-3.5" />
           <span>Full Trip</span>
         </button>
+
+        <button
+          onClick={() => setViewMode('intercity')}
+          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+            viewMode === 'intercity'
+              ? 'bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-md'
+              : isDark
+              ? 'text-slate-300 hover:text-white hover:bg-slate-800'
+              : 'text-slate-700 hover:text-slate-900 hover:bg-white'
+          }`}
+          title="View Inter-city Corridor Map"
+        >
+          <Navigation className="w-3.5 h-3.5" />
+          <span>{currentTrip?.origin || 'Origin'} → {destination || 'Destination'}</span>
+        </button>
       </div>
 
       {/* ── MAP CONTAINER ── */}
@@ -459,7 +588,11 @@ export default function InteractiveRouteMap({
         }`}>
           <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse" />
           <span className="text-xs font-black tracking-wide">
-            {viewMode === 'full' ? `Full Journey Map (${destination})` : currentDay?.title || 'Interactive Route Map'}
+            {viewMode === 'intercity'
+              ? `${currentTrip?.origin || 'Ahmedabad'} → ${destination || 'Goa'} Corridor`
+              : viewMode === 'full'
+              ? `Full Journey Map (${destination || 'Goa'})`
+              : currentDay?.title || 'Interactive Route Map'}
           </span>
           <span className="text-[10px] font-bold text-cyan-400 px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/20">
             {engine === 'google' ? 'Google Maps' : 'Live Road Route Map'}
@@ -488,29 +621,50 @@ export default function InteractiveRouteMap({
           </div>
         </div>
 
-        {/* ── MAP LEGEND OVERLAY (Requirement 17) ── */}
+        {/* ── MAP LEGEND OVERLAY ── */}
         <div className={`absolute bottom-4 left-4 z-10 p-2.5 rounded-2xl border shadow-xl flex items-center gap-3 text-[10px] font-bold backdrop-blur-md ${
           isDark ? 'bg-[#0B0F19]/90 border-slate-800 text-slate-300' : 'bg-white/90 border-slate-200 text-slate-700'
         }`}>
-          <span className="flex items-center gap-1">
-            <span>🏨</span>
-            <span>Hotel Basecamp</span>
-          </span>
-          <span className="opacity-40">•</span>
-          <span className="flex items-center gap-1">
-            <span>✈️</span>
-            <span>Airport / Station</span>
-          </span>
-          <span className="opacity-40">•</span>
-          <span className="flex items-center gap-1">
-            <span className="w-2.5 h-2.5 rounded-full bg-cyan-400" />
-            <span>Activities</span>
-          </span>
-          <span className="opacity-40">•</span>
-          <span className="flex items-center gap-1 text-indigo-400">
-            <span>━ ━</span>
-            <span>Road Route</span>
-          </span>
+          {viewMode === 'intercity' ? (
+            <>
+              <span className="flex items-center gap-1">
+                <span>🏠</span>
+                <span>{currentTrip?.origin || 'Origin'}</span>
+              </span>
+              <span className="opacity-40">•</span>
+              <span className="flex items-center gap-1">
+                <span>🏨</span>
+                <span>{destination || 'Destination'} Basecamp</span>
+              </span>
+              <span className="opacity-40">•</span>
+              <span className="flex items-center gap-1 text-cyan-400">
+                <span>━ ━</span>
+                <span>Inter-city Transit</span>
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="flex items-center gap-1">
+                <span>🏨</span>
+                <span>Hotel Basecamp</span>
+              </span>
+              <span className="opacity-40">•</span>
+              <span className="flex items-center gap-1">
+                <span>✈️</span>
+                <span>Airport / Station</span>
+              </span>
+              <span className="opacity-40">•</span>
+              <span className="flex items-center gap-1">
+                <span className="w-2.5 h-2.5 rounded-full bg-cyan-400" />
+                <span>Activities</span>
+              </span>
+              <span className="opacity-40">•</span>
+              <span className="flex items-center gap-1 text-indigo-400">
+                <span>━ ━</span>
+                <span>Road Route</span>
+              </span>
+            </>
+          )}
         </div>
       </div>
 

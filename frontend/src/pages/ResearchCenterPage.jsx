@@ -3,18 +3,18 @@ import { useTrip } from '../context/TripContext';
 import {
   Sparkles, Plane, Building, MapPin, MessageSquare,
   Calculator, Sliders, CheckCircle2, Loader2, Circle,
-  Compass, ShieldCheck, Heart, Calendar, Route, Zap
+  Compass, ShieldCheck, Heart, Calendar, Route, Zap, Clock
 } from 'lucide-react';
 
 const ICONS = {
-  1: Plane,
-  2: Building,
-  3: MapPin,
-  4: Zap,
-  5: Route,
-  6: ShieldCheck,
-  7: Compass,
-  8: Calendar
+  TRANSPORT: Plane,
+  HOTEL: Building,
+  PLACES: MapPin,
+  REVIEWS: Heart,
+  EVENTS: Calendar,
+  ROUTING: Route,
+  BUDGET: Calculator,
+  VALIDATION: ShieldCheck
 };
 
 function formatElapsed(ms) {
@@ -26,22 +26,22 @@ function formatElapsed(ms) {
 function renderStatusBadge(status) {
   switch (status) {
     case 'LIVE':
-      return <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">LIVE</span>;
+      return <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">LIVE</span>;
     case 'ESTIMATED':
-      return <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-sky-500/20 text-sky-400 border border-sky-500/30">ESTIMATED</span>;
+      return <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-sky-500/20 text-sky-600 dark:text-sky-400 border border-sky-500/30">ESTIMATED</span>;
     case 'INFERRED':
-      return <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-purple-500/20 text-purple-400 border border-purple-500/30">INFERRED</span>;
+      return <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/30">INFERRED</span>;
     case 'FALLBACK':
-      return <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40">FALLBACK</span>;
+      return <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/40">FALLBACK</span>;
     case 'FAILED':
-      return <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/40">FAILED</span>;
+      return <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-600 dark:text-rose-300 border border-rose-500/40">FAILED</span>;
     case 'UNAVAILABLE':
-      return <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-slate-500/20 text-slate-400 border border-slate-500/30">UNAVAILABLE</span>;
+      return <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-slate-500/20 text-slate-500 border border-slate-500/30">UNAVAILABLE</span>;
     case 'IN_PROGRESS':
     case 'in-progress':
-      return <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 animate-pulse">SEARCHING</span>;
+      return <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/40 animate-pulse">SEARCHING</span>;
     default:
-      return null;
+      return <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-400">QUEUED</span>;
   }
 }
 
@@ -57,199 +57,113 @@ export default function ResearchCenterPage() {
   ).length;
   const progress = Math.max(12, Math.round(((completedCount + (inProgressCount * 0.5)) / researchSteps.length) * 100));
 
-  const destQuery = formData?.destination || 'Goa';
+  const destQuery = formData?.destination || 'Destination';
 
   return (
-    <div className={`relative min-h-[92vh] flex items-center justify-center p-4 overflow-hidden transition-colors duration-400 font-sans ${
-      isDark ? 'bg-[#080A0F]/28 text-slate-100' : 'bg-white/10 text-slate-900'
+    <div className={`relative min-h-[90vh] flex items-center justify-center p-4 sm:p-6 font-sans overflow-hidden transition-colors duration-400 ${
+      isDark ? 'text-slate-100' : 'text-slate-900'
     }`}>
-
-      {/* Atmospheric Blurred Destination Background */}
-      <div className="absolute inset-0 z-0 pointer-events-none">
-        <img
-          src={`https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?w=1600&auto=format&fit=crop&q=80`}
-          alt="Destination background"
-          className="w-full h-full object-cover blur-2xl opacity-20 scale-110"
-        />
-        <div className={`absolute inset-0 ${
-          isDark
-            ? 'bg-gradient-to-t from-[#080A0F] via-[#080A0F]/90 to-[#080A0F]/80'
-            : 'bg-gradient-to-t from-[#FAFAF8] via-[#FAFAF8]/90 to-[#FAFAF8]/80'
+      
+      {/* Background ambient lighting */}
+      <div className="absolute inset-0 pointer-events-none -z-10">
+        <div className={`absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] rounded-full blur-3xl opacity-30 ${
+          isDark ? 'bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-500' : 'bg-gradient-to-tr from-blue-300 via-indigo-200 to-amber-200'
         }`} />
       </div>
 
-      <div className="relative z-10 max-w-lg w-full text-center space-y-6">
+      <div className="relative z-10 max-w-2xl w-full text-center space-y-8 my-8">
 
-        {/* ── 3D HOLOGRAPHIC GLOWING AI ORB & ORBITAL RINGS ── */}
-        <div className="relative w-40 h-40 mx-auto flex items-center justify-center">
-          {/* Outer Orbital Ring 1 */}
-          <div className="absolute w-40 h-40 orbital-ring pointer-events-none" />
-
-          {/* Outer Orbital Ring 2 (reverse spin) */}
-          <div className="absolute w-32 h-32 orbital-ring-reverse pointer-events-none" />
-
-          {/* Tiny Floating Travel Particle Badges on Orbit */}
-          <div className="absolute top-1 right-2 p-1.5 rounded-full bg-cyan-400 text-slate-950 shadow-lg shadow-cyan-400/50 animate-bounce text-[9px] font-bold">
-            <Plane className="w-4 h-4" />
-          </div>
-          <div className="absolute bottom-2 left-2 p-1.5 rounded-full bg-violet-500 text-white shadow-lg shadow-violet-500/50 animate-pulse text-[9px] font-bold">
-            <MapPin className="w-4 h-4" />
-          </div>
-
-          {/* Glowing Ambient Core Light */}
-          <div className="absolute inset-4 rounded-full bg-gradient-to-tr from-cyan-400 via-indigo-500 to-violet-600 blur-2xl opacity-60 animate-pulse" />
-
-          {/* Central Iridescent Orb */}
-          <div className="relative w-24 h-24 rounded-full bg-gradient-to-tr from-cyan-400 via-indigo-600 to-violet-600 p-[2px] shadow-2xl shadow-indigo-500/40">
-            <div className="w-full h-full rounded-full bg-slate-950/80 backdrop-blur-md flex flex-col items-center justify-center relative overflow-hidden">
-              <div className="absolute -top-4 -left-4 w-12 h-12 rounded-full bg-white/30 blur-md pointer-events-none" />
-              <Sparkles className="w-8 h-8 text-cyan-300 animate-pulse" />
-              <span className="text-[9px] font-black tracking-widest text-violet-300 mt-1 uppercase">
-                AI CORE
-              </span>
-            </div>
+        {/* ── 3D HOLOGRAPHIC GLOWING AI CORE ── */}
+        <div className="relative w-36 h-36 mx-auto flex items-center justify-center">
+          <div className="absolute w-36 h-36 orbital-ring pointer-events-none" />
+          <div className="absolute w-28 h-28 orbital-ring-reverse pointer-events-none" />
+          <div className="absolute inset-4 rounded-full bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-400 blur-xl opacity-70 animate-pulse" />
+          
+          <div className="relative w-20 h-20 rounded-2xl bg-gradient-to-tr from-blue-700 via-indigo-600 to-sky-500 text-white flex items-center justify-center shadow-2xl shadow-indigo-600/50">
+            <Compass className="w-10 h-10 animate-spin" style={{ animationDuration: '16s' }} />
           </div>
         </div>
 
-        {/* Header & Route Summary */}
-        <div className="space-y-1.5">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-violet-500/10 text-violet-400 border border-violet-500/20">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Autonomous Multi-Engine Grounding</span>
-          </div>
-          <h2 className={`text-2xl sm:text-3xl font-black tracking-tight ${
-            isDark ? 'text-white' : 'text-slate-900'
-          }`}>
-            TravelOS AI is researching your journey…
-          </h2>
-          <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-            <span>{formData.origin || 'Origin'}</span>
-            <span className="mx-2 text-cyan-500">→</span>
-            <span className="font-bold text-cyan-400">{formData.destination || 'Best destination'}</span>
-            <span className="mx-2 opacity-40">•</span>
-            <span>{formData.duration} Days</span>
-            <span className="mx-2 opacity-40">•</span>
-            <span>₹{Number(formData.budget).toLocaleString('en-IN')} Budget</span>
+        {/* Title & Stage Counter */}
+        <div>
+          <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+            Live Research Pipeline · {completedCount} / {researchSteps.length} Completed
+          </span>
+          <h1 className="editorial-serif text-3xl sm:text-4xl font-bold mt-3">
+            Researching {destQuery}
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-md mx-auto">
+            Connecting to live SerpApi engines for flight fares, hotel rankings, GPS routing, and deterministic budget optimization.
           </p>
         </div>
 
-        {/* Progress bar & Percent */}
-        <div className="space-y-2 max-w-sm mx-auto">
-          <div className="flex items-center justify-between text-xs font-mono">
-            <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>Real-Time Pipeline</span>
-            <span className="font-bold text-cyan-400">{progress}%</span>
-          </div>
-          <div className={`w-full h-2 rounded-full overflow-hidden p-0.5 border ${
-            isDark ? 'bg-slate-900 border-white/10' : 'bg-slate-200 border-slate-300'
-          }`}>
-            <div
-              className="h-full bg-gradient-to-r from-cyan-400 via-indigo-500 to-emerald-400 rounded-full transition-all duration-500"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
+        {/* Progress Bar */}
+        <div className="w-full max-w-lg mx-auto bg-slate-200 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden p-0.5">
+          <div
+            className="h-full bg-gradient-to-r from-blue-600 via-indigo-500 to-cyan-400 rounded-full transition-all duration-500 ease-out"
+            style={{ width: `${progress}%` }}
+          />
         </div>
 
-        {/* ── VERTICAL TIMELINE OF 8 REAL RESEARCH STAGES ── */}
-        <div className={`p-5 rounded-3xl border text-left space-y-3 shadow-xl ${
-          isDark
-            ? 'glass-panel-dark border-white/10'
-            : 'glass-panel-light border-slate-200/80 shadow-luxury-light'
+        {/* ── 8 LIVE PIPELINE STAGES ── */}
+        <div className={`rounded-3xl border p-4 sm:p-6 text-left shadow-xl ${
+          isDark ? 'bg-[#0E1526]/90 border-slate-800' : 'bg-white/95 border-slate-200/80 shadow-slate-200/50'
         }`}>
-          {researchSteps.map((step) => {
-            const Icon = ICONS[step.id] || Sparkles;
-            const isDone = ['LIVE', 'ESTIMATED', 'INFERRED', 'done'].includes(step.status);
-            const isFallbackOrFailed = ['FALLBACK', 'FAILED'].includes(step.status);
-            const isUnavailable = step.status === 'UNAVAILABLE';
-            const isActive = step.status === 'IN_PROGRESS' || step.status === 'in-progress';
-            const isPending = !step.status || step.status === 'pending';
-            const elapsed = formatElapsed(step.duration_ms);
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {researchSteps.map(step => {
+              const StepIcon = ICONS[step.key] || Compass;
+              const isSearching = step.status === 'IN_PROGRESS' || step.status === 'in-progress';
+              const isDone = ['LIVE', 'ESTIMATED', 'INFERRED', 'FALLBACK', 'FAILED', 'UNAVAILABLE', 'done'].includes(step.status);
 
-            return (
-              <div
-                key={step.id}
-                className={`flex items-center gap-3.5 p-3 rounded-2xl border transition-all duration-300 ${
-                  isDone
-                    ? isDark
-                      ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
-                      : 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                    : isFallbackOrFailed
-                    ? isDark
-                      ? 'bg-amber-500/10 border-amber-500/30 text-amber-200'
-                      : 'bg-amber-50 border-amber-300 text-amber-900'
-                    : isUnavailable
-                    ? isDark
-                      ? 'bg-slate-500/10 border-slate-500/20 text-slate-400'
-                      : 'bg-slate-100 border-slate-200 text-slate-600'
-                    : isActive
-                    ? isDark
-                      ? 'bg-indigo-500/15 border-indigo-500/30 text-white shadow-md'
-                      : 'bg-indigo-50 border-indigo-200 text-indigo-950 shadow-md'
-                    : isDark
-                    ? 'bg-white/2 border-white/5 text-slate-500'
-                    : 'bg-slate-50 border-slate-200/60 text-slate-400'
-                }`}
-              >
-                {/* Timeline Icon */}
-                <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                  isDone
-                    ? 'bg-emerald-500/20 text-emerald-400'
-                    : isFallbackOrFailed
-                    ? 'bg-amber-500/20 text-amber-400'
-                    : isUnavailable
-                    ? 'bg-slate-500/20 text-slate-400'
-                    : isActive
-                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30'
-                    : isDark
-                    ? 'bg-white/5 text-slate-500'
-                    : 'bg-slate-200 text-slate-400'
-                }`}>
-                  <Icon className="w-4 h-4" />
-                </div>
+              return (
+                <div
+                  key={step.id}
+                  className={`p-3.5 rounded-2xl border transition-all flex items-start justify-between gap-3 ${
+                    isSearching
+                      ? 'bg-blue-50/70 dark:bg-blue-950/40 border-blue-500/60 shadow-sm'
+                      : isDone
+                      ? isDark
+                        ? 'bg-slate-900/60 border-slate-800'
+                        : 'bg-slate-50/80 border-slate-200/60'
+                      : isDark
+                      ? 'bg-slate-900/30 border-slate-800/40 opacity-60'
+                      : 'bg-slate-50/40 border-slate-100 opacity-60'
+                  }`}
+                >
+                  <div className="flex items-start gap-2.5 truncate">
+                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+                      isDone
+                        ? 'bg-emerald-500/10 text-emerald-500'
+                        : isSearching
+                        ? 'bg-blue-500/20 text-blue-500 animate-pulse'
+                        : 'bg-slate-200 dark:bg-slate-800 text-slate-400'
+                    }`}>
+                      {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <StepIcon className="w-4 h-4" />}
+                    </div>
+                    <div className="truncate">
+                      <p className="text-xs font-bold leading-tight truncate">{step.title}</p>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 truncate">{step.detail}</p>
+                      {step.result_count > 0 && (
+                        <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5">
+                          ✓ {step.result_count} verified results
+                        </p>
+                      )}
+                    </div>
+                  </div>
 
-                {/* Text details */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-xs font-bold truncate">
-                      {step.title}
-                    </p>
-                    {elapsed && (
-                      <span className="text-[10px] font-mono text-cyan-400/90 flex-shrink-0">
-                        {elapsed}
+                  <div className="flex flex-col items-end shrink-0 gap-1">
+                    {renderStatusBadge(step.status)}
+                    {step.duration_ms != null && (
+                      <span className="text-[9px] text-slate-400 font-medium">
+                        {formatElapsed(step.duration_ms)}
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    {renderStatusBadge(step.status)}
-                    <p className={`text-[10px] truncate ${
-                      isDone
-                        ? isDark ? 'text-emerald-400/70' : 'text-emerald-700/70'
-                        : isFallbackOrFailed
-                        ? isDark ? 'text-amber-300/80' : 'text-amber-800/80'
-                        : isActive
-                        ? isDark ? 'text-cyan-300' : 'text-indigo-600 font-semibold'
-                        : isDark ? 'text-slate-500' : 'text-slate-400'
-                    }`}>
-                      {step.detail}
-                    </p>
-                  </div>
                 </div>
-
-                {/* Status Indicator */}
-                <div className="flex-shrink-0">
-                  {isDone && <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
-                  {isFallbackOrFailed && <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block shadow-sm shadow-amber-400/50" />}
-                  {isUnavailable && <span className="w-2 h-2 rounded-full bg-slate-500 inline-block" />}
-                  {isActive && <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" />}
-                  {isPending && <Circle className="w-3.5 h-3.5 opacity-30" />}
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
-
-        <p className={`text-[10px] tracking-wide ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-          Live SerpApi queries to Google Flights · Google Hotels · Google Maps
-        </p>
 
       </div>
     </div>

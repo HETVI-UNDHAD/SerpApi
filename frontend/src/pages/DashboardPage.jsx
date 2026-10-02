@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTrip } from '../context/TripContext';
 import SmartItineraryView from '../components/SmartItineraryView';
 import TravelIntelligenceView from '../components/TravelIntelligenceView';
@@ -32,7 +32,8 @@ import {
   Zap,
   HelpCircle,
   Route,
-  Loader2
+  Loader2,
+  X
 } from 'lucide-react';
 import { getTransportVisual, TransportBadge } from '../utils/transportVisuals';
 
@@ -40,6 +41,9 @@ export default function DashboardPage() {
   const [groundingOpen, setGroundingOpen] = useState(false);
   const [whyPlanOpen, setWhyPlanOpen] = useState(false);
   const [optimizingProgress, setOptimizingProgress] = useState(null);
+  const [optimizeSuccess, setOptimizeSuccess] = useState(false);
+  const [isRefetching, setIsRefetching] = useState(false);
+  const optimizeSuccessTimerRef = useRef(null);
   const {
     currentTrip,
     activeTab,
@@ -52,10 +56,13 @@ export default function DashboardPage() {
     isReplanning,
     budgetOptimizationError,
     resetTrip,
-    theme
+    theme,
+    generateTrip,
+    formData
   } = useTrip();
 
   async function handleOptimizeBudget() {
+    setOptimizeSuccess(false);
     setOptimizingProgress(0);
     for (let i = 0; i <= 4; i++) {
       setOptimizingProgress(i);
@@ -63,7 +70,30 @@ export default function DashboardPage() {
     }
     await optimizeTripBudget();
     setOptimizingProgress(null);
+    // Show transient success banner for 6 seconds then auto-dismiss
+    setOptimizeSuccess(true);
+    if (optimizeSuccessTimerRef.current) clearTimeout(optimizeSuccessTimerRef.current);
+    optimizeSuccessTimerRef.current = setTimeout(() => setOptimizeSuccess(false), 6000);
   }
+
+  async function handleRefetchData() {
+    if (!formData || isRefetching) return;
+    setIsRefetching(true);
+    try {
+      await generateTrip(formData);
+    } catch (err) {
+      console.error('[Refetch error]:', err);
+    } finally {
+      setIsRefetching(false);
+    }
+  }
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (optimizeSuccessTimerRef.current) clearTimeout(optimizeSuccessTimerRef.current);
+    };
+  }, []);
 
   const isDark = theme === 'dark';
 
@@ -128,8 +158,8 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className={`min-h-screen py-8 px-4 sm:px-6 transition-colors duration-500 font-sans ${
-      isDark ? 'bg-[#090D16] text-slate-100' : 'bg-[#F8FAFC] text-slate-900'
+    <div className={`min-h-screen py-8 px-4 sm:px-6 lg:px-8 transition-colors duration-500 font-sans ${
+      isDark ? 'text-slate-100' : 'text-slate-900'
     }`}>
       <div className="max-w-7xl mx-auto space-y-8">
 
@@ -322,20 +352,25 @@ export default function DashboardPage() {
               {optimizingProgress !== null ? 'Optimizing...' : `Auto-Optimize for ₹${budget.toLocaleString('en-IN')}`}
             </button>
           </div>
-        ) : (
-          currentTrip.replanningReason?.includes('Auto-Optimized') && (
-            <div className={`p-4 rounded-2xl border flex items-center justify-between gap-4 shadow-lg ${
-              isDark ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-200' : 'bg-emerald-50 border-emerald-300 text-emerald-900'
-            }`}>
-              <div className="flex items-center gap-3">
-                <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
-                <div className="text-xs">
-                  <strong className="block font-black text-sm text-emerald-400">Budget Optimized Successfully!</strong>
-                  <span>{currentTrip.replanningReason}</span>
-                </div>
+        ) : optimizeSuccess && (
+          <div className={`p-4 rounded-2xl border flex items-center justify-between gap-4 shadow-lg ${
+            isDark ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-200' : 'bg-emerald-50 border-emerald-300 text-emerald-900'
+          }`}>
+            <div className="flex items-center gap-3">
+              <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+              <div className="text-xs">
+                <strong className="block font-black text-sm text-emerald-400">Budget Optimized Successfully!</strong>
+                <span>{currentTrip?.replanningReason || 'Your trip has been rebalanced to fit your target budget.'}</span>
               </div>
             </div>
-          )
+            <button
+              onClick={() => setOptimizeSuccess(false)}
+              className="p-1.5 rounded-lg hover:bg-emerald-500/20 text-emerald-400 transition-colors"
+              title="Dismiss"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         )}
 
 
@@ -675,34 +710,48 @@ export default function DashboardPage() {
                   </div>
                 </div>
               ) : (
-                <div className={`p-8 rounded-3xl border text-center space-y-3 max-w-md mx-auto ${
+                <div className={`p-8 rounded-3xl border text-center space-y-4 max-w-md mx-auto ${
                   isDark ? 'bg-slate-900/60 border-slate-800 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
                 }`}>
                   <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center mx-auto text-2xl">
-                    🗺️
+                    {transportMode === 'train' ? '🚆' : '🗺️'}
                   </div>
-                  <h4 className="font-bold text-base">Route information unavailable</h4>
-                  <p className="text-xs text-slate-400">
-                    {transportMode === 'train' ? 'No direct train route was returned by SerpApi for this journey.' : 'Driving route information unavailable.'}
+                  <h4 className="font-bold text-base">
+                    {transportMode === 'train' ? 'Train / Transit route unavailable' : 'Driving route unavailable'}
+                  </h4>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    {transportMode === 'train'
+                      ? 'Google Maps Directions did not return a direct train route for this origin–destination pair. This can happen for inter-state routes where rail data is not indexed by the API. Try re-fetching live data, or switch to Self Car for a driving estimate.'
+                      : 'Google Maps could not calculate a driving route for this journey.'}
                   </p>
+                  <button
+                    onClick={handleRefetchData}
+                    disabled={isRefetching}
+                    className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-2 mx-auto"
+                  >
+                    {isRefetching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                    <span>{isRefetching ? 'Fetching live data...' : 'Retry live data'}</span>
+                  </button>
                 </div>
               )
             ) : (!liveData?.flights || liveData.flights.length === 0) ? (
-              <div className={`p-8 rounded-3xl border text-center space-y-3 max-w-md mx-auto ${
+              <div className={`p-8 rounded-3xl border text-center space-y-4 max-w-md mx-auto ${
                 isDark ? 'bg-slate-900/60 border-slate-800 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
               }`}>
                 <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center mx-auto text-2xl">
                   ✈️
                 </div>
                 <h4 className="font-bold text-base">Live flight information unavailable</h4>
-                <p className="text-xs text-slate-400">
-                  SerpApi could not verify live flight schedules or fares for this route.
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  SerpApi could not verify live flight schedules or fares for this route. This may be due to API quota limits or the route not being served by commercial airlines. Try re-fetching to query fresh live data.
                 </p>
                 <button
-                  onClick={() => setActiveTab('overview')}
-                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all"
+                  onClick={handleRefetchData}
+                  disabled={isRefetching}
+                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-2 mx-auto"
                 >
-                  Search again
+                  {isRefetching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                  <span>{isRefetching ? 'Fetching live data...' : 'Retry live data'}</span>
                 </button>
               </div>
             ) : (
@@ -794,21 +843,23 @@ export default function DashboardPage() {
             </h3>
 
             {(!liveData?.hotels || liveData.hotels.length === 0) ? (
-              <div className={`p-8 rounded-3xl border text-center space-y-3 max-w-md mx-auto ${
+              <div className={`p-8 rounded-3xl border text-center space-y-4 max-w-md mx-auto ${
                 isDark ? 'bg-slate-900/60 border-slate-800 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
               }`}>
                 <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mx-auto text-2xl">
                   🏨
                 </div>
-                <h4 className="font-bold text-base">Live price unavailable</h4>
-                <p className="text-xs text-slate-400">
-                  SerpApi could not verify the current price.
+                <h4 className="font-bold text-base">Live hotel prices unavailable</h4>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  SerpApi's Google Hotels engine did not return pricing for {destination} at this time. This may be due to date range, quota limits, or temporary API unavailability. Try re-fetching for fresh live results.
                 </p>
                 <button
-                  onClick={() => setActiveTab('overview')}
-                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all"
+                  onClick={handleRefetchData}
+                  disabled={isRefetching}
+                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-2 mx-auto"
                 >
-                  Search again
+                  {isRefetching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                  <span>{isRefetching ? 'Fetching live data...' : 'Retry live data'}</span>
                 </button>
               </div>
             ) : (

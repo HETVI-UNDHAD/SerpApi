@@ -17,7 +17,7 @@ function AppContent() {
 
   return (
     <div className={`relative min-h-screen flex flex-col font-sans transition-colors duration-400 selection:bg-blue-600 selection:text-white ${
-      isDark ? 'text-slate-100 bg-[#090D16]' : 'text-slate-900 bg-[#FBFBFA]'
+      isDark ? 'text-slate-100 bg-[#070B14]' : 'text-slate-900 bg-[#FAF8F5]'
     }`}>
       <TravelBackdrop isDark={isDark} />
       <Navbar />

@@ -1,25 +1,25 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { X, Send, Compass, Sparkles } from 'lucide-react';
+import { X, Send, Compass, Sparkles, MessageSquare, Bot, ArrowUpRight, Loader2, RotateCcw } from 'lucide-react';
 import { useTrip } from '../context/TripContext';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 
 const SUGGESTIONS = [
   'How does TravelOS work?',
-  'Plan a trip',
-  'Explore destinations',
-  'Live flights & hotels',
-  'What can you do?',
+  'Plan a weekend in Goa',
+  'How is SerpApi data verified?',
+  'How does the budget optimizer work?',
+  'What is the What-If replanner?'
 ];
 
 const WELCOME = {
   role: 'assistant',
-  content: "Hi! I'm TravelOS AI 👋\nI can help you explore TravelOS, plan a trip, understand our live travel features, and find your way around the platform.",
-  id: 'welcome',
+  content: "Hi! I'm TravelOS AI, your personal travel intelligence assistant. 👋\n\nI can help you explore destinations, architect itineraries, understand our live Google Flights & Hotels grounding, or test what-if travel simulations.",
+  id: 'welcome'
 };
 
 export default function FloatingAssistant() {
-  const { setActiveScreen, theme } = useTrip();
+  const { setActiveScreen, theme, currentTrip } = useTrip();
   const isDark = theme === 'dark';
 
   const [open, setOpen] = useState(false);
@@ -32,12 +32,14 @@ export default function FloatingAssistant() {
 
   // Scroll to bottom on new message
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, loading]);
+    if (open) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, loading, open]);
 
   // Focus input when opened
   useEffect(() => {
-    if (open) setTimeout(() => inputRef.current?.focus(), 80);
+    if (open) setTimeout(() => inputRef.current?.focus(), 100);
   }, [open]);
 
   // Escape key closes
@@ -54,7 +56,6 @@ export default function FloatingAssistant() {
     function onPointer(e) {
       if (!open) return;
       if (panelRef.current && !panelRef.current.contains(e.target)) {
-        // Don't close if clicking the toggle button (handled by its own onClick)
         if (e.target.closest('[data-assistant-toggle]')) return;
         setOpen(false);
       }
@@ -72,7 +73,6 @@ export default function FloatingAssistant() {
     setInput('');
     setLoading(true);
 
-    // Build conversation history (exclude welcome)
     const history = [...messages.filter(m => m.id !== 'welcome'), userMsg]
       .map(m => ({ role: m.role, content: m.content }));
 
@@ -80,24 +80,33 @@ export default function FloatingAssistant() {
       const res = await fetch(`${API_BASE}/api/assistant/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: trimmed, conversation: history.slice(0, -1) }),
+        body: JSON.stringify({
+          message: trimmed,
+          conversation: history.slice(0, -1),
+          currentTripContext: currentTrip ? {
+            destination: currentTrip.destination,
+            origin: currentTrip.origin,
+            duration: currentTrip.duration,
+            budget: currentTrip.budget
+          } : null
+        })
       });
       const data = await res.json();
       setMessages(prev => [...prev, {
         role: 'assistant',
         content: data.reply || "Sorry, I couldn't get a response. Please try again.",
-        id: Date.now() + 1,
+        id: Date.now() + 1
       }]);
     } catch {
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: "I'm having trouble connecting right now. Please try again in a moment.",
-        id: Date.now() + 1,
+        content: "I'm having trouble connecting to the backend right now. Please verify that the TravelOS server is active.",
+        id: Date.now() + 1
       }]);
     } finally {
       setLoading(false);
     }
-  }, [messages, loading]);
+  }, [messages, loading, currentTrip]);
 
   function handleKeyDown(e) {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -107,205 +116,181 @@ export default function FloatingAssistant() {
   }
 
   return (
-    <div className="fixed bottom-6 right-6 z-[9999] flex flex-col items-end gap-3 pointer-events-none">
+    <div className="fixed bottom-6 right-6 z-[9999] flex flex-col items-end gap-3 pointer-events-none font-sans">
 
       {/* ── CHAT PANEL ── */}
       {open && (
         <div
           ref={panelRef}
-          className="pointer-events-auto flex flex-col rounded-[20px] overflow-hidden shadow-2xl"
+          className={`pointer-events-auto flex flex-col rounded-3xl overflow-hidden shadow-2xl border transition-all duration-300 ${
+            isDark
+              ? 'bg-[#0E1526] border-slate-800 text-slate-100 shadow-2xl'
+              : 'bg-white border-slate-200/80 text-slate-900 shadow-2xl'
+          }`}
           style={{
-            width: 'min(360px, calc(100vw - 20px))',
-            height: 'min(500px, 70vh)',
-            border: isDark ? '1px solid rgba(255,255,255,0.09)' : '1px solid rgba(15,23,42,0.1)',
-            background: isDark ? '#0d1424' : '#ffffff',
-            boxShadow: '0 24px 60px rgba(0,0,0,0.35), 0 4px 16px rgba(0,0,0,0.15)',
+            width: 'min(380px, calc(100vw - 28px))',
+            height: 'min(540px, 75vh)'
           }}
         >
           {/* Header */}
-          <div
-            className="flex items-center justify-between px-4 py-3 flex-shrink-0"
-            style={{ background: 'linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #1d4ed8 100%)' }}
-          >
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center flex-shrink-0">
+          <div className="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-blue-700 via-indigo-600 to-sky-600 text-white shrink-0 shadow-md">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0">
                 <Compass className="w-4 h-4 text-white" />
               </div>
               <div>
-                <p className="text-white font-black text-sm leading-none">TravelOS AI</p>
-                <p className="text-blue-200 text-[10px] mt-0.5 leading-none">Travel Intelligence Assistant</p>
+                <p className="font-bold text-sm leading-none">TravelOS AI Assistant</p>
+                <p className="text-blue-100 text-[10px] mt-0.5 leading-none">Travel Intelligence Agent</p>
               </div>
             </div>
+
             <div className="flex items-center gap-2.5">
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-200 text-[10px] font-bold">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-[10px] text-emerald-300 font-semibold">Online</span>
+                <span>Online</span>
               </div>
               <button
                 onClick={() => setOpen(false)}
-                aria-label="Close TravelOS AI"
-                className="w-6 h-6 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
+                aria-label="Close assistant"
+                className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors text-white"
               >
-                <X className="w-3.5 h-3.5 text-white" />
+                <X className="w-4 h-4" />
               </button>
             </div>
           </div>
 
-          {/* Messages */}
-          <div
-            className="flex-1 overflow-y-auto px-4 py-3 space-y-3"
-            style={{ scrollbarWidth: 'thin' }}
-          >
+          {/* Active Trip Context Banner (if any) */}
+          {currentTrip && (
+            <div className={`px-4 py-2 text-[11px] font-semibold flex items-center justify-between border-b ${
+              isDark ? 'bg-blue-950/40 border-blue-900/40 text-blue-300' : 'bg-blue-50/80 border-blue-100 text-blue-700'
+            }`}>
+              <span>Active Trip: <strong>{currentTrip.destination}</strong> ({currentTrip.duration}D)</span>
+              <button
+                onClick={() => { setActiveScreen('dashboard'); setOpen(false); }}
+                className="hover:underline flex items-center gap-0.5 text-[10px] font-bold"
+              >
+                View Plan <ArrowUpRight className="w-3 h-3" />
+              </button>
+            </div>
+          )}
+
+          {/* Messages scroll area */}
+          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3.5">
             {messages.map((msg) => (
-              <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div
+                key={msg.id}
+                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
                 {msg.role === 'assistant' && (
-                  <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-blue-700 to-indigo-600 flex items-center justify-center flex-shrink-0 mr-2 mt-0.5">
-                    <Sparkles className="w-3 h-3 text-white" />
+                  <div className="w-7 h-7 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 mr-2 mt-0.5 shadow-sm">
+                    <Sparkles className="w-3.5 h-3.5" />
                   </div>
                 )}
                 <div
-                  className="max-w-[78%] px-3.5 py-2.5 rounded-2xl text-xs leading-relaxed whitespace-pre-wrap"
-                  style={msg.role === 'user' ? {
-                    background: 'linear-gradient(135deg, #1d4ed8, #3730a3)',
-                    color: '#ffffff',
-                    borderBottomRightRadius: 4,
-                  } : {
-                    background: isDark ? 'rgba(255,255,255,0.06)' : '#f1f5f9',
-                    color: isDark ? '#e2e8f0' : '#1e293b',
-                    border: isDark ? '1px solid rgba(255,255,255,0.07)' : '1px solid #e2e8f0',
-                    borderBottomLeftRadius: 4,
-                  }}
+                  className={`max-w-[82%] px-4 py-3 rounded-2xl text-xs leading-relaxed whitespace-pre-wrap ${
+                    msg.role === 'user'
+                      ? 'bg-blue-600 text-white rounded-br-none shadow-sm'
+                      : isDark
+                      ? 'bg-slate-900/90 text-slate-200 border border-slate-800 rounded-bl-none shadow-sm'
+                      : 'bg-slate-100 text-slate-800 border border-slate-200/80 rounded-bl-none shadow-sm'
+                  }`}
                 >
                   {msg.content}
                 </div>
               </div>
             ))}
 
-            {/* Suggestion chips — only after welcome, before any user message */}
+            {/* Quick suggested prompts if on welcome */}
             {messages.length === 1 && (
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                {SUGGESTIONS.map(s => (
-                  <button
-                    key={s}
-                    onClick={() => sendMessage(s)}
-                    className="px-2.5 py-1 rounded-full text-[10px] font-semibold border transition-all hover:scale-[1.02]"
-                    style={{
-                      background: isDark ? 'rgba(59,130,246,0.1)' : '#eff6ff',
-                      border: isDark ? '1px solid rgba(59,130,246,0.3)' : '1px solid #bfdbfe',
-                      color: isDark ? '#93c5fd' : '#1d4ed8',
-                    }}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Typing indicator */}
-            {loading && (
-              <div className="flex justify-start">
-                <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-blue-700 to-indigo-600 flex items-center justify-center flex-shrink-0 mr-2 mt-0.5">
-                  <Sparkles className="w-3 h-3 text-white" />
-                </div>
-                <div
-                  className="px-3.5 py-2.5 rounded-2xl flex items-center gap-1"
-                  style={{
-                    background: isDark ? 'rgba(255,255,255,0.06)' : '#f1f5f9',
-                    border: isDark ? '1px solid rgba(255,255,255,0.07)' : '1px solid #e2e8f0',
-                    borderBottomLeftRadius: 4,
-                  }}
-                >
-                  {[0, 1, 2].map(i => (
-                    <span
-                      key={i}
-                      className="w-1.5 h-1.5 rounded-full bg-blue-400"
-                      style={{ animation: `assistantDot 1.2s ease-in-out ${i * 0.2}s infinite` }}
-                    />
+              <div className="pt-2">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+                  Suggested Prompts
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {SUGGESTIONS.map(s => (
+                    <button
+                      key={s}
+                      onClick={() => sendMessage(s)}
+                      className={`px-3 py-1.5 rounded-xl text-[11px] font-semibold border text-left transition-all hover:scale-[1.02] ${
+                        isDark
+                          ? 'bg-slate-900 border-slate-800 text-blue-400 hover:border-blue-500/50'
+                          : 'bg-blue-50/80 border-blue-200 text-blue-700 hover:bg-blue-100'
+                      }`}
+                    >
+                      {s}
+                    </button>
                   ))}
                 </div>
               </div>
             )}
+
+            {/* Loading indicator */}
+            {loading && (
+              <div className="flex justify-start items-center gap-2">
+                <div className="w-7 h-7 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                  <Sparkles className="w-3.5 h-3.5" />
+                </div>
+                <div className={`px-4 py-3 rounded-2xl flex items-center gap-1.5 ${
+                  isDark ? 'bg-slate-900 border border-slate-800' : 'bg-slate-100 border border-slate-200'
+                }`}>
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce [animation-delay:0.2s]" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce [animation-delay:0.4s]" />
+                </div>
+              </div>
+            )}
+
             <div ref={bottomRef} />
           </div>
 
-          {/* Input */}
-          <div
-            className="flex-shrink-0 px-3 py-3 flex items-end gap-2"
-            style={{
-              borderTop: isDark ? '1px solid rgba(255,255,255,0.07)' : '1px solid #e2e8f0',
-              background: isDark ? '#0a1020' : '#f8fafc',
-            }}
-          >
-            <textarea
+          {/* Input Bar */}
+          <div className={`p-3 border-t flex items-center gap-2 shrink-0 ${
+            isDark ? 'border-slate-800 bg-[#0A101E]' : 'border-slate-200 bg-slate-50'
+          }`}>
+            <input
               ref={inputRef}
+              type="text"
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ask TravelOS AI..."
-              rows={1}
-              className="flex-1 resize-none text-xs rounded-xl px-3 py-2 outline-none transition-all"
-              style={{
-                background: isDark ? 'rgba(255,255,255,0.05)' : '#ffffff',
-                border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e2e8f0',
-                color: isDark ? '#e2e8f0' : '#1e293b',
-                maxHeight: 80,
-                lineHeight: '1.5',
-              }}
+              placeholder="Ask TravelOS AI anything..."
+              className={`flex-1 text-xs rounded-xl px-3.5 py-2.5 outline-none border transition-colors ${
+                isDark
+                  ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500'
+                  : 'bg-white border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-blue-500 shadow-sm'
+              }`}
             />
             <button
               onClick={() => sendMessage(input)}
               disabled={!input.trim() || loading}
               aria-label="Send message"
-              className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 transition-all hover:scale-105 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
-              style={{ background: 'linear-gradient(135deg, #1d4ed8, #3730a3)' }}
+              className="w-9 h-9 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:hover:bg-blue-600 text-white flex items-center justify-center shrink-0 transition-all hover:scale-105"
             >
-              <Send className="w-3.5 h-3.5 text-white" />
+              <Send className="w-4 h-4" />
             </button>
           </div>
         </div>
       )}
 
-      {/* ── FLOATING TOGGLE BUTTON ── */}
+      {/* ── FLOATING TOGGLE LAUNCHER ── */}
       <button
         data-assistant-toggle
         onClick={() => setOpen(v => !v)}
-        aria-label={open ? 'Close TravelOS AI' : 'Open TravelOS AI'}
-        className="pointer-events-auto w-[54px] h-[54px] rounded-full flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400 focus-visible:outline-offset-2"
-        style={{
-          background: 'linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #1d4ed8 100%)',
-          boxShadow: open
-            ? '0 0 0 3px rgba(59,130,246,0.35), 0 8px 24px rgba(29,78,216,0.5)'
-            : '0 4px 20px rgba(29,78,216,0.45), 0 1px 4px rgba(0,0,0,0.2)',
-          border: '1px solid rgba(255,255,255,0.15)',
-        }}
+        aria-label={open ? 'Close TravelOS AI' : 'Open TravelOS AI Assistant'}
+        className="pointer-events-auto w-14 h-14 rounded-full bg-gradient-to-tr from-blue-700 via-indigo-600 to-sky-500 text-white flex items-center justify-center shadow-2xl shadow-indigo-600/40 border border-white/20 transition-all duration-300 hover:scale-110 active:scale-95 group"
       >
         {open ? (
-          <X className="w-5 h-5 text-white" />
+          <X className="w-6 h-6 text-white" />
         ) : (
-          /* Custom TravelOS AI icon: compass + sparkle */
-          <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
-            <circle cx="13" cy="13" r="9" stroke="rgba(255,255,255,0.35)" strokeWidth="1" fill="none" />
-            <line x1="13" y1="4" x2="13" y2="7" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
-            <line x1="13" y1="19" x2="13" y2="22" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
-            <line x1="4" y1="13" x2="7" y2="13" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
-            <line x1="19" y1="13" x2="22" y2="13" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
-            <polygon points="13,8 14.5,12 13,11 11.5,12" fill="white" opacity="0.9" />
-            <polygon points="13,18 11.5,14 13,15 14.5,14" fill="rgba(255,255,255,0.5)" />
-            <circle cx="13" cy="13" r="1.5" fill="white" />
-            <circle cx="20" cy="6" r="1" fill="rgba(147,197,253,0.9)" />
-            <circle cx="22" cy="9" r="0.6" fill="rgba(147,197,253,0.6)" />
-            <circle cx="18" cy="5" r="0.5" fill="rgba(147,197,253,0.5)" />
-          </svg>
+          <div className="relative">
+            <Compass className="w-6 h-6 text-white group-hover:rotate-45 transition-transform duration-500" />
+            <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-cyan-400 border-2 border-indigo-700 flex items-center justify-center animate-pulse">
+              <Sparkles className="w-1.5 h-1.5 text-slate-950" />
+            </span>
+          </div>
         )}
       </button>
 
-      {/* Dot animation keyframes */}
-      <style>{`
-        @keyframes assistantDot {
-          0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
-          40% { transform: scale(1); opacity: 1; }
-        }
-      `}</style>
     </div>
   );
 }

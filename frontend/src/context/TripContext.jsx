@@ -19,17 +19,22 @@ export const INITIAL_RESEARCH_STAGES = [
 export function TripProvider({ children }) {
   const [theme, setTheme] = useState(() => {
     const saved = localStorage.getItem('travelos_theme');
-    return saved === 'dark' ? 'light' : (saved || 'light');
+    if (saved === 'dark' || saved === 'light') return saved;
+    if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      return 'dark';
+    }
+    return 'light';
   });
 
   React.useEffect(() => {
     localStorage.setItem('travelos_theme', theme);
+    const root = document.documentElement;
     if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
-      document.documentElement.classList.remove('light');
+      root.classList.add('dark');
+      root.classList.remove('light');
     } else {
-      document.documentElement.classList.add('light');
-      document.documentElement.classList.remove('dark');
+      root.classList.add('light');
+      root.classList.remove('dark');
     }
   }, [theme]);
 
